@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navbar } from './components/Navbar'
 import { Routes,Route } from 'react-router-dom'
 import SchoolSidebar from './components/Sidebar'
@@ -8,10 +8,24 @@ import TeacherForm from './components/Teacherform'
 import ClassGrid from './components/Class'
 import IDCard from './components/IdCard'
 import AcademicSessionPage from './pages/AcademicSessionPage'
-
+import LoadingPage from './pages/LoadingPage'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate initial loading time before showing the main app
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Show the loading page while the app is initializing
+  if (isLoading) {
+    return <LoadingPage />;
+  }
 
   return (
     <>
