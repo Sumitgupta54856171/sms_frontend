@@ -18,15 +18,13 @@ export default function AcademicSessionPage() {
   const mutation = useMutation({
     mutationFn: saveAcademicSession,
     onSuccess: () => {
-      toast.success("Academic session created successfully!");
+      // Success toast is handled globally by the API client interceptor
       setSessionName("");
       setDescription("");
       setStartDate(undefined);
       setEndDate(undefined);
     },
-    onError: () => {
-      // Error toast is already handled globally by the API client interceptor
-    },
+    // Error toast is handled globally by the API client interceptor
   });
 
   const handleSubmit = (e: React.FormEvent) => {

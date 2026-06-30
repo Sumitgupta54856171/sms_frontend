@@ -1,7 +1,6 @@
-import React from "react";
-import { 
-  LayoutDashboard, 
-  GraduationCap, 
+import {
+  LayoutDashboard,
+  GraduationCap,
   Presentation,
   Building2,
   Book,
@@ -15,11 +14,9 @@ import {
   BedDouble,
   MessageSquare,
   LogOut,
-  ChevronRight
 } from "lucide-react";
 
-
-import { Outlet } from "react-router-dom";
+import { Outlet, Link, useNavigate } from "react-router-dom";
 
 import {
   Sidebar,
@@ -35,16 +32,16 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link } from "react-router-dom";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/AuthProvider";
 
 // Grouped Menu Items matching the screenshot
 const menuGroups = [
   {
     label: "ACADEMICS",
     items: [
-      { title: "Students", url: "#", icon: GraduationCap, badge: { text: "1,248", style: "bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs font-semibold" } },
-      { title: "Teachers", url: "#", icon: Presentation, badge: { text: "86", style: "text-purple-600 text-xs font-semibold" } },
+      { title: "Students", url: "/students", icon: GraduationCap, badge: { text: "1,248", style: "bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs font-semibold" } },
+      { title: "Teachers", url: "/teachers", icon: Presentation, badge: { text: "86", style: "text-purple-600 text-xs font-semibold" } },
       { title: "Classes & Sections", url: "/class", icon: Building2 },
       { title: "Subjects", url: "#", icon: Book },
       { title: "Timetable", url: "#", icon: Calendar },
@@ -53,7 +50,7 @@ const menuGroups = [
   {
     label: "OPERATIONS",
     items: [
-      { title: "Attendance", url: "#", icon: ClipboardCheck },
+      { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
       { title: "Examinations", url: "#", icon: FileText },
       { title: "Grades", url: "#", icon: LineChart },
       { title: "Fees", url: "#", icon: DollarSign, badge: { text: "32", style: "text-slate-700 text-xs font-semibold" } },
@@ -76,6 +73,25 @@ const menuGroups = [
 ];
 
 export default function SchoolSidebar() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const displayName = user?.name || "User";
+  const initials = displayName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+  const roleLabel = user?.role
+    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+    : "User";
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-slate-50">
@@ -152,17 +168,21 @@ export default function SchoolSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild className="h-auto p-0 hover:bg-transparent">
-                  <div className="flex items-center gap-3 w-full cursor-pointer rounded-md hover:bg-slate-50 transition-colors">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 w-full cursor-pointer rounded-md hover:bg-slate-50 transition-colors"
+                  >
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src="https://ui-avatars.com/api/?name=Sarah+Mitchell&background=random" alt="Sarah Mitchell" />
-                      <AvatarFallback>SM</AvatarFallback>
+                      <AvatarFallback className="bg-indigo-100 text-indigo-700 text-sm font-semibold">
+                        {initials}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col flex-1 text-left">
-                      <span className="text-[14px] font-bold text-slate-900">Dr. Sarah Mitchell</span>
-                      <span className="text-[12px] text-slate-500">Super Admin</span>
+                      <span className="text-[14px] font-bold text-slate-900">{displayName}</span>
+                      <span className="text-[12px] text-slate-500">{roleLabel}</span>
                     </div>
                     <LogOut className="h-5 w-5 text-slate-400 hover:text-slate-600 transition-colors mr-1" />
-                  </div>
+                  </button>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

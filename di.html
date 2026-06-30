@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumina Academy — Shaping Tomorrow</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- React & Framer Motion -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@11.0.8/dist/framer-motion.js"></script>
+    
+    <!-- Lenis Smooth Scroll -->
+    <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.29/bundled/lenis.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        'lux-gold': '#D4AF37',
+                        'royal-blue': '#1e3a8a',
+                        'aurora-purple': '#6d28d9',
+                        'emerald-glow': '#10b981',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg-light: #f8fafc;
+            --text-light: #0f172a;
+            --bg-dark: #050714;
+            --text-dark: #e2e8f0;
+        }
+
+        * {
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+            transition: background-color 0.5s ease, color 0.5s ease;
+            overflow-x: hidden;
+        }
+
+        html.light body {
+            background-color: var(--bg-light);
+            color: var(--text-light);
+        }
+
+        /* Aurora Background */
+        .aurora-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+            opacity: 0.4;
+        }
+
+        .aurora-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            animation: float 20s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+
+        /* Custom Cursor */
+        .cursor-glow {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(109,40,217,0.15) 0%, rgba(5,7,20,0) 70%);
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s, background 0.3s;
+            mix-blend-mode: screen;
+        }
+
+        html.light .cursor-glow {
+            background: radial-gradient(circle, rgba(30,58,138,0.1) 0%, rgba(248,250,252,0) 70%);
+            mix-blend-mode: multiply;
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        html.light .glass {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        /* Text Gradient */
+        .text-gradient {
+            background: linear-gradient(135deg, #fff 0%, #8b9db0 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        html.light .text-gradient {
+            background: linear-gradient(135deg, #0f172a 0%, #475569 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .text-gold-gradient {
+            background: linear-gradient(135deg, #D4AF37 0%, #FDB931 50%, #D4AF37 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(109,40,217,0.5); border-radius: 4px; }
+        
+        /* Magnetic Button Base */
+        .magnetic-btn { transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+
+        /* Hide default cursor on interactive elements when custom cursor is active */
+        @media (hover: hover) and (pointer: fine) {
+            body { cursor: none; }
+            a, button, input, textarea { cursor: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { motion, useScroll, useTransform, useInView, AnimatePresence } = window.framerMotion || window.Motion;
+
+        // Custom Cursor Component
+        const CursorGlow = () => {
+            const [pos, setPos] = useState({ x: 0, y: 0 });
+            
+            useEffect(() => {
+                const move = (e) => setPos({ x: e.clientX, y: e.clientY });
+                window.addEventListener('mousemove', move);
+                return () => window.removeEventListener('mousemove', move);
+            }, []);
+
+            return (
+                <div 
+                    className="cursor-glow hidden md:block" 
+                    style={{ left: pos.x, top: pos.y }}
+                />
+            );
+        };
+
+        // Magnetic Button Component
+        const MagneticButton = ({ children, className, primary, onClick }) => {
+            const ref = useRef(null);
+            const [pos, setPos] = useState({ x: 0, y: 0 });
+
+            const handleMouse = (e) => {
+                const rect = ref.current.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                setPos({ x: x * 0.3, y: y * 0.3 });
+            };
+
+            const handleLeave = () => setPos({ x: 0, y: 0 });
+
+            return (
+                <motion.button
+                    ref={ref}
+                    onMouseMove={handleMouse}
+                    onMouseLeave={handleLeave}
+                    animate={{ x: pos.x, y: pos.y }}
+                    transition={{ type: "spring", stiffness: 150, damping: 15, mass: 0.1 }}
+                    onClick={onClick}
+                    className={`px-8 py-4 rounded-full font-display font-medium text-sm tracking-wide transition-colors duration-300 ${className} ${
+                        primary 
+                            ? 'bg-lux-gold text-black hover:bg-white' 
+                            : 'glass text-current hover:border-lux-gold/50'
+                    }`}
+                >
+                    {children}
+                </motion.button>
+            );
+        };
+
+        // Reveal Text Animation
+        const RevealText = ({ children, delay = 0, className = "" }) => (
+            <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
+                className={className}
+            >
+                {children}
+            </motion.div>
+        );
+
+        // Navbar Component
+        const Navbar = ({ darkMode, toggleDark }) => {
+            const [scrolled, setScrolled] = useState(false);
+
+            useEffect(() => {
+                const onScroll = () => setScrolled(window.scrollY > 50);
+                window.addEventListener('scroll', onScroll);
+                return () => window.removeEventListener('scroll', onScroll);
+            }, []);
+
+            return (
+                <motion.nav 
+                    initial={{ y: -100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full flex items-center gap-8 transition-all duration-500 ${
+                        scrolled ? 'glass shadow-2xl' : 'bg-transparent border border-transparent'
+                    }`}
+                    style={{ width: '90%', maxWidth: '1100px' }}
+                >
+                    <div className="font-display text-xl font-bold tracking-tight">
+                        LUMINA<span className="text-lux-gold">.</span>
+                    </div>
+                    <div className="hidden md:flex items-center gap-5 text-sm font-medium opacity-80 ml-auto">
+                        <a href="#academics" className="hover:text-lux-gold transition-colors">Academics</a>
+                        <a href="#calendar" className="hover:text-lux-gold transition-colors">Calendar</a>
+                        <a href="#staff" className="hover:text-lux-gold transition-colors">Staff</a>
+                        <a href="#fees" className="hover:text-lux-gold transition-colors">Fees</a>
+                        <a href="#facilities" className="hover:text-lux-gold transition-colors">Facilities</a>
+                        <a href="#results" className="hover:text-lux-gold transition-colors">Results</a>
+                        <a href="#faq" className="hover:text-lux-gold transition-colors">FAQ</a>
+                    </div>
+                    <div className="ml-auto md:ml-0 flex items-center gap-4">
+                        <button onClick={toggleDark} className="p-2 rounded-full hover:bg-white/10 transition-colors">
+                            {darkMode ? '☀️' : '🌙'}
+                        </button>
+                        <MagneticButton primary className="hidden md:block !py-2 !px-5 !text-xs">Apply Now</MagneticButton>
+                    </div>
+                </motion.nav>
+            );
+        };
+
+        // Hero Section
+        const Hero = () => {
+            const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+            
+            useEffect(() => {
+                const handleMouse = (e) => {
+                    setMousePos({
+                        x: (e.clientX / window.innerWidth - 0.5) * 2,
+                        y: (e.clientY / window.innerHeight - 0.5) * 2,
+                    });
+                };
+                window.addEventListener('mousemove', handleMouse);
+                return () => window.removeEventListener('mousemove', handleMouse);
+            }, []);
+
+            return (
+                <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
+                    {/* Video Background */}
+                    <div className="absolute inset-0 w-full h-full z-0 overflow-hidden">
+                        <video
+                            autoPlay
+                            muted
+                            loop
+                            playsInline
+                            poster="https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=2000&auto=format&fit=crop"
+                            className="absolute inset-0 w-full h-full object-cover"
+                        >
+                            <source src="https://cdn.coverr.co/videos/coverr-students-walking-on-campus-5692/1080p.mp4" type="video/mp4" />
+                        </video>
+                        {/* Dark Overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80"></div>
+                    </div>
+
+                    <div className="relative z-10 text-center px-6 max-w-6xl mx-auto">
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 1, delay: 0.8 }}
+                            className="inline-block mb-8 px-4 py-1.5 rounded-full glass text-xs font-medium tracking-widest uppercase"
+                        >
+                            <span className="text-lux-gold">●</span> Accepting Applications for 2025-2026
+                        </motion.div>
+
+                        <h1 className="font-display text-5xl md:text-8xl lg:text-9xl font-bold leading-[0.9] tracking-tighter mb-8">
+                            <motion.span 
+                                initial={{ opacity: 0, y: 50 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 1, delay: 1, ease: [0.16, 1, 0.3, 1] }}
+                                className="block text-gradient"
+                            >
+                                Shaping The
+                            </motion.span>
+                            <motion.span 
+                                initial={{ opacity: 0, y: 50 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 1, delay: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                                className="block text-gold-gradient italic font-light"
+                            >
+                                Architects
+                            </motion.span>
+                            <motion.span 
+                                initial={{ opacity: 0, y: 50 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 1, delay: 1.4, ease: [0.16, 1, 0.3, 1] }}
+                                className="block text-gradient"
+                            >
+                                of Tomorrow.
+                            </motion.span>
+                        </h1>
+
+                        <motion.p 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 1, delay: 1.6 }}
+                            className="text-lg md:text-xl opacity-70 max-w-2xl mx-auto mb-10 font-light"
+                        >
+                            An ecosystem of academic brilliance, futuristic technology, and global leadership. Where extraordinary minds become legends.
+                        </motion.p>
+
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 1, delay: 1.8 }}
+                            className="flex flex-col sm:flex-row gap-4 justify-center"
+                        >
+                            <MagneticButton primary>Begin Your Journey</MagneticButton>
+                            <MagneticButton>Watch Campus Film</MagneticButton>
+                        </motion.div>
+
+                        {/* Floating Glass Stats Cards */}
+                        <motion.div 
+                            initial={{ opacity: 0, y: 50 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 1, delay: 2 }}
+                            className="absolute inset-0 hidden lg:flex justify-between items-end pointer-events-none"
+                            style={{
+                                transform: `translateX(${mousePos.x * -10}px) translateY(${mousePos.y * -10}px)`
+                            }}
+                        >
+                            <div className="glass p-6 rounded-2xl w-64 mb-20 pointer-events-auto" style={{transform: `translateY(${mousePos.y * 15}px)`}}>
+                                <div className="text-3xl font-bold text-lux-gold font-display">150+</div>
+                                <div className="text-sm opacity-60 mt-1">Years of Educational Legacy</div>
+                            </div>
+                            <div className="glass p-6 rounded-2xl w-64 mb-40 pointer-events-auto" style={{transform: `translateY(${mousePos.x * -15}px)`}}>
+                                <div className="text-3xl font-bold text-emerald-glow font-display">98%</div>
+                                <div className="text-sm opacity-60 mt-1">Ivy League University Placements</div>
+                            </div>
+                        </motion.div>
+                    </div>
+                    
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 2.5 }}
+                        className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-xs opacity-50"
+                    >
+                        <span>SCROLL TO EXPLORE</span>
+                        <div className="w-px h-10 bg-gradient-to-b from-white/50 to-transparent"></div>
+                    </motion.div>
+                </section>
+            );
+        };
+
+        // 3D Tilt Card Component
+        const TiltCard = ({ children, className }) => {
+            const ref = useRef(null);
+            const [rotate, setRotate] = useState({ x: 0, y: 0 });
+
+            const handleMouse = (e) => {
+                if (!ref.current) return;
+                const rect = ref.current.getBoundingClientRect();
+                const x = (e.clientX - rect.left) / rect.width - 0.5;
+                const y = (e.clientY - rect.top) / rect.height - 0.5;
+                setRotate({ x: y * 10, y: x * -10 });
+            };
+
+            return (
+                <motion.div
+                    ref={ref}
+                    onMouseMove={handleMouse}
+                    onMouseLeave={() => setRotate({ x: 0, y: 0 })}
+                    style={{ rotateX: rotate.x, rotateY: rotate.y, transformPerspective: 1000 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                    className={`glass rounded-3xl p-8 transition-shadow duration-300 hover:shadow-[0_20px_80px_-20px_rgba(109,40,217,0.3)] ${className}`}
+                >
+                    {children}
+                </motion.div>
+            );
+        };
+
+        // Generic Section Header
+        const SectionHeader = ({ tag, title, subtitle }) => (
+            <div className="max-w-3xl mb-20">
+                <RevealText>
+                    <span className="text-lux-gold text-sm font-medium tracking-widest uppercase">{tag}</span>
+                </RevealText>
+                <RevealText delay={0.1}>
+                    <h2 className="font-display text-4xl md:text-6xl font-bold tracking-tighter mt-4 text-gradient">{title}</h2>
+                </RevealText>
+                <RevealText delay={0.2}>
+                    <p className="text-lg opacity-60 mt-6 font-light leading-relaxed">{subtitle}</p>
+                </RevealText>
+            </div>
+        );
+
+        // Programs Section
+        const Programs = () => {
+            const programs = [
+                { title: "Sciences & Research", desc: "State-of-the-art laboratories and quantum computing access.", icon: "🧬", color: "from-blue-500 to-indigo-500" },
+                { title: "Global Leadership", desc: "UN-model simulations and international policy incubators.", icon: "🌍", color: "from-emerald-500 to-teal-500" },
+                { title: "Creative Arts", desc: "World-class studios for film, architecture, and digital design.", icon: "🎨", color: "from-amber-500 to-orange-500" },
+                { title: "Future Technology", desc: "AI, robotics, and neural engineering specialization tracks.", icon: "🚀", color: "from-purple-500 to-fuchsia-500" },
+            ];
+
+            return (
+                <section id="academics" className="relative py-32 px-6 max-w-7xl mx-auto">
+                    <SectionHeader 
+                        tag="Academic Excellence" 
+                        title="Curriculum Beyond Boundaries" 
+                        subtitle="A bespoke educational model designed to cultivate genius, foster innovation, and prepare students for a world that doesn't exist yet." 
+                    />
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {programs.map((p, i) => (
+                            <RevealText key={i} delay={i * 0.1}>
+                                <TiltCard className="h-full group">
+                                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${p.color} flex items-center justify-center text-2xl mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                                        {p.icon}
+                                    </div>
+                                    <h3 className="font-display text-xl font-semibold mb-3">{p.title}</h3>
+                                    <p className="text-sm opacity-60 leading-relaxed">{p.desc}</p>
+                                </TiltCard>
+                            </RevealText>
+                        ))}
+                    </div>
+                </section>
+            );
+        };
+
+        // Campus Parallax Section
+        const Campus = () => {
+            const { scrollYProgress } = useScroll();
+            const y1 = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
+            const y2 = useTransform(scrollYProgress, [0, 1], ["0%", "-50%"]);
+
+            return (
+                <section id="campus" className="relative py-32 px-6">
+                    <div className="max-w-7xl mx-auto">
+                        <SectionHeader 
+                            tag="The Campus Experience" 
+                            title="An Environment Built for Geniuses" 
+                            subtitle="Immerse yourself in a 500-acre sanctuary of learning, featuring futuristic architecture and nature-integrated spaces." 
+                        />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[60vh] overflow-hidden">
+                            <motion.div style={{ y: y1 }} className="h-full rounded-3xl overflow-hidden glass">
+                                <img src="https://images.unsplash.com/photo-1562774053-701939374585?q=80&w=1000&auto=format&fit=crop" className="w-full h-full object-cover" alt="Campus 1" />
+                            </motion.div>
+                            <motion.div style={{ y: y2 }} className="h-full rounded-3xl overflow-hidden glass">
+                                <img src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=1000&auto=format&fit=crop" className="w-full h-full object-cover" alt="Campus 2" />
+                            </motion.div>
+                            <motion.div style={{ y: y1 }} className="h-full rounded-3xl overflow-hidden glass">
+                                <img src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1000&auto=format&fit=crop" className="w-full h-full object-cover" alt="Campus 3" />
+                            </motion.div>
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // Admissions Process
+        const Admissions = () => {
+            const steps = [
+                { num: "01", title: "Inquiry & Tour", desc: "Schedule a private consultation and immersive campus visit." },
+                { num: "02", title: "Application Submission", desc: "Submit transcripts, recommendations, and a personal manifesto." },
+                { num: "03", title: "Assessment & Interview", desc: "Participate in an interactive cognitive and character assessment." },
+                { num: "04", title: "Enrollment & Welcome", desc: "Receive your acceptance and join the Lumina cohort." },
+            ];
+
+            return (
+                <section id="admissions" className="relative py-32 px-6 max-w-7xl mx-auto">
+                    <SectionHeader 
+                        tag="Admissions" 
+                        title="Your Path to Excellence" 
+                        subtitle="A streamlined, personalized process designed to identify the brightest minds and future leaders." 
+                    />
+                    <div className="relative">
+                        <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-lux-gold via-aurora-purple to-transparent hidden md:block ml-[1.5rem]"></div>
+                        <div className="flex flex-col gap-12">
+                            {steps.map((step, i) => (
+                                <RevealText key={i} delay={i * 0.1}>
+                                    <div className="flex items-start gap-8 group">
+                                        <div className="w-12 h-12 rounded-full glass border border-lux-gold/50 flex items-center justify-center font-display text-lux-gold font-bold text-sm flex-shrink-0 group-hover:scale-110 group-hover:bg-lux-gold group-hover:text-black transition-all duration-300">
+                                            {step.num}
+                                        </div>
+                                        <div className="pt-2">
+                                            <h3 className="text-2xl font-display font-semibold mb-2">{step.title}</h3>
+                                            <p className="opacity-60 max-w-xl">{step.desc}</p>
+                                        </div>
+                                    </div>
+                                </RevealText>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        // FAQ Accordion
+        const FAQ = () => {
+            const [open, setOpen] = useState(0);
+            const faqs = [
+                { q: "What is the student-to-teacher ratio?", a: "We maintain an intimate 5:1 student-to-teacher ratio, ensuring personalized mentorship and unparalleled academic support for every student." },
+                { q: "Does Lumina offer financial aid?", a: "Yes, we are committed to need-blind admissions. Over 40% of our students receive substantial financial aid packages tailored to their family's circumstances." },
+                { q: "What technology is integrated into the curriculum?", a: "Our campus is a living laboratory. Students have access to quantum computing clusters, VR/AR design suites, and proprietary AI learning assistants." },
+            ];
+
+            return (
+                <section id="faq" className="relative py-32 px-6 max-w-4xl mx-auto">
+                    <SectionHeader 
+                        tag="Frequently Asked" 
+                        title="Questions, Answered." 
+                        subtitle="Everything you need to know about life and learning at Lumina Academy." 
+                    />
+                    <div className="flex flex-col gap-4">
+                        {faqs.map((faq, i) => (
+                            <RevealText key={i} delay={i * 0.1}>
+                                <div className={`glass rounded-2xl overflow-hidden transition-colors duration-300 ${open === i ? 'border-lux-gold/30' : ''}`}>
+                                    <button 
+                                        onClick={() => setOpen(open === i ? -1 : i)}
+                                        className="w-full text-left p-6 flex justify-between items-center"
+                                    >
+                                        <span className="font-display text-lg font-medium">{faq.q}</span>
+                                        <motion.span animate={{ rotate: open === i ? 45 : 0 }} className="text-lux-gold text-2xl font-light">+</motion.span>
+                                    </button>
+                                    <AnimatePresence initial={false}>
+                                        {open === i && (
+                                            <motion.div
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: "auto", opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                                                className="overflow-hidden"
+                                            >
+                                                <p className="px-6 pb-6 opacity-70 leading-relaxed">{faq.a}</p>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            </RevealText>
+                        ))}
+                    </div>
+                </section>
+            );
+        };
+
+        // ─── Academic Calendar Section ─────────────────────────────────────
+        const AcademicCalendar = () => {
+            const months = [
+                { month: "April", events: "New Academic Session Begins" },
+                { month: "May", events: "Summer Break / PTM" },
+                { month: "June", events: "School Reopens / Unit Test 1" },
+                { month: "July", events: "Sports & Cultural Events" },
+                { month: "August", events: "Independence Day Celebration" },
+                { month: "September", events: "Half-Yearly Exams Begin" },
+                { month: "October", events: "Dussehra Break / Results" },
+                { month: "November", events: "Diwali Vacation" },
+                { month: "December", events: "Winter Break / Annual Day" },
+                { month: "January", events: "Republic Day / Pre-Boards" },
+                { month: "February", events: "Final Exams Begin" },
+                { month: "March", events: "Annual Results / Promotion" },
+            ];
+
+            return (
+                <section id="calendar" className="relative py-32 px-6 max-w-7xl mx-auto">
+                    <SectionHeader
+                        tag="Academic Calendar"
+                        title="Session 2025–2026 at a Glance"
+                        subtitle="Stay informed about important dates, exams, holidays, and school events throughout the academic year."
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {months.map((m, i) => (
+                            <RevealText key={i} delay={i * 0.04}>
+                                <div className="glass rounded-2xl p-5 group hover:border-lux-gold/40 transition-all duration-300">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-lux-gold to-amber-600 flex items-center justify-center text-black font-display font-bold text-sm">
+                                            {m.month.slice(0, 3)}
+                                        </div>
+                                        <span className="font-display font-semibold text-sm">{m.month}</span>
+                                    </div>
+                                    <p className="text-xs opacity-70 leading-relaxed">{m.events}</p>
+                                </div>
+                            </RevealText>
+                        ))}
+                    </div>
+                </section>
+            );
+        };
+
+        // ─── Staff & Faculty Section ──────────────────────────────────────
+        const Staff = () => {
+            const teachers = [
+                { name: "Dr. Anjali Sharma", subject: "Principal — Science", img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop" },
+                { name: "Mr. Rajesh Verma", subject: "Mathematics", img: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&auto=format&fit=crop" },
+                { name: "Mrs. Priya Mehta", subject: "English Literature", img: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=200&auto=format&fit=crop" },
+                { name: "Mr. Amit Kumar", subject: "Physics & Robotics", img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format&fit=crop" },
+                { name: "Ms. Neha Gupta", subject: "Chemistry", img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200&auto=format&fit=crop" },
+                { name: "Mr. Vikram Singh", subject: "Physical Education", img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format&fit=crop" },
+            ];
+
+            return (
+                <section id="staff" className="relative py-32 px-6 max-w-7xl mx-auto">
+                    <SectionHeader
+                        tag="Our Faculty"
+                        title="Meet Our Dedicated Educators"
+                        subtitle="A team of passionate, highly qualified teachers committed to nurturing every student's potential with personalised attention."
+                    />
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+                        {teachers.map((t, i) => (
+                            <RevealText key={i} delay={i * 0.08}>
+                                <div className="glass rounded-2xl p-4 text-center group hover:border-lux-gold/30 transition-all duration-300">
+                                    <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden ring-2 ring-lux-gold/30 group-hover:ring-lux-gold/70 transition-all duration-300">
+                                        <img src={t.img} alt={t.name} className="w-full h-full object-cover" />
+                                    </div>
+                                    <h4 className="font-display font-semibold text-sm leading-tight mb-1">{t.name}</h4>
+                                    <p className="text-xs opacity-60">{t.subject}</p>
+                                </div>
+                            </RevealText>
+                        ))}
+                    </div>
+                </section>
+            );
+        };
+
+        // ─── Fee Structure Section ────────────────────────────────────────
+        const FeeStructure = () => {
+            const plans = [
+                {
+                    grade: "Pre-Primary (Nursery–KG)",
+                    tuition: "₹ 1,200 / month",
+                    admission: "₹ 5,000",
+                    features: ["Activity-based learning", "Mid-day meal included", "Transport available", "No hidden charges"],
+                    popular: false,
+                },
+                {
+                    grade: "Primary (Class 1–5)",
+                    tuition: "₹ 2,500 / month",
+                    admission: "₹ 8,000",
+                    features: ["Smart classrooms", "Computer education", "Library membership", "Sports & yoga"],
+                    popular: true,
+                },
+                {
+                    grade: "Secondary (Class 6–10)",
+                    tuition: "₹ 3,800 / month",
+                    admission: "₹ 10,000",
+                    features: ["Lab access (Sci/Comp)", "Career counselling", "Exam prep support", "Co-curricular clubs"],
+                    popular: false,
+                },
+                {
+                    grade: "Senior Secondary (11–12)",
+                    tuition: "₹ 5,000 / month",
+                    admission: "₹ 15,000",
+                    features: ["Science / Commerce / Arts", "Board exam coaching", "Mock test series", "College guidance"],
+                    popular: false,
+                },
+            ];
+
+            return (
+                <section id="fees" className="relative py-32 px-6 max-w-7xl mx-auto">
+                    <SectionHeader
+                        tag="Fee Structure"
+                        title="Affordable & Transparent Pricing"
+                        subtitle="Quality education at honest rates. No hidden fees — just world-class learning for every child."
+                    />
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {plans.map((p, i) => (
+                            <RevealText key={i} delay={i * 0.1}>
+                                <div className={`relative rounded-3xl p-6 transition-all duration-300 group ${
+                                    p.popular
+                                        ? 'bg-gradient-to-b from-lux-gold/20 to-aurora-purple/10 border border-lux-gold/40 shadow-[0_0_40px_-10px_rgba(212,175,55,0.3)]'
+                                        : 'glass hover:border-lux-gold/30'
+                                }`}>
+                                    {p.popular && (
+                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-lux-gold text-black text-[10px] font-bold px-4 py-1 rounded-full uppercase tracking-widest">
+                                            Most Popular
+                                        </div>
+                                    )}
+                                    <h3 className="font-display font-semibold text-sm mb-1 mt-2">{p.grade}</h3>
+                                    <div className="my-4">
+                                        <span className="text-3xl font-display font-bold text-lux-gold">{p.tuition}</span>
+                                    </div>
+                                    <div className="text-xs opacity-60 mb-4">
+                                        Admission fee: <span className="text-white font-medium">{p.admission}</span>
+                                    </div>
+                                    <ul className="space-y-2 mb-6">
+                                        {p.features.map((f, j) => (
+                                            <li key={j} className="text-xs opacity-70 flex items-center gap-2">
+                                                <span className="text-emerald-glow">✓</span> {f}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <MagneticButton primary={p.popular} className="!py-2.5 !px-5 !text-xs w-full text-center">
+                                        Enroll Now
+                                    </MagneticButton>
+                                </div>
+                            </RevealText>
+                        ))}
+                    </div>
+                </section>
+            );
+        };
+
+        // ─── Facilities Section ───────────────────────────────────────────
+        const Facilities = () => {
+            const facilities = [
+                { icon: "🏫", title: "Smart Classrooms", desc: "All classrooms equipped with interactive smart boards and digital learning tools." },
+                { icon: "🔬", title: "Science Labs", desc: "Fully equipped Physics, Chemistry & Biology labs for hands-on experiments." },
+                { icon: "💻", title: "Computer Lab", desc: "Modern computer lab with high-speed internet and coding curriculum." },
+                { icon: "📚", title: "Central Library", desc: "Rich collection of 10,000+ books, journals, and digital resources." },
+                { icon: "🏏", title: "Sports Complex", desc: "Cricket, football, basketball courts, indoor games & athletics track." },
+                { icon: "🎵", title: "Music & Art Room", desc: "Dedicated spaces for vocal/instrumental music, dance & fine arts." },
+                { icon: "🚌", title: "Transport", desc: "Fleet of GPS-tracked buses covering all major routes across the city." },
+                { icon: "🏥", title: "Health Centre", desc: "On-campus nurse and regular health check-up camps for all students." },
+            ];
+
+            return (
+                <section id="facilities" className="relative py-32 px-6 max-w-7xl mx-auto">
+                    <SectionHeader
+                        tag="Infrastructure"
+                        title="World-Class Facilities"
+                        subtitle="Everything your child needs to learn, grow, and thrive — all under one roof."
+                    />
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        {facilities.map((f, i) => (
+                            <RevealText key={i} delay={i * 0.06}>
+                                <div className="glass rounded-2xl p-6 group hover:border-lux-gold/30 transition-all duration-300">
+                                    <div className="text-3xl mb-4 group-hover:scale-110 transition-transform duration-300">{f.icon}</div>
+                                    <h3 className="font-display font-semibold text-sm mb-2">{f.title}</h3>
+                                    <p className="text-xs opacity-60 leading-relaxed">{f.desc}</p>
+                                </div>
+                            </RevealText>
+                        ))}
+                    </div>
+                </section>
+            );
+        };
+
+        // ─── Results & Achievements Section ───────────────────────────────
+        const Results = () => {
+            const stats = [
+                { value: "100%", label: "Board Exam Pass Rate" },
+                { value: "92%", label: "Above 60% in Class 10" },
+                { value: "85%", label: "Above 60% in Class 12" },
+                { value: "50+", label: "District / State Level Winners" },
+            ];
+            const achievements = [
+                "Riya Patel — 98.4% in CBSE Class 10 (2025)",
+                "Aarav Mehta — Gold Medal in National Science Olympiad",
+                "School Cricket Team — State Champions 2024–25",
+                "Ananya Gupta — Selected for INSPIRE Science Camp",
+                "Best School Award — Educational Excellence 2024",
+                "100% Placement in Top Colleges for Class 12 Graduates",
+            ];
+
+            return (
+                <section id="results" className="relative py-32 px-6 max-w-7xl mx-auto">
+                    <SectionHeader
+                        tag="Results & Achievements"
+                        title="Excellence That Speaks"
+                        subtitle="Our students consistently achieve outstanding academic results and bring laurels in co-curricular competitions."
+                    />
+                    {/* Stats Row */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
+                        {stats.map((s, i) => (
+                            <RevealText key={i} delay={i * 0.1}>
+                                <div className="glass rounded-2xl p-6 text-center">
+                                    <div className="text-4xl font-display font-bold text-lux-gold mb-2">{s.value}</div>
+                                    <div className="text-xs opacity-70">{s.label}</div>
+                                </div>
+                            </RevealText>
+                        ))}
+                    </div>
+                    {/* Achievements List */}
+                    <RevealText delay={0.3}>
+                        <div className="glass rounded-3xl p-8 max-w-3xl mx-auto">
+                            <h3 className="font-display font-semibold text-lg mb-6 text-center">🏆 Recent Highlights</h3>
+                            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
+                                {achievements.map((a, i) => (
+                                    <div key={i} className="flex items-start gap-3">
+                                        <span className="text-emerald-glow mt-0.5 flex-shrink-0">✦</span>
+                                        <span className="text-sm opacity-80">{a}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </RevealText>
+                </section>
+            );
+        };
+
+        // Footer
+        const Footer = () => (
+            <footer className="relative py-24 px-6 border-t border-white/5 mt-20">
+                <div className="max-w-7xl mx-auto">
+                    <div className="text-center mb-20">
+                        <h2 className="font-display text-5xl md:text-8xl font-bold tracking-tighter text-gradient mb-8">
+                            Ready to <span className="text-gold-gradient italic font-light">Transform?</span>
+                        </h2>
+                        <MagneticButton primary className="!px-10 !py-5 !text-base">Start Your Application</MagneticButton>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+                        <div>
+                            <h4 className="font-bold mb-4">Quick Links</h4>
+                            <ul className="space-y-2 text-sm opacity-60">
+                                <li><a href="#calendar" className="hover:text-lux-gold transition-colors">Academic Calendar</a></li>
+                                <li><a href="#fees" className="hover:text-lux-gold transition-colors">Fee Structure</a></li>
+                                <li><a href="#results" className="hover:text-lux-gold transition-colors">Results</a></li>
+                                <li><a href="#staff" className="hover:text-lux-gold transition-colors">Faculty</a></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-bold mb-4">Facilities</h4>
+                            <ul className="space-y-2 text-sm opacity-60">
+                                <li>Smart Classrooms</li>
+                                <li>Science Labs</li>
+                                <li>Sports Complex</li>
+                                <li>Transport</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-bold mb-4">Admissions</h4>
+                            <ul className="space-y-2 text-sm opacity-60">
+                                <li>How to Apply</li>
+                                <li>Fee Payment</li>
+                                <li>Scholarships</li>
+                                <li>Visit School</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-bold mb-4">Contact</h4>
+                            <ul className="space-y-2 text-sm opacity-60">
+                                <li>📞 +91-1800-123-4567</li>
+                                <li>✉️ info@luminaacademy.edu</li>
+                                <li>📍 Mumbai, Maharashtra</li>
+                                <li>🕐 Mon–Fri: 7:30 AM – 2:30 PM</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center text-xs opacity-40">
+                        <div>© 2025 Lumina Academy. All Rights Reserved. | Affiliated to CBSE, New Delhi</div>
+                        <div>Designed for the Future.</div>
+                    </div>
+                </div>
+            </footer>
+        );
+
+        // Main App
+        const App = () => {
+            const [darkMode, setDarkMode] = useState(true);
+
+            // Lenis Smooth Scroll Setup
+            useEffect(() => {
+                const lenis = new Lenis({
+                    duration: 1.2,
+                    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+                    smoothWheel: true,
+                });
+
+                function raf(time) {
+                    lenis.raf(time);
+                    requestAnimationFrame(raf);
+                }
+                requestAnimationFrame(raf);
+
+                return () => lenis.destroy();
+            }, []);
+
+            const toggleDark = () => {
+                setDarkMode(!darkMode);
+                if (darkMode) {
+                    document.documentElement.classList.remove('dark');
+                    document.documentElement.classList.add('light');
+                } else {
+                    document.documentElement.classList.remove('light');
+                    document.documentElement.classList.add('dark');
+                }
+            };
+
+            return (
+                <React.Fragment>
+                    <CursorGlow />
+                    <Navbar darkMode={darkMode} toggleDark={toggleDark} />
+                    <Hero />
+                    <Programs />
+                    <Campus />
+                    <Admissions />
+                    <AcademicCalendar />
+                    <Staff />
+                    <FeeStructure />
+                    <Facilities />
+                    <Results />
+                    <FAQ />
+                    <Footer />
+                </React.Fragment>
+            );
+        };
+
+        // Render App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

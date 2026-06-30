@@ -4,28 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "../components/ui/label";
 import { Checkbox } from "../components/ui/checkbox";
-import { useMutation } from "@tanstack/react-query";
-import { loginUser } from "@/api/auth";
+import { useAuth } from "@/hooks/AuthProvider";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isPending, setIsPending] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
-  const mutation = useMutation({
-    mutationFn: loginUser,
-    onSuccess: () => {
-      toast.success("Signed in successfully!");
-      navigate("/");
-    },
-    onError: () => {
-      toast.error("Failed to sign in");
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email.trim()) {
@@ -37,7 +27,16 @@ export default function LoginPage() {
       return;
     }
 
-    mutation.mutate({ email: email.trim(), password });
+    setIsPending(true);
+    try {
+      await login(email.trim(), password);
+      // Success toast is handled globally by the API client interceptor
+      navigate("/");
+    } catch {
+      // Error toast is handled globally by the API client interceptor
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -135,8 +134,8 @@ export default function LoginPage() {
               </a>
             </div>
 
-            <Button type="submit" className="w-full h-11 bg-[#111827] hover:bg-black text-white mt-2 gap-2 text-sm font-medium transition-colors shadow-sm" disabled={mutation.isPending}>
-              {mutation.isPending ? "Signing in..." : "Sign in"} <ArrowRight className="h-4 w-4" />
+            <Button type="submit" className="w-full h-11 bg-[#111827] hover:bg-black text-white mt-2 gap-2 text-sm font-medium transition-colors shadow-sm" disabled={isPending}>
+              {isPending ? "Signing in..." : "Sign in"} <ArrowRight className="h-4 w-4" />
             </Button>
 
           </form>

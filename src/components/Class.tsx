@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { classes } from "./data/class";
+import { Link } from "lucide-react";
 
 // Dummy data extracted from your original code
 
