@@ -16,6 +16,8 @@ import {
   Calendar,
 } from "lucide-react";
 
+import { SidebarTrigger } from "@/components/ui/sidebar";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,19 +27,22 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "../components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "../components/ui/badge";
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import SchoolSidebar from "./Sidebar";
+
 
 export function Navbar() {
   return (
     <header className="bg-white shadow-sm sticky top-0 z-20 border-b">
+      <SchoolSidebar />
       <div className="flex items-center justify-between px-4 md:px-6 py-3">
         {/* Left side: Mobile Menu & Search */}
         <div className="flex items-center gap-4 flex-1">
@@ -78,6 +83,7 @@ export function Navbar() {
 
           {/* Search Bar */}
           <div className="relative flex-1 max-w-md">
+           
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <Input
               type="text"

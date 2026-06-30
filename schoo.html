@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EduManage Pro — School Management System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: { 50:'#eef2ff',100:'#e0e7ff',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3' }
+        },
+        fontFamily: { sans: ['Inter','system-ui','sans-serif'] }
+      }
+    }
+  }
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{font-family:'Inter',sans-serif}
+  .glass{backdrop-filter: blur(12px); background: rgba(255,255,255,0.7)}
+  .scroll-hide::-webkit-scrollbar{display:none}
+  .fade-in{animation: fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .idcard{background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#ec4899 100%)}
+  @media print{.no-print{display:none!important}}
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div id="loginScreen" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-brand-600 via-purple-600 to-pink-500">
+  <div class="w-full max-w-5xl grid md:grid-cols-2 bg-white rounded-3xl shadow-2xl overflow-hidden">
+    <!-- Left -->
+    <div class="hidden md:flex flex-col justify-between p-10 text-white bg-gradient-to-br from-brand-700 to-purple-800">
+      <div>
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-2xl">🎓</div>
+          <div>
+            <h1 class="text-2xl font-bold">EduManage Pro</h1>
+            <p class="text-sm text-white/70">School Management System</p>
+          </div>
+        </div>
+        <h2 class="mt-16 text-4xl font-extrabold leading-tight">Transform your school from <span class="text-pink-300">manual</span> to <span class="text-yellow-300">digital</span>.</h2>
+        <p class="mt-4 text-white/80">One platform for fees, attendance, exams, timetables, report cards and daily planning.</p>
+      </div>
+      <ul class="space-y-3 text-sm">
+        <li class="flex items-center gap-2">✅ Role-based access control</li>
+        <li class="flex items-center gap-2">✅ Session management (2025-26 / 2026-27)</li>
+        <li class="flex items-center gap-2">✅ Auto-generated report cards & ID cards</li>
+        <li class="flex items-center gap-2">✅ Teacher daily plans & class assignments</li>
+      </ul>
+    </div>
+
+    <!-- Right -->
+    <div class="p-8 md:p-12">
+      <h3 class="text-2xl font-bold text-slate-800">Sign in to continue</h3>
+      <p class="text-sm text-slate-500 mt-1">Choose your role to enter the dashboard</p>
+
+      <form class="mt-8 space-y-4" onsubmit="event.preventDefault(); login()">
+        <div>
+          <label class="text-sm font-medium text-slate-700">Session</label>
+          <select id="loginSession" class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            <option>2025-26</option>
+            <option>2026-27</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-slate-700">User ID / Email</label>
+          <input type="text" value="demo@school.edu" class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 focus:ring-2 focus:ring-brand-500 focus:outline-none"/>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-slate-700">Password</label>
+          <input type="password" value="••••••••" class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 focus:ring-2 focus:ring-brand-500 focus:outline-none"/>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-slate-700">Login As</label>
+          <select id="loginRole" class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            <option value="admin">👑 Admin</option>
+            <option value="manager">📊 Manager</option>
+            <option value="feemanager">💰 Fee Manager</option>
+            <option value="teacher">👨‍🏫 Teacher</option>
+            <option value="student">🎒 Student</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-600 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition">
+          Enter Dashboard →
+        </button>
+      </form>
+      <p class="text-xs text-slate-400 text-center mt-6">Demo prototype — all data is simulated</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app" class="hidden min-h-screen">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col no-print">
+    <div class="p-5 border-b border-slate-100">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-purple-600 flex items-center justify-center text-white text-lg">🎓</div>
+        <div>
+          <h1 class="font-bold text-slate-800">EduManage Pro</h1>
+          <p class="text-xs text-slate-500" id="sessionBadge">Session: 2025-26</p>
+        </div>
+      </div>
+    </div>
+
+    <nav id="navMenu" class="flex-1 overflow-y-auto p-3 space-y-1"></nav>
+
+    <div class="p-4 border-t border-slate-100">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center text-white font-bold" id="userAvatar">A</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold truncate" id="userName">Admin User</p>
+          <p class="text-xs text-slate-500 truncate" id="userRole">Administrator</p>
+        </div>
+        <button onclick="logout()" class="text-slate-400 hover:text-red-500" title="Logout">⏻</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 flex flex-col">
+    <!-- TOPBAR -->
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 no-print">
+      <div>
+        <h2 class="text-lg font-bold text-slate-800" id="pageTitle">Dashboard</h2>
+        <p class="text-xs text-slate-500" id="pageSub">Welcome back</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <select id="topSession" onchange="changeSession(this.value)" class="text-sm rounded-lg border border-slate-200 px-3 py-2">
+          <option>2025-26</option>
+          <option>2026-27</option>
+        </select>
+        <button class="relative w-10 h-10 rounded-lg bg-slate-100 hover:bg-slate-200">🔔<span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span></button>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <section id="content" class="flex-1 overflow-y-auto p-6 fade-in"></section>
+  </main>
+</div>
+
+<!-- ============ MODAL ============ -->
+  <div id="modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4 no-print">
+  <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   STATE & ROLE CONFIG
+============================================================ */
+let currentRole = 'admin';
+let currentSession = '2025-26';
+let currentPage = 'dashboard';
+
+const ROLE_LABELS = {
+  admin:'Administrator', manager:'Manager', feemanager:'Fee Manager',
+  teacher:'Teacher', student:'Student'
+};
+
+// Menu items per role (label, icon, page key)
+const MENUS = {
+  admin:[
+    ['Dashboard','📊','dashboard'],
+    ['Students','🎒','students'],
+    ['Teachers','👨‍🏫','teachers'],
+    ['Classes & Sections','🏫','classes'],
+    ['Period Assignment','📅','periodAssign'],
+    ['Class Teacher','👑','classTeacher'],
+    ['Test Timetable','📝','testTimetable'],
+    ['Exam Timetable','📜','examTimetable'],
+    ['Marks Entry','✍️','marksEntry'],
+    ['Attendance','✅','attendance'],
+    ['Fee Management','💰','fees'],
+    ['Teacher Daily Plan','📋','teacherPlans'],
+    ['ID Cards','🪪','idcards'],
+    ['Report Cards','📄','reportcards'],
+    ['Mark Sheets','📑','marksheets'],
+    ['Settings','⚙️','settings'],
+  ],
+  manager:[
+    ['Dashboard','📊','dashboard'],
+    ['Students','🎒','students'],
+    ['Teachers','👨‍🏫','teachers'],
+    ['Attendance','✅','attendance'],
+    ['Report Cards','📄','reportcards'],
+  ],
+  feemanager:[
+    ['Dashboard','📊','dashboard'],
+    ['Fee Structure','💵','feestructure'],
+    ['Collect Fee','💰','fees'],
+    ['Fee Reports','📊','feereports'],
+    ['Pending Dues','⏳','pendingdues'],
+  ],
+  teacher:[
+    ['Dashboard','📊','dashboard'],
+    ['My Classes','🏫','myclasses'],
+    ['Daily Plan','📋','myplan'],
+    ['Test Timetable','📝','testTimetable'],
+    ['Exam Timetable','📜','examTimetable'],
+    ['Enter Marks','✍️','entermarks'],
+    ['Attendance','✅','attendance'],
+    ['My Students','🎒','mystudents'],
+  ],
+  student:[
+    ['Dashboard','📊','dashboard'],
+    ['My Timetable','📅','mytimetable'],
+    ['Attendance','✅','myattendance'],
+    ['Marks & Results','📊','myresults'],
+    ['Fee Status','💰','myfees'],
+    ['My ID Card','🪪','myid'],
+    ['Report Card','📄','myreport'],
+  ],
+};
+
+/* ============================================================
+   LOGIN / LOGOUT
+============================================================ */
+function login(){
+  currentRole = document.getElementById('loginRole').value;
+  currentSession = document.getElementById('loginSession').value;
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('app').classList.add('flex');
+
+  document.getElementById('sessionBadge').textContent = 'Session: '+currentSession;
+  document.getElementById('topSession').value = currentSession;
+  document.getElementById('userName').textContent = ROLE_LABELS[currentRole];
+  document.getElementById('userRole').textContent = currentRole.toUpperCase();
+  document.getElementById('userAvatar').textContent = currentRole[0].toUpperCase();
+
+  buildMenu();
+  navigate('dashboard');
+}
+function logout(){
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+function changeSession(v){
+  currentSession = v;
+  document.getElementById('sessionBadge').textContent='Session: '+v;
+  navigate(currentPage);
+}
+
+/* ============================================================
+   MENU BUILD
+============================================================ */
+function buildMenu(){
+  const nav = document.getElementById('navMenu');
+  nav.innerHTML = MENUS[currentRole].map(([label,icon,key])=>`
+    <button onclick="navigate('${key}')" data-page="${key}"
+      class="menu-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-brand-50 hover:text-brand-700 transition">
+      <span class="text-lg">${icon}</span><span>${label}</span>
+    </button>`).join('');
+}
+function navigate(page){
+  currentPage = page;
+  document.querySelectorAll('.menu-item').forEach(b=>{
+    b.classList.toggle('bg-brand-50', b.dataset.page===page);
+    b.classList.toggle('text-brand-700', b.dataset.page===page);
+  });
+  renderPage(page);
+}
+
+/* ============================================================
+   PAGE RENDERER
+============================================================ */
+function renderPage(page){
+  const c = document.getElementById('content');
+  c.classList.remove('fade-in'); void c.offsetWidth; c.classList.add('fade-in');
+
+  const titles = {
+    dashboard:['Dashboard','Overview of your institution'],
+    students:['Students','Manage student records'],
+    teachers:['Teachers','Faculty management'],
+    classes:['Classes & Sections','Class configuration'],
+    periodAssign:['Period-wise Assignment','Assign teachers to periods'],
+    classTeacher:['Class Teacher Assignment','Assign class teachers'],
+    testTimetable:['Test Timetable','Monthly test schedule'],
+    examTimetable:['Exam Timetable','Monthly exam schedule'],
+    marksEntry:['Marks Entry','Teacher-wise marks submission'],
+    attendance:['Attendance','Daily attendance register'],
+    fees:['Fee Management','Fee collection & tracking'],
+    teacherPlans:['Teacher Daily Plans','Review submitted plans'],
+    idcards:['ID Card Generator','Generate student & staff ID cards'],
+    reportcards:['Report Card Generator','Test & exam report cards'],
+    marksheets:['Final Mark Sheet','Consolidated mark sheets'],
+    settings:['Settings','System configuration'],
+    feestructure:['Fee Structure','Define fee heads'],
+    feereports:['Fee Reports','Collection analytics'],
+    pendingdues:['Pending Dues','Outstanding fees'],
+    myclasses:['My Assigned Classes','Classes I teach'],
+    myplan:['My Daily Plan','Submit today\'s plan'],
+    entermarks:['Enter Marks','Fill marks for my classes'],
+    mystudents:['My Students','Students in my classes'],
+    mytimetable:['My Timetable','Weekly schedule'],
+    myattendance:['My Attendance','Attendance record'],
+    myresults:['My Results','Marks & grades'],
+    myfees:['My Fees','Fee status'],
+    myid:['My ID Card','Digital identity'],
+    myreport:['My Report Card','Latest report card'],
+  };
+  const [t,s] = titles[page] || ['Page',''];
+  document.getElementById('pageTitle').textContent = t;
+  document.getElementById('pageSub').textContent = s;
+
+  const renderer = PAGES[page] || (()=>`<div class="p-10 text-center text-slate-400">Page under construction</div>`);
+  c.innerHTML = renderer();
+}
+
+/* ============================================================
+   PAGE TEMPLATES
+============================================================ */
+const PAGES = {};
+
+/* ---------- DASHBOARD ---------- */
+PAGES.dashboard = () => {
+  const stats = currentRole==='student' ? [
+    ['Attendance','92%','bg-green-500'],
+    ['Pending Fees','₹ 2,500','bg-orange-500'],
+    ['Current Rank','#4','bg-brand-500'],
+    ['Tests This Month','3','bg-pink-500'],
+  ] : [
+    ['Total Students','1,248','bg-brand-500'],
+    ['Total Teachers','64','bg-purple-500'],
+    ['Fee Collected','₹ 12.4L','bg-green-500'],
+    ['Pending Dues','₹ 1.8L','bg-orange-500'],
+  ];
+  return `
+  <div class="grid md:grid-cols-4 gap-4 mb-6">
+    ${stats.map(([l,v,c])=>`
+      <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <p class="text-xs text-slate-500 uppercase tracking-wide">${l}</p>
+        <p class="mt-2 text-3xl font-bold text-slate-800">${v}</p>
+        <div class="mt-3 h-1 rounded-full ${c} opacity-70"></div>
+      </div>`).join('')}
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-slate-800">Today's Schedule</h3>
+        <span class="text-xs bg-brand-50 text-brand-700 px-2 py-1 rounded-lg">${currentSession}</span>
+      </div>
+      <div class="space-y-3">
+        ${['08:00 — Assembly','09:00 — Mathematics (Class X-A)','10:00 — Science Lab','11:30 — English Literature','13:00 — Period Test: Physics','14:30 — Staff Meeting'].map(x=>`
+          <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50">
+            <div class="w-2 h-2 rounded-full bg-brand-500"></div>
+            <span class="text-sm text-slate-700">${x}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="bg-gradient-to-br from-brand-600 to-purple-700 rounded-2xl p-6 text-white">
+      <h3 class="font-bold text-lg">Quick Actions</h3>
+      <p class="text-sm text-white/70 mt-1">Common tasks for ${ROLE_LABELS[currentRole]}</p>
+      <div class="mt-4 space-y-2">
+        ${quickActions().map(a=>`<button onclick="navigate('${a[1]}')" class="w-full text-left px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm">${a[0]}</button>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 grid md:grid-cols-2 gap-6">
+    <div class="bg-white rounded-2xl p-6 border border-slate-100">
+      <h3 class="font-bold text-slate-800 mb-4">Monthly Overview</h3>
+      <div class="space-y-3">
+        ${['July — Unit Test','August — Mid-Term Exam','September — Sports Day','October — Half-Yearly Exam'].map(x=>`
+          <div class="flex justify-between items-center p-3 rounded-xl bg-slate-50">
+            <span class="text-sm font-medium">${x}</span>
+            <span class="text-xs text-brand-600 font-semibold">Scheduled</span>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl p-6 border border-slate-100">
+      <h3 class="font-bold text-slate-800 mb-4">Recent Activity</h3>
+      <div class="space-y-3">
+        ${['Fee receipt #4521 issued','Attendance marked — Class IX-B','Test marks uploaded by Mr. Sharma','New student admitted — Class VI'].map(x=>`
+          <div class="flex gap-3 text-sm"><span class="text-brand-500">●</span><span class="text-slate-600">${x}</span></div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+};
+function quickActions(){
+  const map = {
+    admin:[['Add Student','students'],['Assign Class Teacher','classTeacher'],['Create Test Timetable','testTimetable'],['View Teacher Plans','teacherPlans']],
+    manager:[['Student List','students'],['Attendance Report','attendance'],['Generate Report Cards','reportcards']],
+    feemanager:[['Collect Fee','fees'],['Fee Structure','feestructure'],['Pending Dues','pendingdues']],
+    teacher:[['My Classes','myclasses'],['Submit Daily Plan','myplan'],['Enter Marks','entermarks']],
+    student:[['My Timetable','mytimetable'],['My Results','myresults'],['Fee Status','myfees']],
+  };
+  return map[currentRole];
+}
+
+/* ---------- STUDENTS ---------- */
+PAGES.students = () => tablePage('Students','students',['ID','Name','Class','Section','Roll No','Guardian','Fee Status'],[
+  ['STU001','Aarav Sharma','X','A','01','Rajesh Sharma','Paid'],
+  ['STU002','Priya Verma','X','A','02','Anil Verma','Pending'],
+  ['STU003','Rohan Gupta','IX','B','05','Vikas Gupta','Paid'],
+  ['STU004','Sneha Iyer','IX','A','03','Ramesh Iyer','Paid'],
+  ['STU005','Kabir Singh','VIII','C','12','Manpreet Singh','Pending'],
+]);
+
+/* ---------- TEACHERS ---------- */
+PAGES.teachers = () => tablePage('Teachers','teachers',['ID','Name','Subject','Classes','Phone','Status'],[
+  ['T001','Mr. Rajesh Sharma','Mathematics','X-A, IX-B','98xxxxxx12','Active'],
+  ['T002','Ms. Priya Nair','Science','X-A, VIII-C','98xxxxxx34','Active'],
+  ['T003','Mr. Anil Kumar','English','IX-A, IX-B','98xxxxxx56','Active'],
+  ['T004','Mrs. Sunita Rao','History','VIII-A, VIII-B','98xxxxxx78','On Leave'],
+]);
+
+/* ---------- CLASSES ---------- */
+PAGES.classes = () => `
+  <div class="grid md:grid-cols-4 gap-4">
+    ${['VI','VII','VIII','IX','X','XI','XII'].map(c=>`
+      <div class="bg-white rounded-2xl p-5 border border-slate-100 hover:shadow-lg transition">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-purple-500 flex items-center justify-center text-white font-bold">${c}</div>
+        <h4 class="mt-3 font-bold">Class ${c}</h4>
+        <p class="text-xs text-slate-500">${Math.floor(Math.random()*3)+2} Sections • ${Math.floor(Math.random()*80)+120} students</p>
+        <button class="mt-3 text-xs text-brand-600 font-semibold">View Details →</button>
+      </div>`).join('')}
+  </div>`;
+
+/* ---------- PERIOD ASSIGNMENT ---------- */
+PAGES.periodAssign = () => {
+  const periods = ['1 (8:00)','2 (8:45)','3 (9:30)','4 (10:30)','5 (11:15)','6 (12:00)','7 (1:00)'];
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat'];
+  const teachers = ['Sharma (Math)','Nair (Sci)','Kumar (Eng)','Rao (Hist)','Patel (Geo)'];
+  return `
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div>
+        <h3 class="font-bold text-slate-800">Period-wise Teacher Assignment</h3>
+        <p class="text-xs text-slate-500">Class X — Section A • ${currentSession}</p>
+      </div>
+      <button class="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold">+ Edit Assignment</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-slate-500 border-b">
+            <th class="py-3 px-2">Period</th>
+            ${days.map(d=>`<th class="py-3 px-2">${d}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${periods.map(p=>`<tr class="border-b border-slate-100">
+            <td class="py-3 px-2 font-semibold">${p}</td>
+            ${days.map(()=>`<td class="py-3 px-2"><span class="px-2 py-1 rounded-lg bg-brand-50 text-brand-700 text-xs">${teachers[Math.floor(Math.random()*teachers.length)]}</span></td>`).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+};
+
+/* ---------- CLASS TEACHER ---------- */
+PAGES.classTeacher = () => tablePage('Class Teacher Assignment','classTeacher',['Class','Section','Class Teacher','Subject','Students','Actions'],[
+  ['VI','A','Mrs. Sunita Rao','History','42','Edit'],
+  ['VII','A','Mr. Anil Kumar','English','45','Edit'],
+  ['VIII','B','Ms. Priya Nair','Science','48','Edit'],
+  ['IX','A','Mr. Rajesh Sharma','Mathematics','50','Edit'],
+  ['X','A','Mr. Rajesh Sharma','Mathematics','52','Edit'],
+]);
+
+/* ---------- TEST TIMETABLE ---------- */
+PAGES.testTimetable = () => timetablePage('Test','test');
+PAGES.examTimetable = () => timetablePage('Exam','exam');
+
+function timetablePage(type,key){
+  const months = ['July','August','September','October','November'];
+  const classes = ['VI','VII','VIII','IX','X'];
+  return `
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <h3 class="font-bold text-slate-800">${type} Timetable — ${currentSession}</h3>
+      <p class="text-xs text-slate-500">Create and manage ${type.toLowerCase()} schedules month-wise</p>
+    </div>
+    <button onclick="openModal('${key}Create')" class="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold">+ Create ${type} Timetable</button>
+  </div>
+
+  <div class="grid md:grid-cols-5 gap-3 mb-4">
+    ${months.map((m,i)=>`
+      <div class="bg-white rounded-2xl p-4 border ${i===0?'border-brand-500 ring-2 ring-brand-100':'border-slate-100'}">
+        <p class="text-xs text-slate-500 uppercase">${type} Month</p>
+        <h4 class="text-lg font-bold mt-1">${m}</h4>
+        <p class="text-xs text-slate-500 mt-1">${classes.length} classes • ${Math.floor(Math.random()*10)+5} subjects</p>
+        <button class="mt-2 text-xs text-brand-600 font-semibold">View →</button>
+      </div>`).join('')}
+  </div>
+
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <h4 class="font-bold mb-4">July ${type} — Class X</h4>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-slate-500 border-b">
+          <th class="py-3 px-2">Date</th><th class="py-3 px-2">Day</th><th class="py-3 px-2">Subject</th>
+          <th class="py-3 px-2">Time</th><th class="py-3 px-2">Teacher</th><th class="py-3 px-2">Status</th>
+        </tr></thead>
+        <tbody>
+          ${[
+            ['10-Jul','Thu','Mathematics','10:00-11:30','Mr. Sharma','Completed'],
+            ['12-Jul','Sat','Science','10:00-11:30','Ms. Nair','Completed'],
+            ['15-Jul','Tue','English','09:00-10:30','Mr. Kumar','Completed'],
+            ['18-Jul','Fri','History','10:00-11:30','Mrs. Rao','Upcoming'],
+            ['22-Jul','Tue','Geography','10:00-11:30','Mr. Patel','Scheduled'],
+          ].map(r=>`<tr class="border-b border-slate-100">
+            ${r.map((c,i)=>`<td class="py-3 px-2">${i===5?`<span class="px-2 py-1 rounded-lg text-xs ${c==='Completed'?'bg-green-50 text-green-700':c==='Upcoming'?'bg-orange-50 text-orange-700':'bg-slate-100 text-slate-600'}">${c}</span>`:c}</td>`).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ---------- MARKS ENTRY (admin) ---------- */
+PAGES.marksEntry = () => marksEntryBase(true);
+PAGES.entermarks = () => marksEntryBase(false);
+
+function marksEntryBase(showAll){
+  const months = ['July (Test)','August (Exam)','September (Test)','October (Exam)'];
+  const teachers = ['Mr. Sharma (Math)','Ms. Nair (Sci)','Mr. Kumar (Eng)'];
+  return `
+  <div class="grid md:grid-cols-4 gap-3 mb-4">
+    ${months.map((m,i)=>`
+      <div class="bg-white rounded-2xl p-4 border border-slate-100">
+        <p class="text-xs text-slate-500">Month / Type</p>
+        <h4 class="font-bold mt-1">${m}</h4>
+        <p class="text-xs text-slate-500 mt-1">${i%2===0?'Unit Test':'Term Exam'}</p>
+        <button class="mt-2 text-xs text-brand-600 font-semibold">Fill Marks →</button>
+      </div>`).join('')}
+  </div>
+
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <h4 class="font-bold mb-4">Marks Submission by Teacher — July Test</h4>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left text-slate-500 border-b">
+          <th class="py-3 px-2">Teacher</th><th class="py-3 px-2">Class</th><th class="py-3 px-2">Subject</th>
+          <th class="py-3 px-2">Students</th><th class="py-3 px-2">Status</th><th class="py-3 px-2">Action</th>
+        </thead>
+        <tbody>
+          ${[
+            ['Mr. Sharma','X-A','Mathematics','52','Submitted','View'],
+            ['Ms. Nair','X-A','Science','52','In Progress','Continue'],
+            ['Mr. Kumar','IX-B','English','48','Submitted','View'],
+            ['Mrs. Rao','VIII-A','History','45','Pending','Start'],
+          ].map(r=>`<tr class="border-b border-slate-100">
+            ${r.map((c,i)=>`<td class="py-3 px-2">${i===4?`<span class="px-2 py-1 rounded-lg text-xs ${c==='Submitted'?'bg-green-50 text-green-700':c==='In Progress'?'bg-blue-50 text-blue-700':'bg-orange-50 text-orange-700'}">${c}</span>`:c}</td>`).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ---------- ATTENDANCE ---------- */
+PAGES.attendance = () => attendancePage();
+PAGES.myattendance = () => attendancePage(true);
+
+function attendancePage(isStudent){
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat'];
+  return `
+  <div class="grid md:grid-cols-4 gap-3 mb-4">
+    ${[['Present','22','bg-green-500'],['Absent','2','bg-red-500'],['Late','3','bg-orange-500'],['%','84%','bg-brand-500']].map(([l,v,c])=>`
+      <div class="bg-white rounded-2xl p-4 border border-slate-100">
+        <p class="text-xs text-slate-500">${l}</p>
+        <p class="mt-1 text-2xl font-bold">${v}</p>
+        <div class="mt-2 h-1 rounded-full ${c}"></div>
+      </div>`).join('')}
+  </div>
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <div class="flex items-center justify-between mb-4">
+      <h4 class="font-bold">${isStudent?'My':'Class X-A'} Attendance — July 2025</h4>
+      <select class="text-sm rounded-lg border border-slate-200 px-3 py-2"><option>July 2025</option><option>August 2025</option></select>
+    </div>
+    <div class="grid grid-cols-7 gap-2">
+      ${days.map(d=>`<div class="text-center text-xs font-semibold text-slate-500 py-2">${d}</div>`).join('')}
+      ${Array.from({length:30},(_,i)=>{
+        const r=Math.random();
+        const c=r>0.15?'bg-green-100 text-green-700':r>0.05?'bg-red-100 text-red-700':'bg-orange-100 text-orange-700';
+        return `<div class="aspect-square rounded-lg ${c} flex items-center justify-center text-sm font-semibold">${i+1}</div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+/* ---------- FEES ---------- */
+PAGES.fees = () => feesBase();
+PAGES.myfees = () => feesBase(true);
+
+function feesBase(isStudent){
+  return `
+  <div class="grid md:grid-cols-3 gap-4 mb-6">
+    ${[['Total Collected','₹ 12,45,000','bg-green-500'],['Pending','₹ 1,82,000','bg-orange-500'],['Concessions','₹ 45,000','bg-brand-500']].map(([l,v,c])=>`
+      <div class="bg-white rounded-2xl p-5 border border-slate-100">
+        <p class="text-xs text-slate-500">${l}</p>
+        <p class="mt-2 text-3xl font-bold">${v}</p>
+        <div class="mt-3 h-1 rounded-full ${c}"></div>
+      </div>`).join('')}
+  </div>
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <div class="flex items-center justify-between mb-4">
+      <h4 class="font-bold">${isStudent?'My Fee Status':'Fee Collection'}</h4>
+      ${isStudent?'':'<button class="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold">+ Collect Fee</button>'}
+    </div>
+    <div class="space-y-3">
+      ${[
+        ['Tuition Fee','₹ 5,000','Paid','July'],
+        ['Lab Fee','₹ 1,200','Paid','July'],
+        ['Transport','₹ 1,500','Pending','August'],
+        ['Library','₹ 500','Paid','July'],
+      ].map(r=>`
+        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+          <div>
+            <p class="font-semibold text-sm">${r[0]}</p>
+            <p class="text-xs text-slate-500">${r[3]} • ${r[1]}</p>
+          </div>
+          <span class="px-3 py-1 rounded-lg text-xs font-semibold ${r[2]==='Paid'?'bg-green-100 text-green-700':'bg-orange-100 text-orange-700'}">${r[2]}</span>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ---------- TEACHER PLANS ---------- */
+PAGES.teacherPlans = () => `
+  <div class="bg-white rounded-2xl p-6 border border-slate-100 mb-4">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h4 class="font-bold">Teacher Daily Plans — Today</h4>
+        <p class="text-xs text-slate-500">Submitted plans for ${new Date().toDateString()}</p>
+      </div>
+      <div class="flex gap-2">
+        <span class="px-3 py-1 rounded-lg bg-green-50 text-green-700 text-xs font-semibold">42 Submitted</span>
+        <span class="px-3 py-1 rounded-lg bg-orange-50 text-orange-700 text-xs font-semibold">8 Pending</span>
+      </div>
+    </div>
+    <div class="space-y-3">
+      ${['Mr. Rajesh Sharma','Ms. Priya Nair','Mr. Anil Kumar','Mrs. Sunita Rao','Mr. Vikram Patel'].map((n,i)=>`
+        <div class="p-4 rounded-xl border border-slate-100 hover:bg-slate-50">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-500 to-purple-500 flex items-center justify-center text-white font-bold">${n[0]}</div>
+              <div>
+                <p class="font-semibold text-sm">${n}</p>
+                <p class="text-xs text-slate-500">Class X-A • Mathematics</p>
+              </div>
+            </div>
+            <span class="px-3 py-1 rounded-lg text-xs font-semibold ${i<3?'bg-green-100 text-green-700':'bg-orange-100 text-orange-700'}">${i<3?'Submitted':'Pending'}</span>
+          </div>
+          ${i<3?`<div class="mt-3 p-3 rounded-lg bg-slate-50 text-xs text-slate-600">
+            <b>Objective:</b> Complete Chapter 5 — Quadratic Equations<br>
+            <b>Activities:</b> Lecture, Group problem solving, Worksheet<br>
+            <b>Homework:</b> Exercise 5.3 — Q1 to Q10
+          </div>`:''}
+        </div>`).join('')}
+    </div>
+  </div>`;
+
+PAGES.myplan = () => `
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <h4 class="font-bold mb-4">Submit Today's Plan</h4>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm font-medium">Class</label>
+        <select class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3"><option>Class X-A</option><option>Class IX-B</option></select>
+      </div>
+      <div>
+        <label class="text-sm font-medium">Subject</label>
+        <input class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3" value="Mathematics"/>
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-sm font-medium">Lesson Objective</label>
+        <textarea rows="3" class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3" placeholder="What students will learn today..."></textarea>
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-sm font-medium">Activities Planned</label>
+        <textarea rows="3" class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3" placeholder="Lecture, group work, worksheet..."></textarea>
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-sm font-medium">Homework / Assignment</label>
+        <textarea rows="2" class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3"></textarea>
+      </div>
+    </div>
+    <button class="mt-4 px-6 py-3 rounded-xl bg-brand-600 text-white font-semibold">Submit Plan</button>
+  </div>`;
+
+/* ---------- MY CLASSES (teacher) ---------- */
+PAGES.myclasses = () => `
+  <div class="grid md:grid-cols-3 gap-4">
+    ${[['X-A','Mathematics','52 students','Mon, Wed, Fri'],['IX-B','Mathematics','48 students','Tue, Thu'],['VIII-C','Mathematics','45 students','Sat']].map(r=>`
+      <div class="bg-white rounded-2xl p-5 border border-slate-100 hover:shadow-lg transition">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-purple-500 flex items-center justify-center text-white font-bold">${r[0][0]}</div>
+          <span class="text-xs bg-brand-50 text-brand-700 px-2 py-1 rounded-lg">${currentSession}</span>
+        </div>
+        <h4 class="mt-3 font-bold">Class ${r[0]}</h4>
+        <p class="text-sm text-slate-600">${r[1]}</p>
+        <p class="text-xs text-slate-500 mt-1">${r[2]} • ${r[3]}</p>
+        <button class="mt-3 text-xs text-brand-600 font-semibold">Open Class →</button>
+      </div>`).join('')}
+  </div>`;
+
+/* ---------- MY STUDENTS ---------- */
+PAGES.mystudents = () => tablePage('My Students','mystudents',['Roll','Name','Class','Last Test','Attendance'],[
+  ['01','Aarav Sharma','X-A','85/100','92%'],
+  ['02','Priya Verma','X-A','92/100','96%'],
+  ['03','Rohan Gupta','X-A','78/100','88%'],
+  ['04','Sneha Iyer','X-A','88/100','94%'],
+]);
+
+/* ---------- MY TIMETABLE ---------- */
+PAGES.mytimetable = () => PAGES.periodAssign();
+
+/* ---------- MY RESULTS ---------- */
+PAGES.myresults = () => `
+  <div class="grid md:grid-cols-2 gap-4 mb-4">
+    ${[['July Test','85%','bg-green-500'],['August Exam','88%','bg-brand-500'],['Overall Rank','#4','bg-purple-500'],['Attendance','92%','bg-pink-500']].map(([l,v,c])=>`
+      <div class="bg-white rounded-2xl p-5 border border-slate-100">
+        <p class="text-xs text-slate-500">${l}</p>
+        <p class="mt-2 text-3xl font-bold">${v}</p>
+        <div class="mt-3 h-1 rounded-full ${c}"></div>
+      </div>`).join('')}
+  </div>
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <h4 class="font-bold mb-4">Subject-wise Marks — July Test</h4>
+    <div class="space-y-3">
+      ${[['Mathematics',85],['Science',88],['English',78],['History',92],['Geography',80]].map(([s,m])=>`
+        <div>
+          <div class="flex justify-between text-sm mb-1"><span class="font-medium">${s}</span><span class="text-slate-500">${m}/100</span></div>
+          <div class="h-2 rounded-full bg-slate-100"><div class="h-full rounded-full bg-gradient-to-r from-brand-500 to-purple-500" style="width:${m}%"></div></div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
+/* ---------- ID CARDS ---------- */
+PAGES.idcards = () => idCardPage();
+PAGES.myid = () => idCardPage(true);
+
+function idCardPage(single){
+  return `
+  <div class="flex items-center justify-between mb-4">
+    <h4 class="font-bold">${single?'My ID Card':'ID Card Generator'}</h4>
+    ${single?'':'<div class="flex gap-2"><button class="px-4 py-2 rounded-xl bg-slate-100 text-sm">Bulk Generate</button><button class="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm">+ New Card</button></div>'}
+  </div>
+  <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+    ${[0,1,2].map(i=>idCardTemplate(i)).join('')}
+  </div>
+  <div class="mt-4 text-center"><button onclick="window.print()" class="px-6 py-3 rounded-xl bg-brand-600 text-white font-semibold">🖨️ Print Cards</button></div>`;
+}
+function idCardTemplate(i){
+  const names = ['Aarav Sharma','Priya Verma','Rohan Gupta'];
+  const classes = ['X-A','IX-B','VIII-C'];
+  const ids = ['STU001','STU002','STU003'];
+  return `
+  <div class="idcard rounded-2xl p-5 text-white shadow-xl aspect-[1.6/1] flex flex-col justify-between">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-xs opacity-80">EduManage Pro School</p>
+        <p class="font-bold">Student Identity Card</p>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-xl">🎓</div>
+    </div>
+    <div class="flex items-end gap-3">
+      <div class="flex-1">
+        <p class="text-lg font-bold">${names[i]}</p>
+        <p class="text-xs opacity-80">Class ${classes[i]} • Roll #0${i+1}</p>
+        <p class="text-xs opacity-80">ID: ${ids[i]} • Session ${currentSession}</p>
+      </div>
+      <div class="w-16 h-20 rounded-lg bg-white/20 flex items-center justify-center text-2xl">👤</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- REPORT CARDS ---------- */
+PAGES.reportcards = () => reportCardPage();
+PAGES.myreport = () => reportCardPage(true);
+
+function reportCardPage(single){
+  var extraHtml = single ? '' : '<div class="flex gap-2">' +
+    '<select class="text-sm rounded-lg border border-slate-200 px-3 py-2"><option>July \u2014 Test</option><option>August \u2014 Exam</option></select>' +
+    '<button class="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm">Generate</button>' +
+    '</div>';
+  return `
+  <div class="flex items-center justify-between mb-4">
+    <h4 class="font-bold">${single?'My Report Card':'Report Card Generator'}</h4>
+    ${extraHtml}
+  </div>
+  <div class="bg-white rounded-2xl border border-slate-200 p-8 max-w-3xl mx-auto">
+    <div class="text-center border-b pb-4">
+      <h2 class="text-2xl font-extrabold text-brand-700">EduManage Pro School</h2>
+      <p class="text-sm text-slate-500">Academic Session ${currentSession}</p>
+      <p class="mt-2 font-bold text-lg">${single?'Student':'July'} Report Card — Test</p>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mt-4 text-sm">
+      <div><b>Name:</b> Aarav Sharma</div><div><b>Class:</b> X-A</div>
+      <div><b>Roll No:</b> 01</div><div><b>Session:</b> ${currentSession}</div>
+    </div>
+    <table class="w-full mt-4 text-sm border border-slate-200">
+      <thead class="bg-slate-50"><tr>
+        <th class="p-2 border text-left">Subject</th><th class="p-2 border">Max</th><th class="p-2 border">Obtained</th><th class="p-2 border">Grade</th>
+      </tr></thead>
+      <tbody>
+        ${[['Mathematics',100,85,'A'],['Science',100,88,'A'],['English',100,78,'B+'],['History',100,92,'A+'],['Geography',100,80,'A']].map(r=>`
+          <tr><td class="p-2 border">${r[0]}</td><td class="p-2 border text-center">${r[1]}</td><td class="p-2 border text-center">${r[2]}</td><td class="p-2 border text-center font-bold text-brand-600">${r[3]}</td></tr>`).join('')}
+      </tbody>
+      <tfoot class="bg-slate-50 font-bold">
+        <tr><td class="p-2 border">Total</td><td class="p-2 border text-center">500</td><td class="p-2 border text-center">423</td><td class="p-2 border text-center">A</td></tr>
+      </tfoot>
+    </table>
+    <div class="mt-4 text-sm">
+      <p><b>Percentage:</b> 84.6% &nbsp; <b>Rank:</b> 4 / 52</p>
+      <p class="mt-2"><b>Teacher's Remark:</b> Excellent performance. Keep it up!</p>
+    </div>
+    <div class="mt-6 flex justify-between text-xs text-slate-500">
+      <span>Class Teacher Sign: ____________</span>
+      <span>Principal Sign: ____________</span>
+    </div>
+    <div class="mt-4 text-center"><button onclick="window.print()" class="px-6 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold">🖨️ Print Report Card</button></div>
+  </div>`;
+}
+
+/* ---------- MARK SHEETS ---------- */
+PAGES.marksheets = () => `
+  <div class="flex items-center justify-between mb-4">
+    <h4 class="font-bold">Final Mark Sheet Generator</h4>
+    <div class="flex gap-2">
+      <select class="text-sm rounded-lg border border-slate-200 px-3 py-2"><option>Final — Term I</option><option>Final — Term II</option><option>Annual</option></select>
+      <button class="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm">Generate Mark Sheet</button>
+    </div>
+  </div>
+  <div class="bg-white rounded-2xl border border-slate-200 p-8 max-w-4xl">
+    <div class="text-center border-b pb-4">
+      <h2 class="text-2xl font-extrabold text-brand-700">EduManage Pro School</h2>
+      <p class="font-bold mt-1">FINAL MARK SHEET — Annual ${currentSession}</p>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mt-4 text-sm">
+      <div><b>Student:</b> Aarav Sharma</div><div><b>Class:</b> X-A</div>
+      <div><b>Father:</b> Mr. Rajesh Sharma</div><div><b>DOB:</b> 12-Mar-2010</div>
+    </div>
+    <table class="w-full mt-4 text-sm border border-slate-200">
+      <thead class="bg-slate-50"><tr>
+        <th class="p-2 border text-left">Subject</th><th class="p-2 border">Test (30)</th><th class="p-2 border">Exam (70)</th><th class="p-2 border">Total (100)</th><th class="p-2 border">Grade</th>
+      </tr></thead>
+      <tbody>
+        ${[['Mathematics',26,60,86,'A'],['Science',25,63,88,'A'],['English',22,56,78,'B+'],['History',28,64,92,'A+'],['Geography',24,56,80,'A']].map(r=>`
+          <tr><td class="p-2 border">${r[0]}</td><td class="p-2 border text-center">${r[1]}</td><td class="p-2 border text-center">${r[2]}</td><td class="p-2 border text-center font-bold">${r[3]}</td><td class="p-2 border text-center text-brand-600 font-bold">${r[4]}</td></tr>`).join('')}
+      </tbody>
+      <tfoot class="bg-slate-50 font-bold">
+        <tr><td class="p-2 border">Grand Total</td><td class="p-2 border text-center">125/150</td><td class="p-2 border text-center">299/350</td><td class="p-2 border text-center">424/500</td><td class="p-2 border text-center">A</td></tr>
+      </tfoot>
+    </table>
+    <div class="mt-4 text-sm">
+      <p><b>Result:</b> <span class="text-green-600 font-bold">PASSED</span> &nbsp; <b>Percentage:</b> 84.8% &nbsp; <b>Division:</b> First</p>
+    </div>
+    <div class="mt-6 text-center"><button onclick="window.print()" class="px-6 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold">🖨️ Print Mark Sheet</button></div>
+  </div>`;
+
+/* ---------- FEE MANAGER PAGES ---------- */
+PAGES.feestructure = () => tablePage('Fee Structure','feestructure',['Fee Head','Class','Amount','Frequency','Status'],[
+  ['Tuition','All','₹ 5,000','Monthly','Active'],
+  ['Lab Fee','IX-XII','₹ 1,200','Annual','Active'],
+  ['Transport','All','₹ 1,500','Monthly','Active'],
+  ['Library','All','₹ 500','Annual','Active'],
+  ['Sports','All','₹ 800','Annual','Active'],
+]);
+PAGES.feereports = () => `
+  <div class="grid md:grid-cols-3 gap-4 mb-6">
+    ${[['Total Collection','₹ 12.4L','bg-green-500'],['This Month','₹ 1.8L','bg-brand-500'],['Online vs Offline','68% / 32%','bg-purple-500']].map(([l,v,c])=>`
+      <div class="bg-white rounded-2xl p-5 border border-slate-100">
+        <p class="text-xs text-slate-500">${l}</p><p class="mt-2 text-3xl font-bold">${v}</p>
+        <div class="mt-3 h-1 rounded-full ${c}"></div>
+      </div>`).join('')}
+  </div>
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <h4 class="font-bold mb-4">Monthly Collection Trend</h4>
+    <div class="flex items-end gap-3 h-48">
+      ${[40,60,45,80,70,90,65,85,75,95,70,88].map(h=>`<div class="flex-1 rounded-t-lg bg-gradient-to-t from-brand-500 to-purple-500" style="height:${h}%"></div>`).join('')}
+    </div>
+    <div class="flex justify-between text-xs text-slate-500 mt-2">
+      ${['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'].map(m=>`<span>${m}</span>`).join('')}
+    </div>
+  </div>`;
+PAGES.pendingdues = () => tablePage('Pending Dues','pendingdues',['Student','Class','Amount','Due Date','Days Overdue'],[
+  ['Priya Verma','X-A','₹ 5,000','05-Aug','12'],
+  ['Kabir Singh','VIII-C','₹ 6,500','10-Aug','07'],
+  ['Ananya Das','IX-A','₹ 5,000','15-Aug','02'],
+  ['Rohit Jain','VII-B','₹ 5,500','20-Aug','00'],
+]);
+
+/* ---------- SETTINGS ---------- */
+PAGES.settings = () => `
+  <div class="grid md:grid-cols-2 gap-4">
+    ${[['School Profile','Name, address, logo'],['Session Management','2025-26, 2026-27'],['User Roles','Admin, Manager, Teacher, Student'],['Academic Calendar','Holidays, events'],['Backup & Restore','Data safety'],['Email/SMS Templates','Notifications']].map(([t,d])=>`
+      <div class="bg-white rounded-2xl p-5 border border-slate-100 hover:shadow-lg transition cursor-pointer">
+        <h4 class="font-bold">${t}</h4>
+        <p class="text-sm text-slate-500 mt-1">${d}</p>
+        <button class="mt-3 text-xs text-brand-600 font-semibold">Configure →</button>
+      </div>`).join('')}
+  </div>`;
+
+/* ---------- GENERIC TABLE ---------- */
+function tablePage(title,key,cols,rows){
+  return `
+  <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+    <div class="p-5 flex items-center justify-between border-b border-slate-100">
+      <div>
+        <h4 class="font-bold">${title}</h4>
+        <p class="text-xs text-slate-500">${rows.length} records • ${currentSession}</p>
+      </div>
+      <div class="flex gap-2">
+        <input placeholder="Search..." class="text-sm rounded-lg border border-slate-200 px-3 py-2"/>
+        <button class="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold">+ Add New</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50"><tr>${cols.map(c=>`<th class="text-left py-3 px-4 font-semibold text-slate-600">${c}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r=>`<tr class="border-t border-slate-100 hover:bg-slate-50">${r.map(c=>`<td class="py-3 px-4">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ---------- MODAL ---------- */
+function openModal(type){
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <div class="p-6 border-b flex items-center justify-between">
+      <h3 class="font-bold">Create Test Timetable</h3>
+      <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div class="grid md:grid-cols-2 gap-4">
+        <div><label class="text-sm font-medium">Month</label><select class="mt-1 w-full rounded-xl border px-4 py-3"><option>July</option><option>August</option></select></div>
+        <div><label class="text-sm font-medium">Type</label><select class="mt-1 w-full rounded-xl border px-4 py-3"><option>Test</option><option>Exam</option></select></div>
+        <div><label class="text-sm font-medium">Class</label><select class="mt-1 w-full rounded-xl border px-4 py-3"><option>X-A</option><option>IX-B</option></select></div>
+        <div><label class="text-sm font-medium">Subject</label><input class="mt-1 w-full rounded-xl border px-4 py-3" placeholder="Mathematics"/></div>
+        <div><label class="text-sm font-medium">Date</label><input type="date" class="mt-1 w-full rounded-xl border px-4 py-3"/></div>
+        <div><label class="text-sm font-medium">Time</label><input type="time" class="mt-1 w-full rounded-xl border px-4 py-3"/></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-4">
+        <button onclick="closeModal()" class="px-4 py-2 rounded-xl bg-slate-100 text-sm">Cancel</button>
+        <button onclick="closeModal()" class="px-4 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold">Create</button>
+      </div>
+    </div>`;
+  document.getElementById('modal').classList.remove('hidden');
+  document.getElementById('modal').classList.add('flex');
+}
+function closeModal(){
+  document.getElementById('modal').classList.add('hidden');
+  document.getElementById('modal').classList.remove('flex');
+}
+
+</script>
+</body>
+</html>

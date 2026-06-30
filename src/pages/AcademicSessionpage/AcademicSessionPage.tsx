@@ -1,14 +1,64 @@
-import React from "react";
+import {useState} from "react";
 import { ArrowRight, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
+import DatePickerSimple from "@/components/DatePicker";
+import { useMutation } from "@tanstack/react-query";
+import { saveAcademicSession } from "@/api/academicsession";
+import { toast } from "sonner";
 
 export default function AcademicSessionPage() {
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [sessionName, setSessionName] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+
+  const mutation = useMutation({
+    mutationFn: saveAcademicSession,
+    onSuccess: () => {
+      toast.success("Academic session created successfully!");
+      setSessionName("");
+      setDescription("");
+      setStartDate(undefined);
+      setEndDate(undefined);
+    },
+    onError: () => {
+      // Error toast is already handled globally by the API client interceptor
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!sessionName.trim()) {
+      toast.error("Session name is required");
+      return;
+    }
+    if (!startDate) {
+      toast.error("Start date is required");
+      return;
+    }
+    if (!endDate) {
+      toast.error("End date is required");
+      return;
+    }
+
+    mutation.mutate({
+      session_name: sessionName.trim(),
+      session_start_date: startDate.toISOString(),
+      session_end_date: endDate.toISOString(),
+      description: description.trim() || undefined,
+      is_active: true,
+      is_current: true,
+    });
+  };
+
   return (
     <div className="min-h-screen w-full flex font-sans">
       
-      {/* --- LEFT PANEL (DARK THEME) --- */}
+      
       <div 
         className="hidden lg:flex w-1/2 bg-[#09090b] relative flex-col justify-between p-12 text-white overflow-hidden"
       >
@@ -65,7 +115,7 @@ export default function AcademicSessionPage() {
           </div>
 
           {/* Session Form */}
-          <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
             
             <div className="space-y-2">
               <Label htmlFor="sessionName" className="text-xs text-slate-600 font-medium">Session Name</Label>
@@ -74,25 +124,19 @@ export default function AcademicSessionPage() {
                 type="text" 
                 placeholder="e.g. Fall Semester 2024" 
                 className="h-11 bg-white border-slate-200 focus-visible:ring-slate-400 placeholder:text-slate-400"
+                value={sessionName}
+                onChange={(e) => setSessionName(e.target.value)}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startDate" className="text-xs text-slate-600 font-medium">Start Date</Label>
-                <Input 
-                  id="startDate" 
-                  type="date" 
-                  className="h-11 bg-white border-slate-200 focus-visible:ring-slate-400 text-slate-600"
-                />
+                <DatePickerSimple DateTitle="Select Start Date" date={startDate} setDate={setStartDate} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="endDate" className="text-xs text-slate-600 font-medium">End Date</Label>
-                <Input 
-                  id="endDate" 
-                  type="date" 
-                  className="h-11 bg-white border-slate-200 focus-visible:ring-slate-400 text-slate-600"
-                />
+                <DatePickerSimple DateTitle="Select End Date" date={endDate} setDate={setEndDate} />
               </div>
             </div>
 
@@ -103,11 +147,13 @@ export default function AcademicSessionPage() {
                 type="text" 
                 placeholder="Brief description of the term" 
                 className="h-11 bg-white border-slate-200 focus-visible:ring-slate-400 placeholder:text-slate-400"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
               />
             </div>
 
-            <Button type="submit" className="w-full h-11 bg-[#111827] hover:bg-black text-white mt-2 gap-2 text-sm font-medium transition-colors shadow-sm">
-              Create Session <ArrowRight className="h-4 w-4" />
+            <Button type="submit" className="w-full h-11 bg-[#111827] hover:bg-black text-white mt-2 gap-2 text-sm font-medium transition-colors shadow-sm" disabled={mutation.isPending}>
+              {mutation.isPending ? <Spinner className="size-5" /> : "Create Session"} <ArrowRight className="h-4 w-4" />
             </Button>
 
           </form>

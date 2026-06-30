@@ -1,6 +1,7 @@
 import { Loader2 } from "lucide-react";
 
 export default function LoadingPage() {
+
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#09090b] text-white font-sans relative overflow-hidden">
       {/* Dotted Grid Background */}
