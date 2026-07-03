@@ -1,7 +1,7 @@
 import apiClient from "./client";
 
 export interface TeacherData {
-  name: string;
+  fullName: string;
   email: string;
   employee_id: string;
   phone?: string;
@@ -11,13 +11,15 @@ export interface TeacherData {
   sssmid?: string;
   status?: string;
   password?: string;
+  education?: string;
   createdAt?:any;
   updateAt?:any;
 }
 
 export interface TeacherResponse {
-  id: string;
-  name: string;
+  id: number;
+  fullName: string;
+  name?: string;
   email: string;
   employee_id: string;
   phone?: string;
@@ -26,13 +28,17 @@ export interface TeacherResponse {
   aadhaar_id?: string;
   sssmid?: string;
   status: string;
-  created_at: string;
+  created_at?: string;
 }
 
 export const fetchTeachers = async (): Promise<TeacherResponse[]> => {
   const response = await apiClient.get("/api/v1/teachers/all");
-  console.log(response.data)
-  return response.data;
+  const raw = response.data?.data ?? response.data ?? [];
+  return raw.map((t: any) => ({
+    ...t,
+    id: t.id ?? t.teacher_id,
+    fullName: t.fullName ?? t.name,
+  }));
 };
 
 export const saveTeacher = async (data: TeacherData) => {

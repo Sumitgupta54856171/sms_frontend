@@ -26,6 +26,9 @@ import { Spinner } from "@/components/ui/spinner";
 
 import { fetchStudents, deleteStudent } from "@/api/student";
 import StudentForm from "./Studentform";
+import StudentProfile from "./StudentProfile/StudentProfile";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { openModal, closeModal, setSelectedStudent } from "@/store/slices/uiSlice";
 
 const colorPalette = [
   "bg-teal-500",
@@ -39,8 +42,10 @@ const colorPalette = [
 ];
 
 export default function StudentTable() {
+  const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
+  const showForm = useAppSelector((s) => s.ui.modals.studentForm);
+  const showProfile = useAppSelector((s) => s.ui.modals.studentProfile);
   const [globalFilter, setGlobalFilter] = useState("");
   const [classFilter, setClassFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,7 +88,9 @@ export default function StudentTable() {
 
   return (
     <>
-      {showForm && <StudentForm onClose={() => setShowForm(false)} />}
+      {showForm && <StudentForm onClose={() => dispatch(closeModal("studentForm"))} />}
+      {showProfile && <StudentProfile />}
+      
 
       <div className="p-6 bg-slate-50 min-h-screen">
         <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden font-sans">
@@ -123,7 +130,7 @@ export default function StudentTable() {
               </Select>
 
               <Button
-                onClick={() => setShowForm(true)}
+                onClick={() => dispatch(openModal("studentForm"))}
                 className="bg-[#0d9488] hover:bg-teal-700 text-white h-10 shadow-sm whitespace-nowrap"
               >
                 <Plus className="h-4 w-4 mr-1.5" />
@@ -231,6 +238,7 @@ export default function StudentTable() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-slate-400 hover:text-slate-600"
+                            onClick={() => { dispatch(setSelectedStudent(student)); dispatch(openModal("studentProfile")); }}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>

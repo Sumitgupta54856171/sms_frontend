@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { classes } from "./data/class";
-import { Link } from "lucide-react";
+import { GlowingEffect } from "@/components/ui/glowing-effect";
 
 // Dummy data extracted from your original code
 
@@ -37,7 +37,7 @@ export default function ClassGrid() {
             <Card
               key={cls.id}
               onClick={() => toggleClass(cls)}
-              className={`relative overflow-hidden cursor-pointer transition-all duration-300 ease-in-out border-slate-200 bg-white
+              className={`relative overflow-hidden cursor-pointer transition-all duration-300 ease-in-out border-slate-200 bg-white rounded-xl
                 ${isActive ? 'shadow-xl scale-[1.02]' : 'shadow-sm hover:shadow-md hover:-translate-y-1'}
               `}
               // We use inline style for dynamic custom hex borders
@@ -45,6 +45,17 @@ export default function ClassGrid() {
                 borderColor: isActive ? cls.color : undefined,
               }}
             >
+              <GlowingEffect
+                blur={10}
+                inactiveZone={0.01}
+                proximity={50}
+                spread={30}
+                variant="default"
+                glow={true}
+                className="rounded-xl"
+                disabled={false}
+                borderWidth={2}
+              />
               {/* Top Custom Color Gradient Bar */}
               <div 
                 className="absolute top-0 left-0 right-0 h-1.5 opacity-90"

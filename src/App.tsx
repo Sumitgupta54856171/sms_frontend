@@ -16,6 +16,7 @@ const AcademicSessionPage = lazy(
   () => import("@/pages/AcademicSessionpage/AcademicSessionPage")
 );
 const ClassPage = lazy(() => import("./pages/classpage/Classpage"));
+const TimetablePage = lazy(() => import("./pages/Timetablepage"));
 const LoginPage = lazy(() => import("./pages/Loginpage"));
 
 function App() {
@@ -27,7 +28,6 @@ function App() {
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected routes — wrapped in auth guard */}
             <Route element={<ProtectedRoute />}>
               <Route element={<SchoolSidebar />}>
                 <Route path="/" element={<div>Home</div>} />
@@ -36,6 +36,8 @@ function App() {
                 <Route path="/attendance" element={<AttendencePage />} />
                 <Route path="/teachers" element={<TeacherPage />} />
                 <Route path="/students" element={<StudentPage />} />
+                <Route path="/timetable" element={<TimetablePage />} />
+                <Route path="/session" element={<AcademicSessionPage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

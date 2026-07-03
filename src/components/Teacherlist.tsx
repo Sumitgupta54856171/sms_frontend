@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Plus, Mail, Phone, PenLine } from "lucide-react";
+import { Download, Plus, Mail, Phone, PenLine, Calendar } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,9 +10,15 @@ import TeacherForm from "./Teacherform";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTeachers } from "@/api/teacher";
 import type { TeacherResponse } from "@/api/teacher";
+import AssignPeriodModal from "./Timetable/AssignPeriodModal";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { openModal, closeModal } from "@/store/slices/uiSlice";
 
 export default function TeacherManagement() {
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const dispatch = useAppDispatch();
+  const isFormOpen = useAppSelector((s) => s.ui.modals.teacherForm);
+  const [timetableTeacherId, setTimetableTeacherId] = useState<string | null>(null);
+  console.log(timetableTeacherId)
 
   const {
     data: teachers,
@@ -24,7 +30,7 @@ export default function TeacherManagement() {
   });
 
   if (isFormOpen) {
-    return <TeacherForm onClose={() => setIsFormOpen(false)} />;
+    return <TeacherForm onClose={() => dispatch(closeModal("teacherForm"))} />;
   }
 
   return (
@@ -50,7 +56,7 @@ export default function TeacherManagement() {
           </Button>
           <Button
             className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-sm"
-            onClick={() => setIsFormOpen(true)}
+            onClick={() => dispatch(openModal("teacherForm"))}
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Teacher
@@ -106,7 +112,7 @@ export default function TeacherManagement() {
 
                   {/* Teacher Info */}
                   <h3 className="font-bold text-base text-slate-800 mb-0.5">
-                    {teacher.name}
+                    {teacher.fullName}
                   </h3>
                   <p className="text-sm text-slate-600 font-medium mb-1.5">
                     {teacher.subject_specialization || "General"}
@@ -172,12 +178,29 @@ export default function TeacherManagement() {
                     >
                       <PenLine className="h-4 w-4" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setTimetableTeacherId(teacher.id.toString())}
+                      className="h-9 w-9 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-full transition-colors"
+                      title="Assign Timetable"
+                    >
+                      <Calendar className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </Card>
             );
           })}
         </div>
+      )}
+
+      {/* Timetable Assignment Modal */}
+      {timetableTeacherId && (
+        <AssignPeriodModal
+          onClose={() => setTimetableTeacherId(null)}
+          preselectedTeacherId={timetableTeacherId}
+        />
       )}
     </div>
   );

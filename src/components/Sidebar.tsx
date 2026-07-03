@@ -44,7 +44,7 @@ const menuGroups = [
       { title: "Teachers", url: "/teachers", icon: Presentation, badge: { text: "86", style: "text-purple-600 text-xs font-semibold" } },
       { title: "Classes & Sections", url: "/class", icon: Building2 },
       { title: "Subjects", url: "#", icon: Book },
-      { title: "Timetable", url: "#", icon: Calendar },
+      { title: "Timetable", url: "/timetable", icon: Calendar },
     ]
   },
   {
@@ -201,6 +201,7 @@ export default function SchoolSidebar() {
             <div className="flex-1 font-semibold text-slate-800 text-sm">
               Dashboard / Students
             </div>
+            <span className="bg-[#0d9488] hover:bg-teal-700 text-white h-10 shadow-sm whitespace-nowrap rounded-xl justify-center content-center text-center "><Link  className="text-white h-4 w-4 mr-1.5 p-4" to="/session">New Session</Link></span>
           </header>
 
           {/* Page Content Placeholder */}

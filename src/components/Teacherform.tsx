@@ -32,6 +32,7 @@ export default function TeacherForm({ onClose }: TeacherFormProps) {
     sssmid: "",
     status: "active",
     password: "",
+    education: "",
   });
 
   const update = (field: string) => (e: any) =>
@@ -48,7 +49,7 @@ export default function TeacherForm({ onClose }: TeacherFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.name.trim()) {
+    if (!form.fullName.trim()) {
       toast.error("Full name is required");
       return;
     }
@@ -92,8 +93,8 @@ export default function TeacherForm({ onClose }: TeacherFormProps) {
               </Label>
               <Input
                 id="name"
-                value={form.name}
-                onChange={update("name")}
+                value={form.fullName}
+                onChange={update("fullName")}
                 placeholder="Enter teacher's name"
               />
             </div>
@@ -148,13 +149,26 @@ export default function TeacherForm({ onClose }: TeacherFormProps) {
                 placeholder="e.g. Mathematics, Science"
               />
             </div>
+           
+            <div>
+              <Label htmlFor="education" className="mb-1.5 block">
+                Education
+              </Label>
+              <Input
+                id="education"
+                value={form.education}
+                onChange={update("education")}
+                placeholder="e.g. B.Ed, M.A. English"
+              />
+            </div>
             <div>
               <Label htmlFor="gender" className="mb-1.5 block">Gender</Label>
-              <Select value={form.gender} onValueChange={update("gender")}>
+              <Select value={form.gender || "__placeholder__"} onValueChange={update("gender")}>
                 <SelectTrigger id="gender">
                   <SelectValue placeholder="Select Gender" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__placeholder__" className="hidden">Select Gender</SelectItem>
                   <SelectItem value="male">Male</SelectItem>
                   <SelectItem value="female">Female</SelectItem>
                   <SelectItem value="other">Other</SelectItem>

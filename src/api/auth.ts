@@ -8,7 +8,7 @@ export interface LoginData {
 
 export const loginUser = async (data: LoginData) => {
   try{
-    const response = await apiClient.post("/api/v1/auth/login", data)
+    const response = await apiClient.post("/api/v1/auth/login", data,{withCredentials: true});
 
   return response.data;
 

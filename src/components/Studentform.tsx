@@ -24,8 +24,7 @@ export default function StudentForm({ onClose }: StudentFormProps) {
   const [form, setForm] = useState({
     name: "",
     email: "",
-    class_id: "",
-    section: "",
+    class_no: "",
     roll_no: "",
     scholar_no: "",
     sssmid: "",
@@ -62,12 +61,8 @@ export default function StudentForm({ onClose }: StudentFormProps) {
       toast.error("Email is required");
       return;
     }
-    if (!form.class_id) {
+    if (!form.class_no) {
       toast.error("Class is required");
-      return;
-    }
-    if (!form.section) {
-      toast.error("Section is required");
       return;
     }
     if (!form.roll_no.trim()) {
@@ -127,11 +122,12 @@ export default function StudentForm({ onClose }: StudentFormProps) {
               <Label htmlFor="class" className="mb-1.5 block">
                 Class <span className="text-red-500">*</span>
               </Label>
-              <Select value={form.class_id} onValueChange={update("class_id")}>
+              <Select value={form.class_no || "__placeholder__"} onValueChange={update("class_no")}>
                 <SelectTrigger id="class">
                   <SelectValue placeholder="Select Class" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__placeholder__" className="hidden">Select Class</SelectItem>
                   <SelectItem value="1">Class 1</SelectItem>
                   <SelectItem value="2">Class 2</SelectItem>
                   <SelectItem value="3">Class 3</SelectItem>
@@ -147,21 +143,7 @@ export default function StudentForm({ onClose }: StudentFormProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="section" className="mb-1.5 block">
-                Section <span className="text-red-500">*</span>
-              </Label>
-              <Select value={form.section} onValueChange={update("section")}>
-                <SelectTrigger id="section">
-                  <SelectValue placeholder="Select Section" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A">Section A</SelectItem>
-                  <SelectItem value="B">Section B</SelectItem>
-                  <SelectItem value="C">Section C</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          
 
             <div>
               <Label htmlFor="rollNo" className="mb-1.5 block">
@@ -215,11 +197,12 @@ export default function StudentForm({ onClose }: StudentFormProps) {
               <Label htmlFor="gender" className="mb-1.5 block">
                 Gender <span className="text-red-500">*</span>
               </Label>
-              <Select value={form.gender} onValueChange={update("gender")}>
+              <Select value={form.gender || "__placeholder__"} onValueChange={update("gender")}>
                 <SelectTrigger id="gender">
                   <SelectValue placeholder="Select Gender" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__placeholder__" className="hidden">Select Gender</SelectItem>
                   <SelectItem value="male">Male</SelectItem>
                   <SelectItem value="female">Female</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
@@ -230,11 +213,12 @@ export default function StudentForm({ onClose }: StudentFormProps) {
               <Label htmlFor="category" className="mb-1.5 block">
                 Category <span className="text-red-500">*</span>
               </Label>
-              <Select value={form.category} onValueChange={update("category")}>
+              <Select value={form.category || "__placeholder__"} onValueChange={update("category")}>
                 <SelectTrigger id="category">
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__placeholder__" className="hidden">Select Category</SelectItem>
                   <SelectItem value="general">General</SelectItem>
                   <SelectItem value="obc">OBC</SelectItem>
                   <SelectItem value="sc">SC</SelectItem>
