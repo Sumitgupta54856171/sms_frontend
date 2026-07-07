@@ -53,7 +53,7 @@ export default function ClassTeacherAssign() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!classNo || classNo === "__placeholder__" || !teacherId || teacherId === "__placeholder__") {
-      toast.error("Please select class and teacher");
+      toast.error("Please select grade and teacher");
       return;
     }
     mutation.mutate({
@@ -70,25 +70,25 @@ export default function ClassTeacherAssign() {
         <CardHeader className="border-b border-slate-100 pb-3">
           <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
             <UserCheck className="h-5 w-5 text-teal-600" />
-            Assign Class Teacher
+            Assign Grade Teacher
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label className="mb-1.5 block">Class</Label>
+                <Label className="mb-1.5 block">Grade</Label>
                 <Select value={classNo} onValueChange={setClassNo}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
+                    <SelectValue placeholder="Select grade" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__placeholder__" className="hidden">
-                      Select class
+                      Select grade
                     </SelectItem>
                     {CLASSES.map((c) => (
                       <SelectItem key={c} value={c}>
-                        Class {c}
+                        Grade {c}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -138,7 +138,7 @@ export default function ClassTeacherAssign() {
                 className="bg-teal-600 hover:bg-teal-700 text-white"
                 disabled={mutation.isPending}
               >
-                {mutation.isPending ? "Assigning..." : "Assign Class Teacher"}
+                {mutation.isPending ? "Assigning..." : "Assign Grade Teacher"}
               </Button>
             </div>
           </form>
@@ -149,13 +149,13 @@ export default function ClassTeacherAssign() {
       <Card className="border-slate-200 shadow-sm">
         <CardHeader className="border-b border-slate-100 pb-3">
           <CardTitle className="text-lg font-semibold text-slate-900">
-            Current Class Teachers
+            Current Grade Teachers
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
           {classTeachers.length === 0 ? (
             <p className="text-sm text-slate-500 text-center py-4">
-              No class teachers assigned yet.
+              No grade teachers assigned yet.
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -166,7 +166,7 @@ export default function ClassTeacherAssign() {
                 >
                   <div>
                     <span className="font-semibold text-slate-900">
-                      Class {ct.class_no}
+                      Grade {ct.class_no}
                     </span>
                     {ct.section && (
                       <span className="text-slate-500"> - {ct.section}</span>

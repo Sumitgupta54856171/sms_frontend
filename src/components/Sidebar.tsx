@@ -9,6 +9,7 @@ import {
   FileText,
   LineChart,
   DollarSign,
+  IndianRupee,
   Library,
   Bus,
   BedDouble,
@@ -34,16 +35,17 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/AuthProvider";
+import SessionSwitcher from "@/components/SessionSwitcher";
 
 // Grouped Menu Items matching the screenshot
 const menuGroups = [
   {
     label: "ACADEMICS",
     items: [
-      { title: "Students", url: "/students", icon: GraduationCap, badge: { text: "1,248", style: "bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs font-semibold" } },
-      { title: "Teachers", url: "/teachers", icon: Presentation, badge: { text: "86", style: "text-purple-600 text-xs font-semibold" } },
+      { title: "Students", url: "/students", icon: GraduationCap, badge: { text: "", style: "bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs font-semibold" } },
+      { title: "Teachers", url: "/teachers", icon: Presentation, badge: { text: "", style: "text-purple-600 text-xs font-semibold" } },
       { title: "Classes & Sections", url: "/class", icon: Building2 },
-      { title: "Subjects", url: "#", icon: Book },
+      { title: "Subjects", url: "/subjects", icon: Book },
       { title: "Timetable", url: "/timetable", icon: Calendar },
     ]
   },
@@ -53,7 +55,9 @@ const menuGroups = [
       { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
       { title: "Examinations", url: "#", icon: FileText },
       { title: "Grades", url: "#", icon: LineChart },
-      { title: "Fees", url: "#", icon: DollarSign, badge: { text: "32", style: "text-slate-700 text-xs font-semibold" } },
+      { title: "Fee Management", url: "/fees", icon: DollarSign, badge: { text: "32", style: "text-slate-700 text-xs font-semibold" } },
+      { title: "Fee Structure", url: "/fees/structure", icon: IndianRupee },
+      { title: "Transfer Certificate", url: "/tc", icon: FileText },
     ]
   },
   {
@@ -100,7 +104,7 @@ export default function SchoolSidebar() {
         <Sidebar className="border-r border-slate-200 bg-white">
           
           {/* 1. Header (Logo & Brand) */}
-          <SidebarHeader className="pt-6 pb-2 px-4">
+          <SidebarHeader className="pt-6 pb-2 px-4 space-y-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center h-10 w-10 bg-indigo-600 text-white rounded-xl shadow-sm">
                 <GraduationCap className="h-6 w-6" />
@@ -110,6 +114,8 @@ export default function SchoolSidebar() {
                 <span className="text-[11px] text-slate-500">v3.2.0 Enterprise</span>
               </div>
             </div>
+            {/* Session Switcher */}
+            <SessionSwitcher />
           </SidebarHeader>
 
           {/* 2. Main Content (Links) */}
@@ -150,9 +156,7 @@ export default function SchoolSidebar() {
                               <item.icon className="h-5 w-5 text-slate-600 stroke-[1.5]" />
                               <span className="font-medium text-[15px]">{item.title}</span>
                             </div>
-                            {item.badge && (
-                              <span className={item.badge.style}>{item.badge.text}</span>
-                            )}
+                            
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

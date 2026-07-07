@@ -7,6 +7,11 @@ import {
   Users,
   Save,
   Loader2,
+  Pencil,
+  PencilOff,
+  RefreshCw,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -44,11 +49,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchStudents, type StudentResponse } from "@/api/student";
 import {
   saveAttendance,
+  updateAttendance,
   fetchAttendanceByDate,
   type AttendancePayload,
   type AttendanceRecord,
 } from "@/api/attendance";
-const CLASSES = Array.from({ length: 12 }, (_, i) => `Class ${i + 1}`);
+const CLASSES = ["Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)];
 
 const EMPTY_STUDENTS: StudentResponse[] = [];
 const EMPTY_ATTENDANCE: AttendanceRecord[] = [];
@@ -62,18 +68,22 @@ const getInitials = (name: string): string =>
     .toUpperCase()
     .slice(0, 2);
 
-/** Local student row with attendance status */
+
 interface StudentRow {
   id: number;
   name: string;
-  status: "PRESENT" | "ABSENT" | null;
+  rollNumber: string;
+  scholarNo: string;
+  status: "present" | "absent" | null;
 }
 
 export default function Attendance() {
   const queryClient = useQueryClient();
-  const [selectedClass, setSelectedClass] = useState("__placeholder__");
+  const [selectedClass, setSelectedClass] = useState("Nursery");
   const [date, setDate] = useState<Date>(new Date());
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const formattedDate = useMemo(() => format(date, "yyyy-MM-dd"), [date]);
 
@@ -97,7 +107,7 @@ export default function Attendance() {
 
   // ─── Build student list when data changes ────────────────────────────
   useEffect(() => {
-    if (!selectedClass || selectedClass === "__placeholder__") {
+    if (!selectedClass) {
       setStudents([]);
       return;
     }
@@ -106,17 +116,32 @@ export default function Attendance() {
       return;
     }
 
-    // Filter students by selected class (match "Class 1" format)
-    const classStudents = studentList.filter(
-      (s) => s.classInfo?.toLowerCase() === selectedClass.toLowerCase()
-    );
+    // Filter students by selected class
+    const classStudents = studentList.filter((s) => {
+      const classInfo = s.classInfo ?? "";
+      // For Nursery/LKG/UKG, match the class name directly
+      if (["Nursery", "LKG", "UKG"].includes(selectedClass)) {
+        return classInfo === selectedClass;
+      }
+      // For Grade 1-12, match by number
+      const classNum = classInfo.replace(/\D/g, "");
+      const selectedNum = selectedClass.replace(/\D/g, "");
+      return classNum && selectedNum && classNum === selectedNum;
+    });
 
-    // Merge with existing attendance records
+    // Merge with existing attendance records (skip records with null studentId)
+    const validAttendance = attendanceList.filter((a) => a.studentId != null);
+    console.log("Merging attendance:", {
+      classStudents: classStudents.map((s) => ({ id: s.id, name: s.name })),
+      validAttendance: validAttendance.map((a) => ({ studentId: a.studentId, status: a.status })),
+    });
     const merged: StudentRow[] = classStudents.map((s) => {
-      const record = attendanceList.find((a) => a.student_id === s.id);
+      const record = validAttendance.find((a) => a.studentId === s.id);
       return {
         id: s.id,
         name: s.name,
+        rollNumber: s.roll ?? "",
+        scholarNo: s.scholar_no ?? "",
         status: record?.status ?? null,
       };
     });
@@ -124,14 +149,23 @@ export default function Attendance() {
     setStudents(merged);
   }, [selectedClass, allStudents, existingAttendance, studentList, attendanceList]);
 
+  // ─── Sort students by roll number ───────────────────────────────────
+  const sortedStudents = useMemo(() => {
+    return [...students].sort((a, b) => {
+      const aNum = parseInt(a.rollNumber, 10) || 0;
+      const bNum = parseInt(b.rollNumber, 10) || 0;
+      return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
+    });
+  }, [students, sortOrder]);
+
   // ─── Stats ───────────────────────────────────────────────────────────
   const totalCount = students.length;
-  const presentCount = students.filter((s) => s.status === "PRESENT").length;
-  const absentCount = students.filter((s) => s.status === "ABSENT").length;
+  const presentCount = students.filter((s) => s.status === "present").length;
+  const absentCount = students.filter((s) => s.status === "absent").length;
 
-  // ─── Handle status toggle ────────────────────────────────────────────
+  // ─── Handle local status toggle ─────────────────────────────────────
   const handleStatusChange = useCallback(
-    (id: number, newStatus: "PRESENT" | "ABSENT") => {
+    (id: number, newStatus: "present" | "absent") => {
       setStudents((prev) =>
         prev.map((s) => (s.id === id ? { ...s, status: s.status === newStatus ? null : newStatus } : s))
       );
@@ -139,8 +173,25 @@ export default function Attendance() {
     []
   );
 
-  // ─── Save mutation ───────────────────────────────────────────────────
-  const mutation = useMutation({
+  // ─── Update mutation (individual edit) ───────────────────────────────
+  const updateMutation = useMutation({
+    mutationFn: ({ studentId, status, date }: { studentId: number; status: "present" | "absent"; date: string }) =>
+      updateAttendance(studentId, status, date),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendance", formattedDate] });
+      toast.success("Attendance updated!");
+    },
+    onError: () => {
+      toast.error("Failed to update attendance");
+    },
+  });
+
+  const handleUpdate = (id: number, status: "present" | "absent") => {
+    updateMutation.mutate({ studentId: id, status, date: formattedDate });
+  };
+
+  // ─── Save mutation (batch new records) ───────────────────────────────
+  const saveMutation = useMutation({
     mutationFn: saveAttendance,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["attendance", formattedDate] });
@@ -156,8 +207,9 @@ export default function Attendance() {
       .filter((s) => s.status !== null)
       .map((s) => ({
         attendanceDate: formattedDate,
-        student_id: s.id,
-        status: s.status as "PRESENT" | "ABSENT",
+        studentId: s.id,
+        status: s.status as "present" | "absent",
+        grade: selectedClass,
       }));
 
     if (payload.length === 0) {
@@ -165,7 +217,7 @@ export default function Attendance() {
       return;
     }
 
-    mutation.mutate(payload);
+    saveMutation.mutate(payload);
   };
 
   // ─── Loading state ───────────────────────────────────────────────────
@@ -186,15 +238,32 @@ export default function Attendance() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Edit Toggle */}
+            <Button
+              variant={editing ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEditing((prev) => !prev)}
+              className="gap-2"
+            >
+              {editing ? (
+                <>
+                  <PencilOff className="h-4 w-4" />
+                  Done
+                </>
+              ) : (
+                <>
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </>
+              )}
+            </Button>
+
             {/* Class Select */}
             <Select value={selectedClass} onValueChange={setSelectedClass}>
               <SelectTrigger className="w-36 bg-white">
-                <SelectValue placeholder="Select class" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__placeholder__" className="hidden">
-                  Select class
-                </SelectItem>
                 {CLASSES.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
@@ -297,13 +366,27 @@ export default function Attendance() {
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
-                  <TableHead className="w-72">Student</TableHead>
-                  <TableHead>ID</TableHead>
-                  <TableHead className="text-right">Mark Attendance</TableHead>
+                  <TableHead className="w-56">Student</TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
+                    >
+                      Roll No
+                      {sortOrder === "asc" ? (
+                        <ArrowUp className="h-3 w-3" />
+                      ) : (
+                        <ArrowDown className="h-3 w-3" />
+                      )}
+                    </button>
+                  </TableHead>
+                  <TableHead>Scholar No</TableHead>
+                  <TableHead className="text-right">Attendance</TableHead>
+                  {editing && <TableHead className="text-right w-24">Update</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {students.map((student) => (
+                {sortedStudents.map((student) => (
                   <TableRow key={student.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-3">
@@ -315,25 +398,29 @@ export default function Attendance() {
                     </TableCell>
 
                     <TableCell className="text-slate-500">
-                      {student.id}
+                      {student.rollNumber}
+                    </TableCell>
+
+                    <TableCell className="text-slate-500">
+                      {student.scholarNo}
                     </TableCell>
 
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
                           variant={
-                            student.status === "PRESENT"
+                            student.status === "present"
                               ? "default"
                               : "outline"
                           }
                           size="sm"
                           className={
-                            student.status === "PRESENT"
+                            student.status === "present"
                               ? "bg-green-600 hover:bg-green-700 text-white"
                               : "text-slate-600"
                           }
                           onClick={() =>
-                            handleStatusChange(student.id, "PRESENT")
+                            handleStatusChange(student.id, "present")
                           }
                         >
                           Present
@@ -341,24 +428,51 @@ export default function Attendance() {
 
                         <Button
                           variant={
-                            student.status === "ABSENT"
+                            student.status === "absent"
                               ? "destructive"
                               : "outline"
                           }
                           size="sm"
                           className={
-                            student.status === "ABSENT"
+                            student.status === "absent"
                               ? ""
                               : "text-slate-600"
                           }
                           onClick={() =>
-                            handleStatusChange(student.id, "ABSENT")
+                            handleStatusChange(student.id, "absent")
                           }
                         >
                           Absent
                         </Button>
                       </div>
                     </TableCell>
+
+                    {editing && (
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            updateMutation.isPending &&
+                            updateMutation.variables?.studentId === student.id
+                          }
+                          onClick={() => {
+                            if (student.status) {
+                              handleUpdate(student.id, student.status);
+                            }
+                          }}
+                          className="gap-1"
+                        >
+                          {updateMutation.isPending &&
+                          updateMutation.variables?.studentId === student.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3" />
+                          )}
+                          Update
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -367,7 +481,7 @@ export default function Attendance() {
         </Card>
 
         {/* Summary & Save */}
-        {selectedClass !== "__placeholder__" && students.length > 0 && (
+        {selectedClass && students.length > 0 && (
           <Card className="flex flex-col sm:flex-row items-center justify-between p-4">
             <div className="text-sm text-slate-600 mb-4 sm:mb-0">
               <span className="font-semibold text-slate-900">Summary: </span>
@@ -383,10 +497,10 @@ export default function Attendance() {
 
             <Button
               onClick={handleSave}
-              disabled={mutation.isPending}
+              disabled={saveMutation.isPending}
               className="w-full sm:w-auto"
             >
-              {mutation.isPending ? (
+              {saveMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Saving...

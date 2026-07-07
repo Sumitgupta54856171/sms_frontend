@@ -16,6 +16,7 @@ export interface StudentData {
   father_name?: string;
   mother_name?: string;
   status?: string;
+  total_fees?: string;
 }
 
 export interface StudentEnrollment {
@@ -79,7 +80,7 @@ export const fetchStudents = async (): Promise<StudentResponse[]> => {
       id: student?.id ?? record.id,
       name: student?.name ?? "",
       email: student?.email ?? "",
-      classInfo: enrollment?.class_no ? `Class ${enrollment.class_no}` : "-",
+      classInfo: enrollment?.class_no ? `Grade ${enrollment.class_no}` : "-",
       roll: enrollment?.roll_no ?? "-",
       parent: student?.father_name ?? "-",
       status: student?.status === "active" ? "Active" : "Inactive",
@@ -100,7 +101,7 @@ export const fetchStudents = async (): Promise<StudentResponse[]> => {
 };
 
 export const saveStudent = async (data: StudentData) => {
-  const response = await apiClient.post("/api/v1/students/save", data);
+  const response = await apiClient.post("/api/v1/students/save", data,{withCredentials:true});
   return response.data;
 };
 
@@ -110,6 +111,71 @@ export const updateStudent = async (id: string, data: Partial<StudentData>) => {
 };
 
 export const deleteStudent = async (id: string) => {
-  const response = await apiClient.delete(`/api/v1/students/${id}`);
+  const response = await apiClient.delete(`/api/v1/students/delete/${id}`);
   return response.data;
+};
+
+// ─── Upload student photo ──────────────────────────────────────────────
+export const uploadStudentPhoto = async (studentId: number, file: File) => {
+  const formData = new FormData();
+  formData.append("studentId", String(studentId));
+  formData.append("photo", file);
+  const response = await apiClient.post("/api/v1/students/photo/upload", formData, {
+    withCredentials: true,
+    transformRequest: [(data) => data],
+    headers: { "Content-Type": null },
+  });
+  return response.data;
+};
+
+// ─── Fetch student photo ───────────────────────────────────────────────
+export const fetchStudentPhoto = async (studentId: number): Promise<{ id: number; filePath: string } | null> => {
+  const response = await apiClient.get(`/api/v1/students/photo/${studentId}`, {
+    withCredentials: true,
+  });
+  console.log("Fetched student photo blob:", response.data);
+  return response.data?.data ?? response.data ?? null;
+};
+
+/** Fetch the actual photo image as a blob (with auth) and return an object URL. */
+export const getPhotoBlobUrl = async (filePath: string): Promise<string> => {
+  const response = await apiClient.get(`/${filePath}`, {
+    withCredentials: true,
+    responseType: "blob",
+  });
+  return URL.createObjectURL(response.data);
+};
+
+// ─── Save student bank details ─────────────────────────────────────────
+export interface BankDetailsPayload {
+  studentId: number;
+  accountHolder: string;
+  bankName: string;
+  accountNo: string;
+  ifscCode: string;
+  branch: string;
+}
+
+export interface BankDetailsResponse {
+  studentId: number;
+  accountHolder: string;
+  bankName: string;
+  accountNo: string;
+  ifscCode: string;
+  branch: string;
+}
+
+export const saveBankDetails = async (data: BankDetailsPayload) => {
+  const response = await apiClient.post("/api/v1/students/bank-details", data, {
+    withCredentials: true,
+  });
+  return response.data;
+};
+
+export const fetchBankDetails = async (studentId: number): Promise<BankDetailsResponse> => {
+  const response = await apiClient.get(`/api/v1/students/bank-details/${studentId}`, {
+    withCredentials: true,
+  });
+  console.log("Fetched bank details:", response.data);
+  return response.data?.data ?? response.data;
 };

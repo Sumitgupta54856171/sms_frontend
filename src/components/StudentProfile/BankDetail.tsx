@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Building2, CreditCard, Hash, Landmark, Save } from "lucide-react";
+import { Building2, CreditCard, Hash, Landmark, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { saveBankDetails, fetchBankDetails } from "@/api/student";
 
 interface BankDetailProps {
   studentId?: number;
@@ -18,14 +19,50 @@ export default function BankDetail({ studentId }: BankDetailProps) {
     ifscCode: "",
     branch: "",
   });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!studentId) return;
+    setIsLoading(true);
+    fetchBankDetails(studentId)
+      .then((data) => {
+        if (data) {
+          setBankDetails({
+            accountHolder: data.accountHolder || "",
+            bankName: data.bankName || "",
+            accountNo: data.accountNo || "",
+            ifscCode: data.ifscCode || "",
+            branch: data.branch || "",
+          });
+        }
+      })
+      .catch(() => { /* no bank details yet */ })
+      .finally(() => setIsLoading(false));
+  }, [studentId]);
 
   const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setBankDetails((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handleSave = () => {
-    // TODO: API call to save bank details
-    toast.success("Bank details saved successfully");
+  const handleSave = async () => {
+    if (!studentId) {
+      toast.error("Student ID is missing");
+      return;
+    }
+    if (!bankDetails.accountHolder || !bankDetails.bankName || !bankDetails.accountNo || !bankDetails.ifscCode) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await saveBankDetails({ studentId, ...bankDetails });
+      toast.success("Bank details saved successfully");
+    } catch {
+      toast.error("Failed to save bank details");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const fields = [
@@ -35,6 +72,16 @@ export default function BankDetail({ studentId }: BankDetailProps) {
     { label: "IFSC Code", value: bankDetails.ifscCode, onChange: handleChange("ifscCode"), icon: Hash, placeholder: "Enter IFSC code" },
     { label: "Branch", value: bankDetails.branch, onChange: handleChange("branch"), icon: Building2, placeholder: "Enter branch name" },
   ];
+
+  if (isLoading) {
+    return (
+      <Card className="border-slate-200 shadow-sm">
+        <CardContent className="pt-6 flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-slate-200 shadow-sm">
@@ -65,9 +112,13 @@ export default function BankDetail({ studentId }: BankDetailProps) {
           })}
         </div>
         <div className="mt-6 flex justify-end">
-          <Button onClick={handleSave} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
-            <Save className="h-4 w-4" />
-            Save Bank Details
+          <Button onClick={handleSave} disabled={isSaving} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            {isSaving ? "Saving..." : "Save Bank Details"}
           </Button>
         </div>
       </CardContent>

@@ -176,24 +176,24 @@ export default function App() {
 
             {/* Row 2 */}
             <div>
-              <Label htmlFor="class" className="mb-1.5 block">Class <span className="text-red-500">*</span></Label>
+              <Label htmlFor="class" className="mb-1.5 block">Grade <span className="text-red-500">*</span></Label>
               <Select name="class" required>
-                <SelectTrigger id="class"><SelectValue placeholder="Select Class" /></SelectTrigger>
+                <SelectTrigger id="class"><SelectValue placeholder="Select Grade" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="nursery">Nursery</SelectItem>
                   <SelectItem value="kg">KG</SelectItem>
-                  <SelectItem value="1">Class 1</SelectItem>
-                  <SelectItem value="2">Class 2</SelectItem>
-                  <SelectItem value="3">Class 3</SelectItem>
-                  <SelectItem value="4">Class 4</SelectItem>
-                  <SelectItem value="5">Class 5</SelectItem>
-                  <SelectItem value="6">Class 6</SelectItem>
-                  <SelectItem value="7">Class 7</SelectItem>
-                  <SelectItem value="8">Class 8</SelectItem>
-                  <SelectItem value="9">Class 9</SelectItem>
-                  <SelectItem value="10">Class 10</SelectItem>
-                  <SelectItem value="11">Class 11</SelectItem>
-                  <SelectItem value="12">Class 12</SelectItem>
+                  <SelectItem value="1">Grade 1</SelectItem>
+                  <SelectItem value="2">Grade 2</SelectItem>
+                  <SelectItem value="3">Grade 3</SelectItem>
+                  <SelectItem value="4">Grade 4</SelectItem>
+                  <SelectItem value="5">Grade 5</SelectItem>
+                  <SelectItem value="6">Grade 6</SelectItem>
+                  <SelectItem value="7">Grade 7</SelectItem>
+                  <SelectItem value="8">Grade 8</SelectItem>
+                  <SelectItem value="9">Grade 9</SelectItem>
+                  <SelectItem value="10">Grade 10</SelectItem>
+                  <SelectItem value="11">Grade 11</SelectItem>
+                  <SelectItem value="12">Grade 12</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -89,12 +89,12 @@ export default function StudentProfile() {
                   <Printer className="h-5 w-5 shrink-0" />
                   <span>Click the print button on the ID card to print it.</span>
                 </div>
-                <IDCard />
+                <IDCard student={student} />
               </div>
             </TabsContent>
 
             <TabsContent value="tc">
-              <TCForm />
+              <TCForm student={student} />
             </TabsContent>
           </Tabs>
         </div>

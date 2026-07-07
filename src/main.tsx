@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { LoadingProvider } from './hooks/LoadingContext'
 import { Provider } from 'react-redux'
-import { store } from './store'
+import {store} from "@/store"
 
 const queryClient = new QueryClient()
 

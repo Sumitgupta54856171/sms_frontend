@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Upload, Camera, Trash2 } from "lucide-react";
+import { Upload, Camera, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { uploadStudentPhoto, fetchStudentPhoto, getPhotoBlobUrl } from "@/api/student";
 
 interface UploadPhotoProps {
   studentName?: string;
@@ -13,7 +14,22 @@ interface UploadPhotoProps {
 export default function UploadPhoto({ studentName, studentId }: UploadPhotoProps) {
   const [photo, setPhoto] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!studentId) return;
+    setIsLoading(true);
+    fetchStudentPhoto(studentId)
+      .then(async (data) => {
+        if (data?.filePath) {
+          const blobUrl = await getPhotoBlobUrl(data.filePath);
+          setPhoto(blobUrl);
+        }
+      })
+      .catch(() => { /* no photo yet, that's fine */ })
+      .finally(() => setIsLoading(false));
+  }, [studentId]);
 
   const initials = studentName
     ?.split(" ")
@@ -50,10 +66,20 @@ export default function UploadPhoto({ studentName, studentId }: UploadPhotoProps
       return;
     }
 
+    if (!studentId) {
+      toast.error("Student ID is missing");
+      return;
+    }
+
     setIsUploading(true);
     try {
-      // TODO: API call to upload photo
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const fileInput = fileInputRef.current;
+      const file = fileInput?.files?.[0];
+      if (!file) {
+        toast.error("No file selected");
+        return;
+      }
+      await uploadStudentPhoto(studentId, file);
       toast.success("Photo uploaded successfully");
     } catch {
       toast.error("Failed to upload photo");
@@ -82,7 +108,11 @@ export default function UploadPhoto({ studentName, studentId }: UploadPhotoProps
           {/* Photo Preview */}
           <div className="relative">
             <Avatar className="h-40 w-40 border-4 border-slate-100 shadow-md">
-              {photo ? (
+              {isLoading ? (
+                <AvatarFallback className="bg-slate-100 text-slate-400">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </AvatarFallback>
+              ) : photo ? (
                 <AvatarImage src={photo} alt="Student photo" className="object-cover" />
               ) : (
                 <AvatarFallback className="bg-slate-100 text-slate-400 text-4xl font-bold">
@@ -132,7 +162,7 @@ export default function UploadPhoto({ studentName, studentId }: UploadPhotoProps
               >
                 {isUploading ? (
                   <>
-                    <span className="animate-spin">⏳</span>
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Uploading...
                   </>
                 ) : (

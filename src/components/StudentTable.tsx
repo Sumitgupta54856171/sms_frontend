@@ -115,17 +115,17 @@ export default function StudentTable() {
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setCurrentPage(1); }}>
                 <SelectTrigger className="w-full sm:w-45 bg-white border-slate-200 h-10 shadow-sm">
-                  <SelectValue placeholder="All Classes" />
+                  <SelectValue placeholder="All Grades" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Classes</SelectItem>
-                  <SelectItem value="Class 10 - A">Class 10 - A</SelectItem>
-                  <SelectItem value="Class 10 - B">Class 10 - B</SelectItem>
-                  <SelectItem value="Class 9 - A">Class 9 - A</SelectItem>
-                  <SelectItem value="Class 9 - B">Class 9 - B</SelectItem>
-                  <SelectItem value="Class 8 - A">Class 8 - A</SelectItem>
-                  <SelectItem value="Class 7 - A">Class 7 - A</SelectItem>
-                  <SelectItem value="Class 11 - A">Class 11 - A</SelectItem>
+                  <SelectItem value="all">All Grades</SelectItem>
+                  <SelectItem value="Grade 10 - A">Grade 10 - A</SelectItem>
+                  <SelectItem value="Grade 10 - B">Grade 10 - B</SelectItem>
+                  <SelectItem value="Grade 9 - A">Grade 9 - A</SelectItem>
+                  <SelectItem value="Grade 9 - B">Grade 9 - B</SelectItem>
+                  <SelectItem value="Grade 8 - A">Grade 8 - A</SelectItem>
+                  <SelectItem value="Grade 7 - A">Grade 7 - A</SelectItem>
+                  <SelectItem value="Grade 11 - A">Grade 11 - A</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -145,7 +145,7 @@ export default function StudentTable() {
             <TableHeader className="bg-white">
               <TableRow className="border-b border-slate-200 hover:bg-transparent">
                 <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">STUDENT</TableHead>
-                <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">CLASS</TableHead>
+                <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">GRADE</TableHead>
                 <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">ROLL</TableHead>
                 <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">PARENT</TableHead>
                 <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">STATUS</TableHead>

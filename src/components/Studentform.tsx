@@ -13,6 +13,7 @@ import {
 } from "../components/ui/select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { saveStudent } from "@/api/student";
+import { IndianRupee } from "lucide-react";
 
 interface StudentFormProps {
   onClose: () => void;
@@ -36,6 +37,7 @@ export default function StudentForm({ onClose }: StudentFormProps) {
     father_name: "",
     mother_name: "",
     status: "active",
+    total_fees: "",
   });
 
   const update =
@@ -120,26 +122,26 @@ export default function StudentForm({ onClose }: StudentFormProps) {
 
             <div>
               <Label htmlFor="class" className="mb-1.5 block">
-                Class <span className="text-red-500">*</span>
+                Grade <span className="text-red-500">*</span>
               </Label>
               <Select value={form.class_no || "__placeholder__"} onValueChange={update("class_no")}>
                 <SelectTrigger id="class">
-                  <SelectValue placeholder="Select Class" />
+                  <SelectValue placeholder="Select Grade" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__placeholder__" className="hidden">Select Class</SelectItem>
-                  <SelectItem value="1">Class 1</SelectItem>
-                  <SelectItem value="2">Class 2</SelectItem>
-                  <SelectItem value="3">Class 3</SelectItem>
-                  <SelectItem value="4">Class 4</SelectItem>
-                  <SelectItem value="5">Class 5</SelectItem>
-                  <SelectItem value="6">Class 6</SelectItem>
-                  <SelectItem value="7">Class 7</SelectItem>
-                  <SelectItem value="8">Class 8</SelectItem>
-                  <SelectItem value="9">Class 9</SelectItem>
-                  <SelectItem value="10">Class 10</SelectItem>
-                  <SelectItem value="11">Class 11</SelectItem>
-                  <SelectItem value="12">Class 12</SelectItem>
+                  <SelectItem value="__placeholder__" className="hidden">Select Grade</SelectItem>
+                  <SelectItem value="1">Grade 1</SelectItem>
+                  <SelectItem value="2">Grade 2</SelectItem>
+                  <SelectItem value="3">Grade 3</SelectItem>
+                  <SelectItem value="4">Grade 4</SelectItem>
+                  <SelectItem value="5">Grade 5</SelectItem>
+                  <SelectItem value="6">Grade 6</SelectItem>
+                  <SelectItem value="7">Grade 7</SelectItem>
+                  <SelectItem value="8">Grade 8</SelectItem>
+                  <SelectItem value="9">Grade 9</SelectItem>
+                  <SelectItem value="10">Grade 10</SelectItem>
+                  <SelectItem value="11">Grade 11</SelectItem>
+                  <SelectItem value="12">Grade 12</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -286,6 +288,25 @@ export default function StudentForm({ onClose }: StudentFormProps) {
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Total Annual Fees */}
+            <div className="md:col-span-2">
+              <Label htmlFor="totalFees" className="mb-1.5 block">
+                Total Annual Fees (₹) <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  id="totalFees"
+                  type="number"
+                  min="0"
+                  value={form.total_fees}
+                  onChange={update("total_fees")}
+                  placeholder="Enter total annual fees"
+                  className="pl-9"
+                />
+              </div>
             </div>
 
           </form>

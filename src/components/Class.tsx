@@ -24,7 +24,7 @@ export default function ClassGrid() {
       <div className="flex items-center gap-3 mb-6">
         <div className="w-1 h-6 rounded-full bg-gradient-to-b from-[#f9ca24] to-[#f0932b]" />
         <h2 className="text-lg md:text-xl font-bold tracking-wide uppercase text-slate-900">
-          Class Overview
+          Grade Overview
         </h2>
       </div>
 

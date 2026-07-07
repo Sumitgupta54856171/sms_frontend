@@ -17,6 +17,11 @@ const AcademicSessionPage = lazy(
 );
 const ClassPage = lazy(() => import("./pages/classpage/Classpage"));
 const TimetablePage = lazy(() => import("./pages/Timetablepage"));
+const SubjectPage = lazy(() => import("./pages/Subjectpage/Subjectpage"));
+const FeeStructurePage = lazy(() => import("./pages/FeeStructurepage/FeeStructurepage"));
+const FeePage = lazy(() => import("./pages/Fees/Feepage"));
+const InvoicePrintPage = lazy(() => import("./pages/InvoicePrintPage/InvoicePrintPage"));
+const TCPage = lazy(() => import("./pages/TC/TCpage"));
 const LoginPage = lazy(() => import("./pages/Loginpage"));
 
 function App() {
@@ -38,8 +43,13 @@ function App() {
                 <Route path="/students" element={<StudentPage />} />
                 <Route path="/timetable" element={<TimetablePage />} />
                 <Route path="/session" element={<AcademicSessionPage />} />
+                <Route path="/subjects" element={<SubjectPage />} />
+                <Route path="/tc" element={<TCPage />} />
+                <Route path="/fees" element={<FeePage />} />
+                <Route path="/fees/structure" element={<FeeStructurePage />} />
               </Route>
             </Route>
+            <Route path="/invoice/:invoiceId" element={<InvoicePrintPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
