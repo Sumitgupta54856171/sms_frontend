@@ -7,6 +7,11 @@ interface SessionState {
   loading: boolean;
 }
 
+function getSavedSessionId(): number | null {
+  const saved = localStorage.getItem("currentSessionId");
+  return saved ? Number(saved) : null;
+}
+
 const initialState: SessionState = {
   sessions: [],
   currentSession: null,
@@ -41,8 +46,16 @@ const sessionSlice = createSlice({
       .addCase(loadSessions.fulfilled, (state, action) => {
         state.loading = false;
         state.sessions = action.payload;
-        // Auto-select first session if none selected
-        if (!state.currentSession && action.payload.length > 0) {
+        // Restore saved session from localStorage, or auto-select first
+        const savedId = getSavedSessionId();
+        if (savedId) {
+          const found = action.payload.find((s) => s.sessionId === savedId);
+          if (found) {
+            state.currentSession = found;
+          } else if (action.payload.length > 0) {
+            state.currentSession = action.payload[0];
+          }
+        } else if (!state.currentSession && action.payload.length > 0) {
           state.currentSession = action.payload[0];
         }
       })
@@ -53,6 +66,7 @@ const sessionSlice = createSlice({
         const found = state.sessions.find((s) => s.sessionId === action.payload);
         if (found) {
           state.currentSession = found;
+          localStorage.setItem("currentSessionId", String(action.payload));
         }
       });
   },

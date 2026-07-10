@@ -80,9 +80,6 @@ export default function IDCard({ student = defaultStudent }: IDCardProps) {
           <Printer className="h-4 w-4" /> Print ID Card
         </Button>
       </div>
-
-      {/* --- ID CARD START --- */}
-      {/* Changed to flex-col to naturally stack elements and prevent overlaps */}
       <Card
         id="id-card-container"
         className="w-[320px] h-[490px] bg-white rounded-[12px] shadow-2xl relative overflow-hidden border-2 border-slate-200 flex flex-col"

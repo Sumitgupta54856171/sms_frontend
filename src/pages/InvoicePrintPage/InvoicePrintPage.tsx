@@ -1,7 +1,28 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Printer, ArrowLeft, Loader2, FileX } from "lucide-react";
+import {
+  Printer,
+  ArrowLeft,
+  Loader2,
+  FileX,
+  Download,
+  GraduationCap,
+  MapPin,
+  Phone,
+  CheckCircle2,
+  Receipt,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { fetchInvoiceById } from "@/api/fee";
 
 export default function InvoicePrintPage() {
@@ -23,74 +44,39 @@ export default function InvoicePrintPage() {
   };
 
   const formatDate = (dateStr: string): string => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatDateTime = (dateStr: string): string => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return dateStr;
+    }
   };
 
   const handlePrint = () => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow || !invoice) return;
+    window.print();
+  };
 
-    const content = document.getElementById("thermal-receipt")?.innerHTML ?? "";
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Invoice - ${invoice.invoiceNo}</title>
-        <style>
-          @page { size: 80mm auto; margin: 0; }
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-            width: 72mm;
-            margin: 0 auto;
-            padding: 5mm 3mm;
-            color: #000;
-            line-height: 1.4;
-          }
-          .text-center { text-align: center; }
-          .flex { display: flex; }
-          .justify-between { justify-content: space-between; }
-          .border-dashed { border-style: dashed; }
-          .border-black { border-color: #000; }
-          .border-t-2 { border-top-width: 2px; }
-          .my-2 { margin-top: 4px; margin-bottom: 4px; }
-          .mb-4 { margin-bottom: 8px; }
-          .mb-3 { margin-bottom: 6px; }
-          .mb-2 { margin-bottom: 4px; }
-          .mb-1\\.5 { margin-bottom: 3px; }
-          .mt-3 { margin-top: 6px; }
-          .mt-6 { margin-top: 12px; }
-          .text-xs { font-size: 10px; }
-          .text-sm { font-size: 11px; }
-          .text-base { font-size: 13px; }
-          .font-bold { font-weight: bold; }
-          .uppercase { text-transform: uppercase; }
-          .tracking-tight { letter-spacing: -0.5px; }
-          .tracking-widest { letter-spacing: 2px; }
-          .leading-tight { line-height: 1.2; }
-          .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-          .pr-2 { padding-right: 4px; }
-          .pl-2 { padding-left: 4px; }
-          .text-right { text-align: right; }
-          .h-8 { height: 16px; }
-          .text-gray-600 { color: #666; }
-          .text-\\[10px\\] { font-size: 9px; }
-        </style>
-      </head>
-      <body>
-        ${content}
-        <script>window.onload=function(){window.print();window.close()}<\/script>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
+  const handleDownloadPDF = () => {
+    window.print();
   };
 
   // Loading state
@@ -98,7 +84,7 @@ export default function InvoicePrintPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-teal-600 mx-auto mb-4" />
+          <Loader2 className="h-10 w-10 animate-spin text-indigo-600 mx-auto mb-4" />
           <p className="text-slate-500">Loading invoice...</p>
         </div>
       </div>
@@ -124,100 +110,199 @@ export default function InvoicePrintPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4 print:bg-white print:p-0 print:m-0">
-      {/* Toolbar — hidden when printing */}
-      <div className="max-w-sm mx-auto mb-6 flex items-center justify-between print:hidden">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
-        <Button
-          onClick={handlePrint}
-          className="gap-2 bg-teal-600 hover:bg-teal-700 text-white"
-        >
-          <Printer className="h-4 w-4" /> Print
-        </Button>
-      </div>
+    <div className="min-h-screen bg-slate-100 p-4 sm:p-8 flex flex-col items-center font-sans">
+      {/* Print styles */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          body * { visibility: hidden; }
+          #invoice-document, #invoice-document * { visibility: visible; }
+          #invoice-document {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            box-shadow: none !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          #print-action-bar { display: none !important; }
+        }
+      `}} />
 
-      {/* Thermal Receipt */}
-      <div className="max-w-[320px] mx-auto bg-white p-4 shadow-lg border border-slate-200 font-mono text-black print:shadow-none print:border-none print:p-0 print:max-w-full">
-        <div id="thermal-receipt">
-          {/* School Header */}
-          <div className="text-center mb-4">
-            <h1 className="font-bold text-[1.1rem] leading-tight uppercase tracking-tight">
-              Rose Convent High School
-            </h1>
-            <p className="text-xs mt-1">123 Education Lane, Knowledge Pk</p>
-            <p className="text-xs">City - 400001</p>
-            <p className="text-xs">Ph: +91-9876543210</p>
-          </div>
-
-          <div className="border-t-2 border-dashed border-black my-2" />
-          <div className="text-center font-bold uppercase text-sm tracking-widest">
-            Fee Receipt
-          </div>
-          <div className="border-t-2 border-dashed border-black my-2" />
-
-          {/* Invoice Details */}
-          <div className="flex justify-between text-xs mb-1.5">
-            <span>Invoice No:</span>
-            <span className="font-bold">{invoice.invoiceNo}</span>
-          </div>
-          <div className="flex justify-between text-xs mb-1.5">
-            <span>Date:</span>
-            <span>{formatDate(invoice.createdAt)}</span>
-          </div>
-          <div className="flex justify-between text-xs mb-1.5">
-            <span>Student ID:</span>
-            <span>{invoice.studentId}</span>
-          </div>
-          <div className="flex justify-between text-xs mb-1.5">
-            <span>Class:</span>
-            <span>{invoice.classNo}</span>
-          </div>
-          <div className="flex justify-between text-xs mb-1.5">
-            <span>Roll No:</span>
-            <span>{invoice.rollNo}</span>
-          </div>
-          <div className="flex justify-between text-xs mb-3">
-            <span>Sch. No:</span>
-            <span>{invoice.scholarNo}</span>
-          </div>
-
-          <div className="border-t-2 border-dashed border-black my-2" />
-
-          {/* Amount Table */}
-          <div className="flex justify-between text-xs font-bold mb-2">
-            <span>Particulars</span>
-            <span>Amount</span>
-          </div>
-          <div className="flex justify-between text-xs mb-2">
-            <span className="pr-4">{invoice.paymentType}</span>
-            <span>{formatCurrency(invoice.amount)}</span>
-          </div>
-
-          <div className="border-t-2 border-dashed border-black my-2" />
-
-          <div className="flex justify-between text-base font-bold mt-3 mb-3">
-            <span>TOTAL (INR)</span>
-            <span>{formatCurrency(invoice.amount)}</span>
-          </div>
-
-          <div className="border-t-2 border-dashed border-black my-2" />
-
-          {/* Footer */}
-          <div className="text-center mt-6">
-            <p className="text-sm font-bold">*** THANK YOU ***</p>
-            <p className="mt-3 text-[10px] text-gray-600">
-              Computer Generated Receipt
-            </p>
-            <p className="text-[10px] text-gray-600">
-              No signature required.
-            </p>
-          </div>
-
-          <div className="h-8" />
+      {/* Action Bar — hidden when printing */}
+      <div
+        id="print-action-bar"
+        className="w-full max-w-[800px] mb-6 flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200"
+      >
+        <div>
+          <h2 className="font-bold text-slate-800 flex items-center gap-2">
+            <Receipt className="h-5 w-5 text-indigo-600" /> Invoice Preview
+          </h2>
+          <p className="text-xs text-slate-500">Verify details before printing</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => navigate(-1)} className="gap-2">
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Button>
+          <Button variant="outline" onClick={handlePrint} className="gap-2">
+            <Printer className="h-4 w-4" /> Print
+          </Button>
+          <Button onClick={handleDownloadPDF} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md">
+            <Download className="h-4 w-4" /> Download PDF
+          </Button>
         </div>
       </div>
+
+      {/* Invoice Document */}
+      <Card
+        id="invoice-document"
+        className="w-full max-w-[800px] bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-200 p-0"
+      >
+        {/* Top Colored Band */}
+        <div className="h-3 w-full bg-indigo-600"></div>
+
+        <div className="p-8 sm:p-12">
+          {/* HEADER SECTION */}
+          <div className="flex flex-col sm:flex-row justify-between items-start border-b border-slate-100 pb-8 mb-8 gap-6">
+            {/* School Branding */}
+            <div className="flex items-start gap-4">
+              <div className="h-16 w-16 bg-indigo-50 rounded-2xl flex items-center justify-center flex-shrink-0 border border-indigo-100">
+                <GraduationCap className="h-8 w-8 text-indigo-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight leading-tight">
+                  Rose Convent High School
+                </h1>
+                <div className="flex flex-col mt-2 gap-1 text-sm text-slate-500 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" /> Delaura, Satna (M.P.)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5" /> +91 9406780812
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Invoice Meta */}
+            <div className="flex flex-col items-start sm:items-end">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1">
+                Receipt / Invoice
+              </div>
+              <div className="text-2xl font-bold text-slate-800">#{invoice.invoiceId}</div>
+
+              <div className="mt-4 flex flex-col gap-1 items-start sm:items-end">
+                <Badge
+                  variant="outline"
+                  className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1.5 px-3 py-1 font-semibold"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> PAID
+                </Badge>
+                <span className="text-xs text-slate-500 font-medium mt-1">
+                  {formatDateTime(invoice.invoiceDate)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* BILLING ENTITIES */}
+          <div className="flex flex-col sm:flex-row justify-between gap-8 mb-10 bg-slate-50 p-6 rounded-xl border border-slate-100">
+            {/* Billed To (Student) */}
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                Billed To
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">{invoice.studentName}</h3>
+              <div className="mt-1 space-y-0.5 text-sm font-medium text-slate-600">
+                <p>
+                  <span className="text-slate-400 w-20 inline-block">Invoice ID:</span> #{invoice.invoiceId}
+                </p>
+              </div>
+            </div>
+
+            {/* Payment Info */}
+            <div className="sm:text-right">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center sm:justify-end gap-1.5">
+                Payment Info
+              </div>
+              <div className="mt-1 space-y-0.5 text-sm font-medium text-slate-600">
+                <p>
+                  <span className="text-slate-400 mr-2">Method:</span> {invoice.paymentMethod}
+                </p>
+                <p>
+                  <span className="text-slate-400 mr-2">Status:</span> Successful
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* FEE DETAILS TABLE */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden mb-8">
+            <Table>
+              <TableHeader className="bg-slate-50">
+                <TableRow className="border-b border-slate-200 hover:bg-transparent">
+                  <TableHead className="w-[50px] font-bold text-slate-600">#</TableHead>
+                  <TableHead className="font-bold text-slate-600 uppercase text-xs tracking-wider">
+                    Fee Description
+                  </TableHead>
+                  <TableHead className="text-right font-bold text-slate-600 uppercase text-xs tracking-wider">
+                    Amount
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow className="border-b border-slate-100 hover:bg-slate-50/50">
+                  <TableCell className="font-medium text-slate-500">1</TableCell>
+                  <TableCell>
+                    <div className="font-bold text-slate-800">Fee Payment</div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      Paid via {invoice.paymentMethod}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-slate-700">
+                    {formatCurrency(invoice.amount)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+
+            {/* Total Calculation Section */}
+            <div className="bg-slate-50 p-6 flex justify-end">
+              <div className="w-full max-w-[300px] space-y-3">
+                <div className="flex justify-between text-sm font-medium text-slate-600">
+                  <span>Subtotal</span>
+                  <span>{formatCurrency(invoice.amount)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-medium text-slate-600">
+                  <span>Late Fine</span>
+                  <span>{formatCurrency(0)}</span>
+                </div>
+                <div className="w-full border-t border-slate-200 my-2"></div>
+                <div className="flex justify-between text-lg font-black text-indigo-700">
+                  <span>Total Amount</span>
+                  <span>{formatCurrency(invoice.amount)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* FOOTER & SIGNATURE */}
+          <div className="flex flex-col sm:flex-row justify-between items-end mt-16 pt-8 border-t border-slate-100">
+            <div className="text-xs text-slate-400 font-medium max-w-[300px]">
+              <p>This is a computer-generated receipt and does not require a physical signature.</p>
+              <p className="mt-1 text-indigo-600 font-semibold">Thank you for your payment!</p>
+            </div>
+
+            <div className="text-center mt-8 sm:mt-0">
+              <div className="w-48 border-t-[1.5px] border-slate-400 mb-2"></div>
+              <p className="text-xs font-bold text-slate-700 uppercase tracking-widest">
+                Authorized Signatory
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

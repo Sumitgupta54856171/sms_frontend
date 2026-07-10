@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search,
@@ -39,8 +40,6 @@ import {
 } from "@/components/ui/table";
 
 import { fetchStudentsByClass } from "@/api/fee";
-import ViewFees from "@/components/Fees/ViewFees";
-import PayFees from "@/components/Fees/PayFees";
 import { setDetail } from "@/store/slices/detailSlice";
 
 const ALL_CLASSES = [
@@ -51,10 +50,10 @@ const ALL_CLASSES = [
 ];
 
 export default function FeePage() {
+  const navigate = useNavigate();
   const [selectedClass, setSelectedClass] = useState("Nursery");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [viewStudent, setViewStudent] = useState<any | null>(null);
   const [payStudent, setPayStudent] = useState<any | null>(null);
 
   const dispatch = useDispatch();
@@ -95,16 +94,6 @@ export default function FeePage() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
-
-  // If viewing a student's fees
-  if (viewStudent) {
-    return (
-      <ViewFees
-        student={viewStudent}
-        onBack={() => setViewStudent(null)}
-      />
-    );
-  }
 
   // If paying fees for a student
   if (payStudent) {
@@ -293,7 +282,10 @@ export default function FeePage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setViewStudent(student)}
+                            onClick={() => {
+                              sessionStorage.setItem("feesStudent", JSON.stringify(student));
+                              navigate("/student/feesprofile");
+                            }}
                             className="gap-1.5 text-xs"
                           >
                             <Eye className="h-3.5 w-3.5" />

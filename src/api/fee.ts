@@ -182,19 +182,30 @@ export const fetchStudentsByClass = async (className: string): Promise<any[]> =>
   }
 };
 
-// ─── Fetch total annual fees for a student ────────────────────────────
-export const fetchStudentAnnualFees = async (studentId: number): Promise<number> => {
+// ─── Fetch fee details for a student (annual fee, paid, due, discount) ─
+export interface StudentFeeDetails {
+  totalAnnualFee: number;
+  totalPaid: number;
+  totaldue: number;
+  discount: number;
+}
+
+export const fetchStudentFeeDetails = async (studentId: number): Promise<StudentFeeDetails> => {
   try {
-    const response = await apiClient.get(`/api/v1/fee/student/fees/${studentId}`, {
+    const response = await apiClient.get(`/api/v1/fee/student/${studentId}/fee`, {
       withCredentials: true,
     });
-    
-    const data = response.data?.body[0] ?? response.data;
-    
-
-    return data?.feesAmount ?? data?.annualFee ?? data?.annualTotal ?? data ?? 0;
-  } catch {
-    return 0;
+    console.log(response.data);
+    const data = response.data.body ?? {};
+    return {
+      totalAnnualFee: data.totalAnnualFee ?? 0,
+      totalPaid: data.totalPaid ?? 0,
+      totaldue: data.totaldue ?? 0,
+      discount: data.discount ?? 0,
+    };
+  } catch(e) {
+    console.error("Error fetching student fee details:", e);
+    return { totalAnnualFee: 0, totalPaid: 0, totaldue: 0, discount: 0 };
   }
 };
 
@@ -234,6 +245,69 @@ export const fetchPaymentHistory = async (
       feeHead: item.feeHead ?? item.fee_head ?? "General",
       remarks: item.remarks ?? "",
     }));
+  } catch {
+    return [];
+  }
+};
+
+// ─── Invoice data from backend ─────────────────────────────────────────
+export interface InvoiceData {
+  invoiceId: number;
+  studentName: string;
+  invoiceDate: string;
+  paymentMethod: string;
+  amount: number;
+}
+
+// ─── Student session info from backend ─────────────────────────────────
+export interface StudentSession {
+  enrollementNo: number;
+  sessionName: string;
+}
+
+// ─── Fetch invoices by enrollment ID ───────────────────────────────────
+export const fetchInvoiceByEnrollmentId = async (enrollmentId: number): Promise<InvoiceData[]> => {
+  try {
+    const response = await apiClient.get(`/api/v1/fee/get/invoice/${enrollmentId}`, {
+      withCredentials: true,
+    });
+    console.log("check the invoice data", response.data);
+    return response.data?.body ?? response.data ?? [];
+  } catch {
+    return [];
+  }
+};
+
+// ─── Fetch student sessions for dropdown ───────────────────────────────
+export const fetchStudentSessions = async (studentId: number): Promise<StudentSession[]> => {
+  try {
+    const response = await apiClient.get(`/api/v1/fee/get/session/sessionName/${studentId}`, {
+      withCredentials: true,
+    });
+    console.log("check the student sessions data", response.data);
+    return response.data?.body ?? response.data ?? [];
+  } catch {
+    return [];
+  }
+};
+
+// ─── Session-wise history from backend ─────────────────────────────────
+export interface SessionWiseHistory {
+  sessionName: string;
+  totalfees: number;
+  totalpaid: number;
+  totaldue: number;
+  paymentsNo: number;
+}
+
+// ─── Fetch session-wise history for a student ──────────────────────────
+export const fetchSessionWiseHistory = async (studentId: number): Promise<SessionWiseHistory[]> => {
+  try {
+    const response = await apiClient.get(`/api/v1/fee/session-wise/history/${studentId}`, {
+      withCredentials: true,
+    });
+    console.log("check session-wise history", response.data);
+    return response.data?.body ?? response.data ?? [];
   } catch {
     return [];
   }
@@ -287,9 +361,63 @@ export const createInvoice = async (data: InvoicePayload): Promise<InvoiceRespon
 };
 
 // ─── Fetch invoice by ID (for re-printing) ─────────────────────────────
-export const fetchInvoiceById = async (invoiceId: number): Promise<InvoiceResponse> => {
-  const response = await apiClient.get(`/api/v1/invoice/${invoiceId}`, {
+export interface InvoicePrintData {
+  invoiceId: number;
+  studentName: string;
+  invoiceDate: string;
+  paymentMethod: string;
+  amount: number;
+}
+
+export const fetchInvoiceById = async (invoiceId: number): Promise<InvoicePrintData> => {
+  const response = await apiClient.get(`/api/v1/fee/invoice/${invoiceId}`, {
     withCredentials: true,
   });
-  return response.data?.data ?? response.data;
+  return response.data?.body ?? response.data;
+};
+
+// ─── Invoice History types ─────────────────────────────────────────────
+export interface InvoiceHistoryItem {
+  invoiceId: number;
+  studentName: string;
+  invoiceDate: string;
+  paymentMethod: string;
+  amount: number;
+}
+
+export interface InvoiceHistoryResponse {
+  invoice: InvoiceHistoryItem[];
+  totalamount: number;
+  totalsessionpaidamount: number;
+  totalInvoicesAmount: number;
+}
+
+// ─── Fetch invoice history by date range ───────────────────────────────
+export const fetchInvoiceHistory = async (
+  startDate: string,
+  endDate: string
+): Promise<InvoiceHistoryResponse> => {
+  try {
+    const response = await apiClient.get(
+      `/api/v1/fee/invoice/history/${startDate}/${endDate}`,
+      { withCredentials: true }
+    );
+    return response.data?.body ?? response.data ?? { invoice: [], totalamount: 0, totalsessionpaidamount: 0, totalInvoicesAmount: 0 };
+  } catch {
+    return { invoice: [], totalamount: 0, totalsessionpaidamount: 0, totalInvoicesAmount: 0 };
+  }
+};
+
+// ─── Apply discount for a student ──────────────────────────────────────
+export const applyDiscount = async (studentId: number, discountAmount: number): Promise<any> => {
+  try {
+    const response = await apiClient.put(
+      `/api/v1/fee/update/fees/${studentId}/${discountAmount}`,
+      {},
+      { withCredentials: true }
+    );
+    return response.data;
+  } catch {
+    throw new Error("Failed to apply discount");
+  }
 };

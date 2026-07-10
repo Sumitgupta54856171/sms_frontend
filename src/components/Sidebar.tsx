@@ -10,11 +10,13 @@ import {
   LineChart,
   DollarSign,
   IndianRupee,
+  Receipt,
   Library,
   Bus,
   BedDouble,
   MessageSquare,
   LogOut,
+  ArrowUpDown,
 } from "lucide-react";
 
 import { Outlet, Link, useNavigate } from "react-router-dom";
@@ -53,11 +55,13 @@ const menuGroups = [
     label: "OPERATIONS",
     items: [
       { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
-      { title: "Examinations", url: "#", icon: FileText },
+      { title: "Examinations", url: "/timetable/exams", icon: FileText },
       { title: "Grades", url: "#", icon: LineChart },
       { title: "Fee Management", url: "/fees", icon: DollarSign, badge: { text: "32", style: "text-slate-700 text-xs font-semibold" } },
+      { title: "Invoice History", url: "/fees/invoice-history", icon: Receipt },
       { title: "Fee Structure", url: "/fees/structure", icon: IndianRupee },
       { title: "Transfer Certificate", url: "/tc", icon: FileText },
+      { title: "Enrollment", url: "/enrollment", icon: ArrowUpDown },
     ]
   },
   {

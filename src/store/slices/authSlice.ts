@@ -42,6 +42,7 @@ const authSlice = createSlice({
       state.user = null;
       localStorage.removeItem("token");
       localStorage.removeItem("useRole");
+      localStorage.removeItem("currentSessionId");
     },
     finishInitializing(state) {
       state.initializing = false;

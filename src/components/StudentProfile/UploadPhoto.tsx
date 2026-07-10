@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Upload, Camera, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { uploadStudentPhoto, fetchStudentPhoto, getPhotoBlobUrl } from "@/api/student";
+import { uploadStudentPhoto, fetchStudentPhoto, getPhotoBlobUrl, deleteStudentPhoto } from "@/api/student";
 
 interface UploadPhotoProps {
   studentName?: string;
@@ -88,10 +88,17 @@ export default function UploadPhoto({ studentName, studentId }: UploadPhotoProps
     }
   };
 
-  const handleRemove = () => {
-    setPhoto(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  const handleRemove = async () => {
+    if (!studentId) return;
+    try {
+      await deleteStudentPhoto(studentId);
+      setPhoto(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      toast.success("Photo deleted successfully");
+    } catch {
+      toast.error("Failed to delete photo");
     }
   };
 

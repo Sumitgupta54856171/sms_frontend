@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Users, LayoutGrid, ArrowRight } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { classes } from "./data/class";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
 
-// Dummy data extracted from your original code
+
 
 const classesData = classes;
 
 export default function ClassGrid() {
+  const navigate = useNavigate();
   const [activeClass, setActiveClass] = useState(null);
 
   const toggleClass = (cls) => {
@@ -121,15 +123,13 @@ export default function ClassGrid() {
                     </span>
                   </div>
 
-                  {/* Standard Anchor Tag for preview compatibility */}
+                  {/* Navigate to student list filtered by this class */}
                   <Button 
-                    asChild 
                     className="w-full font-semibold tracking-wide transition-all hover:opacity-90"
                     style={{ backgroundColor: cls.color, color: "#fff" }}
+                    onClick={() => navigate(`/class/${cls.name}/students`)}
                   >
-                    <a href={`#studentlist-${cls.no}`}>
-                      VIEW STUDENTS <ArrowRight className="ml-2 h-4 w-4" />
-                    </a>
+                    VIEW STUDENTS <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                   
                 </CardFooter>

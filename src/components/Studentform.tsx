@@ -10,7 +10,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from "@/components/ui/select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { saveStudent } from "@/api/student";
 import { IndianRupee } from "lucide-react";
@@ -36,6 +36,9 @@ export default function StudentForm({ onClose }: StudentFormProps) {
     phone: "",
     father_name: "",
     mother_name: "",
+    apaarId: "",
+    penId: "",
+    address: "",
     status: "active",
     total_fees: "",
   });
@@ -47,7 +50,7 @@ export default function StudentForm({ onClose }: StudentFormProps) {
   const mutation = useMutation({
     mutationFn: saveStudent,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({ queryKey: ["student-list"] });
       onClose();
     },
   });
@@ -274,6 +277,41 @@ export default function StudentForm({ onClose }: StudentFormProps) {
                 value={form.mother_name}
                 onChange={update("mother_name")}
                 placeholder="Enter mother's name"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="apaarId" className="mb-1.5 block">
+                APAAR ID
+              </Label>
+              <Input
+                id="apaarId"
+                value={form.apaarId}
+                onChange={update("apaarId")}
+                placeholder="Enter APAAR ID"
+              />
+            </div>
+            <div>
+              <Label htmlFor="penId" className="mb-1.5 block">
+                PEN ID
+              </Label>
+              <Input
+                id="penId"
+                value={form.penId}
+                onChange={update("penId")}
+                placeholder="Enter PEN ID"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <Label htmlFor="address" className="mb-1.5 block">
+                Address
+              </Label>
+              <Input
+                id="address"
+                value={form.address}
+                onChange={update("address")}
+                placeholder="Enter full address"
               />
             </div>
 

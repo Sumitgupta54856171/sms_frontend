@@ -16,13 +16,23 @@ const AcademicSessionPage = lazy(
   () => import("@/pages/AcademicSessionpage/AcademicSessionPage")
 );
 const ClassPage = lazy(() => import("./pages/classpage/Classpage"));
+const ClassStudentListPage = lazy(() => import("./pages/ClassStudentListPage/ClassStudentListPage"));
 const TimetablePage = lazy(() => import("./pages/Timetablepage"));
 const SubjectPage = lazy(() => import("./pages/Subjectpage/Subjectpage"));
 const FeeStructurePage = lazy(() => import("./pages/FeeStructurepage/FeeStructurepage"));
 const FeePage = lazy(() => import("./pages/Fees/Feepage"));
 const InvoicePrintPage = lazy(() => import("./pages/InvoicePrintPage/InvoicePrintPage"));
 const TCPage = lazy(() => import("./pages/TC/TCpage"));
+const EnrollmentPage = lazy(() => import("./pages/Enrollment/EnrollmentPage"));
 const LoginPage = lazy(() => import("./pages/Loginpage"));
+const StudentProfilePage = lazy(() => import("./pages/Student/StudentProfilePage"));
+const BankDetailPage = lazy(() => import("./pages/Student/BankDetailPage"));
+const PhotoPage = lazy(() => import("./pages/Student/PhotoPage"));
+const IdCardPage = lazy(() => import("./pages/Student/IdCardPage"));
+const StudentTCPage = lazy(() => import("./pages/Student/TCPage"));
+const FeesProfilePage = lazy(() => import("./pages/Student/FeesProfilePage"));
+const InvoiceHistoryPage = lazy(() => import("./pages/InvoiceHistory/InvoiceHistoryPage"));
+const ExamTimetablePage = lazy(() => import("./pages/ExamTimetable/ExamTimetablePage"));
 
 function App() {
   return (
@@ -37,6 +47,7 @@ function App() {
               <Route element={<SchoolSidebar />}>
                 <Route path="/" element={<div>Home</div>} />
                 <Route path="/class" element={<ClassPage />} />
+                <Route path="/class/:classNo/students" element={<ClassStudentListPage />} />
                 <Route path="/academic" element={<AcademicSessionPage />} />
                 <Route path="/attendance" element={<AttendencePage />} />
                 <Route path="/teachers" element={<TeacherPage />} />
@@ -47,7 +58,16 @@ function App() {
                 <Route path="/tc" element={<TCPage />} />
                 <Route path="/fees" element={<FeePage />} />
                 <Route path="/fees/structure" element={<FeeStructurePage />} />
+                <Route path="/enrollment" element={<EnrollmentPage />} />
+                <Route path="/fees/invoice-history" element={<InvoiceHistoryPage />} />
+                <Route path="/timetable/exams" element={<ExamTimetablePage />} />
               </Route>
+              <Route path="/student/profile/:studentId" element={<StudentProfilePage />} />
+              <Route path="/student/bank-detail/:studentId" element={<BankDetailPage />} />
+              <Route path="/student/photo/:studentId" element={<PhotoPage />} />
+              <Route path="/student/id-card/:studentId" element={<IdCardPage />} />
+              <Route path="/student/tc/:studentId" element={<StudentTCPage />} />
+              <Route path="/student/feesprofile" element={<FeesProfilePage />} />
             </Route>
             <Route path="/invoice/:invoiceId" element={<InvoicePrintPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

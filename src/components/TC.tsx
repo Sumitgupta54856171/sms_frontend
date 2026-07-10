@@ -20,6 +20,8 @@ interface TCStudent {
   mother_name?: string;
   sssmid?: string;
   aadhaar?: string;
+  apaarId?: string;
+  penId?: string;
   dob?: string;
   classInfo?: string;
   scholar_no?: string;
@@ -46,6 +48,8 @@ const defaultStudent: TCStudent = {
   dob: "2010-05-15",
   sssmid: "12345678",
   aadhaar: "1234 5678 9012",
+  apaarId: "",
+  penId: "",
   caste: "General",
   placeOfBirth: "Satna",
   tehsil: "Satna",
@@ -215,6 +219,17 @@ export default function TCForm({ student = defaultStudent }: TCFormProps) {
               <div className="flex w-1/2 items-end gap-2">
                 <span className="whitespace-nowrap">AADHAR NO.</span>
                 <span className="flex-grow border-b-[1.5px] border-dotted border-slate-500 text-teal-900 font-bold px-2">{tcData.aadhar}</span>
+              </div>
+            </div>
+
+            <div className="flex w-full items-end gap-4">
+              <div className="flex w-1/2 items-end gap-2">
+                <span className="whitespace-nowrap">APAAR ID</span>
+                <span className="flex-grow border-b-[1.5px] border-dotted border-slate-500 text-teal-900 font-bold px-2">{tcData.apaarId}</span>
+              </div>
+              <div className="flex w-1/2 items-end gap-2">
+                <span className="whitespace-nowrap">PEN ID</span>
+                <span className="flex-grow border-b-[1.5px] border-dotted border-slate-500 text-teal-900 font-bold px-2">{tcData.penId}</span>
               </div>
             </div>
 
@@ -399,6 +414,8 @@ export default function TCForm({ student = defaultStudent }: TCFormProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div><Label className="mb-1.5 block">SSSMID NO.</Label><Input name="sssmid" defaultValue={student?.sssmid || ''} /></div>
               <div><Label className="mb-1.5 block">AADHAR NO.</Label><Input name="aadhar" defaultValue={student?.aadhaar || ''} /></div>
+              <div><Label className="mb-1.5 block">APAAR ID</Label><Input name="apaarId" defaultValue={student?.apaarId || ''} /></div>
+              <div><Label className="mb-1.5 block">PEN ID</Label><Input name="penId" defaultValue={student?.penId || ''} /></div>
               <div><Label className="mb-1.5 block">FAMILY ID No.</Label><Input name="familyId" /></div>
               <div><Label className="mb-1.5 block">Name of Bank</Label><Input name="bankName" defaultValue={bankData.bankName} /></div>
               <div><Label className="mb-1.5 block">A/c No.</Label><Input name="accountNo" defaultValue={bankData.accountNo} /></div>

@@ -15,6 +15,9 @@ export interface StudentData {
   phone?: string;
   father_name?: string;
   mother_name?: string;
+  apaarId?: string;
+  penId?: string;
+  address?: string;
   status?: string;
   total_fees?: string;
 }
@@ -63,6 +66,18 @@ export interface StudentResponse {
   studentRaw?: StudentEnrollment['student'];
   [key: string]: any;
 }
+
+/** Fetch students by class number — uses /api/v1/students/class/{classNo} */
+export const fetchStudentsByClass = async (classNo: string) => {
+  console.log(
+    'check the tuype of classNo in fetchStudentsByClass:', typeof classNo, classNo
+  )
+  const response = await apiClient.get(`/api/v1/students/class/v1/${classNo}`, {
+    withCredentials: true,
+  });
+  console.log("Fetched students by class:", response.data);
+  return response.data; // { studentdetail: [...], classteacherName: "...", success: "..." }
+};
 
 export const fetchStudents = async (): Promise<StudentResponse[]> => {
   const response = await apiClient.get("/api/v1/students/all", { withCredentials: true });
@@ -115,6 +130,123 @@ export const deleteStudent = async (id: string) => {
   return response.data;
 };
 
+// ─── Student list item from /api/v1/students/studentlist ───────────────
+export interface StudentListItem {
+  StudentName: string;
+  studentId: number;
+  scholarNo: string;
+  faterhName: string;
+  motherName: string;
+  status: string;
+}
+
+// ─── Fetch student list (new API) ──────────────────────────────────────
+export const fetchStudentList = async (): Promise<StudentListItem[]> => {
+  const response = await apiClient.get("/api/v1/students/studentlist", {
+    withCredentials: true,
+  });
+  console.log("Student list response:", response.data);
+  return response.data?.body ?? response.data ?? [];
+};
+
+// ─── Fetch full student detail by ID ───────────────────────────────────
+export interface StudentDetail {
+  id: number;
+  name: string;
+  email: string;
+  scholar_no: string;
+  sssmid: string;
+  aadhaar: string;
+  gender: string;
+  category: string;
+  dob: string;
+  phone: string;
+  father_name: string;
+  mother_name: string;
+  status: string;
+  apaarId: string;
+  penId: string;
+  address: string;
+  createdAt: string;
+}
+
+export interface BankDetailData {
+  bankDetailId?: number;
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  AccountHolderName: string;
+  branchName: string;
+}
+
+export interface PhotoData {
+  id?: number;
+  fileName?: string;
+  contentType?: string;
+  filePath?: string;
+  fileSize?: number;
+}
+
+export interface StudentDetailResponse {
+  student: StudentDetail | null;
+  bank: BankDetailData | null;
+  photo: PhotoData | null;
+}
+
+export const fetchStudentDetail = async (studentId: number): Promise<StudentDetailResponse | null> => {
+  try {
+    const response = await apiClient.get(`/api/v1/students/student-detail/${studentId}`, {
+      withCredentials: true,
+    });
+    console.log("Student detail response:", response.data);
+    const data = response.data?.body ?? response.data?.data ?? response.data ?? null;
+    if (!data) return null;
+    return {
+      student: data.student ?? null,
+      bank: data.bank ?? null,
+      photo: data.photo ?? null,
+    };
+  } catch {
+    return null;
+  }
+};
+
+// ─── Update student detail ─────────────────────────────────────────────
+export const updateStudentDetail = async (data: Partial<StudentDetail> & { id: number }) => {
+  const response = await apiClient.put("/api/v1/students/update/student-detail", data, {
+    withCredentials: true,
+  });
+  return response.data;
+};
+
+// ─── Update bank detail ────────────────────────────────────────────────
+export const updateBankDetail = async (data: {
+  studentId: number;
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  AccountHolderName: string;
+  branchName: string;
+}) => {
+  const response = await apiClient.put("/update/student/bank-detail", data, {
+    withCredentials: true,
+  });
+  return response.data;
+};
+
+// ─── Update student photo ──────────────────────────────────────────────
+export const updateStudentPhoto = async (studentId: number, file: File) => {
+  const formData = new FormData();
+  formData.append("studentId", String(studentId));
+  formData.append("photo", file);
+  const response = await apiClient.put("/update/student/photo", formData, {
+    withCredentials: true,
+    transformRequest: [(data) => data],
+    headers: { "Content-Type": null },
+  });
+  return response.data;
+};
+
 // ─── Upload student photo ──────────────────────────────────────────────
 export const uploadStudentPhoto = async (studentId: number, file: File) => {
   const formData = new FormData();
@@ -126,6 +258,13 @@ export const uploadStudentPhoto = async (studentId: number, file: File) => {
     headers: { "Content-Type": null },
   });
   return response.data;
+};
+
+// ─── Delete student photo ──────────────────────────────────────────────
+export const deleteStudentPhoto = async (studentId: number): Promise<void> => {
+  await apiClient.delete(`/api/v1/students/photo/delete/${studentId}`, {
+    withCredentials: true,
+  });
 };
 
 // ─── Fetch student photo ───────────────────────────────────────────────

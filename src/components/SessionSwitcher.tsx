@@ -52,7 +52,7 @@ export default function SessionSwitcher() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 bg-white rounded-lg border border-slate-200 shadow-lg z-50 max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mb-1 bg-white rounded-lg border border-slate-200 shadow-lg z-50 max-h-60 overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
