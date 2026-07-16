@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import { fetchStudentsByClass } from "@/api/student";
 import { saveEnrollment, type EnrollmentRequest } from "@/api/enrollment";
 import { classes } from "@/components/data/class";
+import StudentAvatar from "@/components/StudentAvatar";
 
 export default function EnrollmentList() {
   const queryClient = useQueryClient();
@@ -278,7 +279,7 @@ export default function EnrollmentList() {
               <Button
                 onClick={handlePromoteSelected}
                 disabled={isPromoting}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-9"
+                className="bg-[#0d9488] hover:bg-teal-700 text-white gap-2 h-9"
               >
                 {isPromoting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -455,9 +456,16 @@ export default function EnrollmentList() {
                           {index + 1}
                         </TableCell>
                         <TableCell className="py-3">
-                          <span className="font-semibold text-slate-900">
-                            {student.name}
-                          </span>
+                          <div className="flex items-center gap-3">
+                            <StudentAvatar
+                              studentId={student.studentId}
+                              studentName={student.name}
+                              className="h-8 w-8"
+                            />
+                            <span className="font-semibold text-slate-900">
+                              {student.name}
+                            </span>
+                          </div>
                           {student.scholarNo !== "-" && (
                             <span className="text-xs text-slate-400 ml-2">
                               ({student.scholarNo})

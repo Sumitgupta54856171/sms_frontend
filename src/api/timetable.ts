@@ -1,4 +1,5 @@
 import apiClient from "./client";
+import { getCookie } from "@/lib/utils";
 
 export interface PeriodEntry {
   id?: number;
@@ -64,8 +65,8 @@ export const savePeriod = async (data: PeriodEntry): Promise<any> => {
 };
 
 // ─── Delete a timetable record ─────────────────────────────────────────
-export const deletePeriod = async (periodId: number): Promise<any> => {
-  const response = await apiClient.delete(`/api/v1/academic-options/time-table/period/${periodId}`, {
+export const deletePeriod = async (timetableId: number): Promise<any> => {
+  const response = await apiClient.delete(`/api/v1/academic-options/delete/period/${timetableId}`, {
     withCredentials: true,
   });
   return response.data;
@@ -87,8 +88,10 @@ export const fetchTimetableByTeacher = async (
 };
 
 // ─── Fetch my own timetable (uses JWT token) ───────────────────────────
-export const fetchMyTimetable = async (): Promise<PeriodEntry[]> => {
-  const response = await apiClient.get("/api/v1/academic-options/time-table/my-timetable", {
+export const fetchMyTimetable = async (teacherId?: number | string): Promise<PeriodEntry[]> => {
+  const tid = teacherId ?? getCookie("teacherId");
+  const id = Number(tid);
+  const response = await apiClient.get(`/api/v1/academic-options/time-table/teacher/${id}`, {
     withCredentials: true,
   });
   const raw = response.data?.data ?? response.data ?? [];
@@ -113,7 +116,15 @@ export const fetchAllClassTeachers = async (): Promise<ClassTeacher[]> => {
     const response = await apiClient.get("/api/v1/academic-options/timetable/class-teachers/all", {
       withCredentials: true,
     });
-    return response.data?.data ?? response.data ?? [];
+    const raw = response.data?.body ?? response.data ?? [];
+    return raw.map((item: any) => ({
+      id: item.id,
+      gradeClass: item.gradeClass,
+      class_no: item.class_no ?? item.gradeClass,
+      section: item.section,
+      teacher_id: item.teacher?.id ?? item.teacher_id,
+      teacher_name: item.teacher?.fullName ?? item.teacher_name,
+    }));
   } catch (error) {
     console.warn("Failed to fetch class teachers:", error);
     return [];

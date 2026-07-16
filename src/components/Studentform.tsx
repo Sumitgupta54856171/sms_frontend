@@ -133,6 +133,9 @@ export default function StudentForm({ onClose }: StudentFormProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__placeholder__" className="hidden">Select Grade</SelectItem>
+                  <SelectItem value="Nursery">Nursery</SelectItem>
+                  <SelectItem value="LKG">LKG</SelectItem>
+                  <SelectItem value="UKG">UKG</SelectItem>
                   <SelectItem value="1">Grade 1</SelectItem>
                   <SelectItem value="2">Grade 2</SelectItem>
                   <SelectItem value="3">Grade 3</SelectItem>

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar, Mail, Phone, User, MapPin, BookOpen, Hash, IdCard } from "lucide-react";
+import StudentAvatar from "@/components/StudentAvatar";
 
 interface StudentData {
   id: number;
@@ -52,14 +52,15 @@ export default function ProfileDetail({ student }: ProfileDetailProps) {
   return (
     <div className="space-y-6">
       {/* Profile Header */}
-      <Card className="border-slate-200 shadow-sm overflow-hidden">
+      <Card className="border-slate-200 shadow-sm ">
         <div className="bg-gradient-to-r from-teal-600 to-teal-500 px-6 py-8">
-          <div className="flex items-center gap-5">
-            <Avatar className="h-20 w-20 border-4 border-white/80 shadow-lg">
-              <AvatarFallback className="bg-white/90 text-teal-700 text-xl font-bold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+          <div className="flexcl items-center gap-5">
+            <StudentAvatar
+              studentId={student.id}
+              studentName={student.name}
+              className="h-20 w-20 border-4 border-white/80 shadow-lg"
+              fallbackClassName="bg-white/90 text-teal-700 text-xl font-bold"
+            />
             <div className="text-white">
               <h2 className="text-2xl font-bold">{student.name}</h2>
               <p className="text-teal-100 text-sm mt-1">{student.email}</p>

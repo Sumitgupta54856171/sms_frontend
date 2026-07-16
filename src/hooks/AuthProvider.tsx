@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { login as reduxLogin, logout as reduxLogout, restoreSession } from "@/store/slices/authSlice";
+import { fetchAndCacheTeacherClass } from "@/api/teacher";
 
 export interface AuthUser {
   token: string;
@@ -34,9 +35,17 @@ export function useAuth(): AuthContextValue {
 
 const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const dispatch = useAppDispatch();
+  // user is read via useAuth() hook, not directly here
 
   useEffect(() => {
     dispatch(restoreSession());
+
+    // Read role directly from localStorage (same source restoreSession uses)
+    // so we don't have to wait for a re-render cycle
+    const role = localStorage.getItem("useRole");
+    if (role?.toLowerCase() === "teacher") {
+      fetchAndCacheTeacherClass();
+    }
   }, [dispatch]);
 
   return <>{children}</>;

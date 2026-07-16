@@ -81,24 +81,29 @@ export const fetchAttendanceByClassAndDate = async (
   classNo: string,
   date: string
 ): Promise<AttendanceRecord[]> => {
-  const response = await apiClient.get(
-    `/api/v1/attendance/class/${classNo}/date/${date}`,
-    { withCredentials: true }
-  );
-  console.log("API response for attendance by class/date:", response.data);
-  const raw = response.data?.data ?? response.data ?? [];
-  return raw.map((item: any) => {
-    const mapped = {
-      attendanceId: item.attendanceId ?? item.attendance_id,
-      attendanceDate: item.attendanceDate ?? item.attendance_date,
-      status: (item.status ?? "")?.toLowerCase?.() ?? "absent",
-      studentId: item.studentId ?? item.student_id,
-      studentName: item.studentName ?? item.student_name ?? "",
-      grade: item.grade ?? "",
-      rollNumber: item.rollNumber ?? item.roll_number ?? "",
-      scholarNo: item.scholarNo ?? item.scholar_no ?? "",
-    };
-    console.log("Mapped attendance record:", mapped);
-    return mapped;
-  });
+  try {
+    const response = await apiClient.get(
+      `/api/v1/attendance/date/${date}`,
+      { withCredentials: true }
+    );
+    console.log("API response for attendance by class/date:", response.data);
+    const raw = response.data?.body ?? response.data ?? [];
+    return raw.map((item: any) => {
+      const mapped = {
+        attendanceId: item.attendanceId ?? item.attendance_id,
+        attendanceDate: item.attendanceDate ?? item.attendance_date,
+        status: (item.status ?? "")?.toLowerCase?.() ?? "absent",
+        studentId: item.studentId ?? item.student_id,
+        studentName: item.studentName ?? item.student_name ?? "",
+        grade: item.grade ?? "",
+        rollNumber: item.rollNumber ?? item.roll_number ?? "",
+        scholarNo: item.scholarNo ?? item.scholar_no ?? "",
+      };
+      console.log("Mapped attendance record:", mapped);
+      return mapped;
+    });
+  } catch (error) {
+    console.warn("Failed to fetch attendance by class/date:", error);
+    return [];
+  }
 };

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { Book, GraduationCap, Layers, Sparkles } from "lucide-react";
 
 import {
@@ -42,7 +42,7 @@ const typeLabels: Record<string, string> = {
   additional: "Additional",
 };
 
-export default function SubjectList() {
+const SubjectList = memo(function SubjectList() {
   const [selectedClass, setSelectedClass] = useState("Nursery");
   const [selectedStream, setSelectedStream] = useState<string>("Science");
 
@@ -63,11 +63,17 @@ export default function SubjectList() {
     return SUBJECT_GROUPS.find((g) => g.classes.includes(selectedClass));
   }, [selectedClass]);
 
-  const mainSubjects = subjects.filter((s) => s.type === "main");
-  const additionalSubjects = subjects.filter((s) => s.type !== "main");
+  const mainSubjects = useMemo(
+    () => subjects.filter((s) => s.type === "main"),
+    [subjects],
+  );
+  const additionalSubjects = useMemo(
+    () => subjects.filter((s) => s.type !== "main"),
+    [subjects],
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-6 md:p-8 font-sans">
+    <div className="min-h-screen bg-slate-50/50 p-6 md:p-8 font-sans contain-content">
       <div className="mx-auto max-w-4xl">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -267,4 +273,6 @@ export default function SubjectList() {
       </div>
     </div>
   );
-}
+});
+
+export default SubjectList;

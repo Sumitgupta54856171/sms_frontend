@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import StudentAvatar from "@/components/StudentAvatar";
 import {
   Card,
   CardContent,
@@ -158,9 +159,12 @@ export default function PayFees({ student, onBack, onSuccess }: PayFeesProps) {
         <Card className="mb-6 bg-linear-to-br from-emerald-50 to-white border-emerald-100">
           <CardContent className="pt-5">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-base font-bold">
-                {getInitials(student.name)}
-              </div>
+              <StudentAvatar
+                studentId={student.id}
+                studentName={student.name}
+                className="h-12 w-12"
+                fallbackClassName="bg-emerald-100 text-emerald-600 text-base font-bold"
+              />
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">
                   {student.name}

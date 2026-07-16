@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
 import { fetchStudentsByClass } from "@/api/student";
+import StudentAvatar from "@/components/StudentAvatar";
 
 export default function ClassStudentList() {
   const { classNo } = useParams<{ classNo: string }>();
@@ -31,8 +32,8 @@ export default function ClassStudentList() {
   const students = useMemo(() => {
     if (!data?.studentdetail) return [];
     return data.studentdetail.map((s: any, idx: number) => ({
-      id: idx + 1,
-      class_no:`Class ${s.className}` ??  "-",
+      id: s.studentId ?? s.id ?? idx + 1,
+      class_no: s.className ?? "-",
       roll_no: s.rolleNo ?? "-",
       name: s.studentName ?? s["Student name"] ?? "-",
       scholar_no: s.scholarNo ?? s.scholarNo ?? "-",
@@ -130,9 +131,16 @@ export default function ClassStudentList() {
                         {student.roll_no}
                       </TableCell>
                       <TableCell className="py-3">
-                        <span className="font-semibold text-slate-900">
-                          {student.name}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <StudentAvatar
+                            studentId={student.id}
+                            studentName={student.name}
+                            className="h-8 w-8"
+                          />
+                          <span className="font-semibold text-slate-900">
+                            {student.name}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="py-3 pr-6 text-slate-600">
                         {student.scholar_no}

@@ -4,6 +4,7 @@ interface ModalState {
   studentForm: boolean;
   teacherForm: boolean;
   studentProfile: boolean;
+  teacherProfile: boolean;
   assignPeriod: boolean;
   classTeacherAssign: boolean;
 }
@@ -23,6 +24,7 @@ const initialState: UiState = {
     studentForm: false,
     teacherForm: false,
     studentProfile: false,
+    teacherProfile: false,
     assignPeriod: false,
     classTeacherAssign: false,
   },

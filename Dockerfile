@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci && npm install -D esbuild
 
 # Copy source code and build (skip tsc — type errors are pre-existing)
 COPY . .

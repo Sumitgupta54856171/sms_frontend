@@ -21,12 +21,11 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
   return (
     <LoadingContext.Provider value={{ isGlobalLoading }}>
       {children}
+      {/* Non-blocking mini spinner — doesn't block interaction */}
       {isGlobalLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="rounded-xl bg-white px-6 py-5 shadow-2xl flex items-center gap-4">
-            <Spinner className="size-6 text-[#6366f1]" />
-            <span className="text-sm font-medium text-slate-700">Loading...</span>
-          </div>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 shadow-sm border border-slate-200 backdrop-blur-sm">
+          <Spinner className="size-4 text-indigo-600" />
+          <span className="text-xs font-medium text-slate-600">Loading...</span>
         </div>
       )}
     </LoadingContext.Provider>

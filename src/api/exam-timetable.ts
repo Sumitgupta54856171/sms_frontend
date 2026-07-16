@@ -1,16 +1,17 @@
 import apiClient from "./client";
 
 export interface ExamTimetableEntry {
-  id?: number;
-  examName: string;
+  testtimetableId?: number;
+  timetableName: string;
   examType: "test" | "exam";
-  gradeClass: string;
+  classNO: string;
   subject: string;
   date: string;
+  day: string;
   startTime: string;
   endTime: string;
-  totalMarks?: number;
-  testCode?: string;
+  examcode?: number;
+  maxMarks?: number;
   sessionId?: number;
 }
 
@@ -20,56 +21,12 @@ export interface ExamTimetableGroup {
   entries: ExamTimetableEntry[];
 }
 
-// ─── Fetch all exam timetable entries ──────────────────────────────────
-export const fetchAllExamTimetables = async (): Promise<ExamTimetableEntry[]> => {
-  try {
-    const response = await apiClient.get("/api/v1/exam-timetable/all", {
-      withCredentials: true,
-    });
-    const raw = response.data?.body ?? response.data?.data ?? response.data ?? [];
-    return raw.map((item: any) => ({
-      id: item.id,
-      examName: item.examName ?? item.exam_name ?? "",
-      examType: item.examType ?? item.exam_type ?? "test",
-      gradeClass: item.gradeClass ?? item.grade_class ?? "",
-      subject: item.subject ?? "",
-      date: item.date ?? "",
-      startTime: item.startTime ?? item.start_time ?? "",
-      endTime: item.endTime ?? item.end_time ?? "",
-      totalMarks: item.totalMarks ?? item.total_marks,
-      testCode: item.testCode ?? item.test_code ?? "",
-      sessionId: item.sessionId ?? item.session_id,
-    }));
-  } catch {
-    return [];
-  }
-};
-
-// ─── Fetch exam timetable by grade ─────────────────────────────────────
-export const fetchExamTimetableByGrade = async (
-  gradeClass: string
-): Promise<ExamTimetableEntry[]> => {
-  try {
-    const response = await apiClient.get(`/api/v1/exam-timetable/grade/${gradeClass}`, {
-      withCredentials: true,
-    });
-    const raw = response.data?.body ?? response.data?.data ?? response.data ?? [];
-    return raw.map((item: any) => ({
-      id: item.id,
-      examName: item.examName ?? item.exam_name ?? "",
-      examType: item.examType ?? item.exam_type ?? "test",
-      gradeClass: item.gradeClass ?? item.grade_class ?? "",
-      subject: item.subject ?? "",
-      date: item.date ?? "",
-      startTime: item.startTime ?? item.start_time ?? "",
-      endTime: item.endTime ?? item.end_time ?? "",
-      totalMarks: item.totalMarks ?? item.total_marks,
-      testCode: item.testCode ?? item.test_code ?? "",
-      sessionId: item.sessionId ?? item.session_id,
-    }));
-  } catch {
-    return [];
-  }
+// ─── Fetch all exam names ─────────────────────────────────────────────
+export const fetchExamNames = async (): Promise<string[]> => {
+  const response = await apiClient.get("/api/v1/timetable/examName", {
+    withCredentials: true,
+  });
+  return response.data ?? [];
 };
 
 // ─── Fetch exam timetable by exam name ─────────────────────────────────
@@ -77,21 +34,22 @@ export const fetchExamTimetableByName = async (
   examName: string
 ): Promise<ExamTimetableEntry[]> => {
   try {
-    const response = await apiClient.get(`/api/v1/exam-timetable/name/${encodeURIComponent(examName)}`, {
+    const response = await apiClient.get(`/api/v1/timetable/examByName/${encodeURIComponent(examName)}`, {
       withCredentials: true,
     });
     const raw = response.data?.body ?? response.data?.data ?? response.data ?? [];
     return raw.map((item: any) => ({
-      id: item.id,
-      examName: item.examName ?? item.exam_name ?? "",
-      examType: item.examType ?? item.exam_type ?? "test",
-      gradeClass: item.gradeClass ?? item.grade_class ?? "",
+      testtimetableId: item.testtimetableId ?? item.id,
+      timetableName: item.timetableName ?? item.examName ?? item.exam_name ?? "",
+      examType: item.examType ?? item.exam_type ?? "exam",
+      classNO: item.classNO ?? item.classNo ?? item.gradeClass ?? item.grade_class ?? "",
       subject: item.subject ?? "",
       date: item.date ?? "",
+      day: item.day ?? "",
       startTime: item.startTime ?? item.start_time ?? "",
       endTime: item.endTime ?? item.end_time ?? "",
-      totalMarks: item.totalMarks ?? item.total_marks,
-      testCode: item.testCode ?? item.test_code ?? "",
+      examcode: item.examcode ?? item.testCode ?? item.test_code,
+      maxMarks: item.maxMarks ?? item.totalMarks ?? item.total_marks,
       sessionId: item.sessionId ?? item.session_id,
     }));
   } catch {
@@ -100,10 +58,11 @@ export const fetchExamTimetableByName = async (
 };
 
 // ─── Save an exam timetable entry ──────────────────────────────────────
+// Teacher is auto-filled by the backend based on JWT token.
 export const saveExamTimetableEntry = async (
   data: ExamTimetableEntry
 ): Promise<any> => {
-  const response = await apiClient.post("/api/v1/exam-timetable/entry", data, {
+  const response = await apiClient.post("/api/v1/timetable/saveexamtimetable", data, {
     withCredentials: true,
   });
   return response.data;
@@ -113,7 +72,7 @@ export const saveExamTimetableEntry = async (
 export const bulkSaveExamTimetableEntries = async (
   entries: ExamTimetableEntry[]
 ): Promise<any> => {
-  const response = await apiClient.post("/api/v1/exam-timetable/entries/bulk", entries, {
+  const response = await apiClient.post("/api/v1/timetable/saveexamtimetable", entries, {
     withCredentials: true,
   });
   return response.data;

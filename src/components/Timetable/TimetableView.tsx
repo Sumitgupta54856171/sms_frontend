@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import {
   Calendar,
   Plus,
-  Pencil,
   Trash2,
   BookOpen,
   User,
@@ -37,21 +36,31 @@ import {
   deletePeriod,
 } from "@/api/timetable";
 import type { TeacherResponse } from "@/api/teacher";
-import { fetchTeachers } from "@/api/teacher";
-import { useAuth } from "@/hooks/AuthProvider";
+import { fetchTeachers, fetchTeacherClass } from "@/api/teacher";
+import { getCookie } from "@/lib/utils";
 import AssignPeriodModal from "./AssignPeriodModal";
 import ClassTeacherAssign from "./ClassTeacherAssign";
 
-const GRADES = Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`);
+const GRADES = ["Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)];
 
 export default function TimetableView() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const isTeacher = user?.role === "teacher";
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Use cookie for instant role detection
+  const roleFromCookie = (getCookie("role") || "").replace(/^ROLE_/i, "");
+  const isTeacher = roleFromCookie?.toLowerCase() === "teacher";
+
+  // Fetch teacher's class via useQuery
+  const { data: teacherClassName = "" } = useQuery({
+    queryKey: ["teacher-class"],
+    queryFn: fetchTeacherClass,
+    enabled: isTeacher,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const [activeTab, setActiveTab] = useState(
-    searchParams.get("tab") || "teacher-view"
+    isTeacher ? "my-timetable" : searchParams.get("tab") || "teacher-view"
   );
   const [selectedTeacherId, setSelectedTeacherId] = useState(
     searchParams.get("teacherId") || "__placeholder__"
@@ -60,7 +69,13 @@ export default function TimetableView() {
     searchParams.get("gradeClass") || "__placeholder__"
   );
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [editingPeriod, setEditingPeriod] = useState<PeriodEntry | null>(null);
+
+  // Sync teacher's class once fetched
+  useEffect(() => {
+    if (isTeacher && teacherClassName) {
+      setSelectedGrade(teacherClassName);
+    }
+  }, [isTeacher, teacherClassName]);
 
   // ─── Sync state to URL params ────────────────────────────────────────
   useEffect(() => {
@@ -82,10 +97,12 @@ export default function TimetableView() {
     queryFn: fetchTeachers,
   });
 
+  const teacherIdFromStorage = Number(localStorage.getItem("teacherId")) || 0;
+
   const { data: teacherTimetable = [], isLoading: teacherLoading } = useQuery({
-    queryKey: ["my-timetable"],
-    queryFn: fetchMyTimetable,
-    enabled: isTeacher,
+    queryKey: ["my-timetable", teacherIdFromStorage],
+    queryFn: () => fetchMyTimetable(teacherIdFromStorage),
+    enabled: isTeacher && !!teacherIdFromStorage,
   });
 
   // ─── Filter periods by teacher ───────────────────────────────────────
@@ -102,7 +119,7 @@ export default function TimetableView() {
     return allPeriods.filter((p: PeriodEntry) => p.gradeClass === selectedGrade);
   }, [allPeriods, selectedGrade]);
 
-  // ─── Delete mutation ─────────────────────────────────────────────────
+  // ─── Delete mutations ────────────────────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: deletePeriod,
     onSuccess: () => {
@@ -112,6 +129,8 @@ export default function TimetableView() {
     },
     onError: () => toast.error("Failed to delete period"),
   });
+
+  // deleteTimetable is available from the API for use in custom delete flows
 
   // ─── Get teacher name by ID ──────────────────────────────────────────
   const getTeacherName = (teacherId: number | string) => {
@@ -197,25 +216,14 @@ export default function TimetableView() {
                 )}
                 {editable && (
                   <TableCell>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => {
-                          setEditingPeriod(period);
-                          setAssignModalOpen(true);
-                        }}
-                        className="p-1.5 rounded bg-white border border-slate-200 text-slate-400 hover:text-teal-600 hover:border-teal-300"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (period.id) deleteMutation.mutate(period.id);
-                        }}
-                        className="p-1.5 rounded bg-white border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-300"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => {
+                        if (period.id) deleteMutation.mutate(period.id);
+                      }}
+                      className="p-1.5 rounded bg-white border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-300"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </TableCell>
                 )}
               </TableRow>
@@ -276,19 +284,31 @@ export default function TimetableView() {
       </div>
 
       <div className="w-48">
-        <Select value={selectedGrade} onValueChange={setSelectedGrade}>
+        <Select
+          value={selectedGrade}
+          onValueChange={setSelectedGrade}
+          disabled={isTeacher}
+        >
           <SelectTrigger>
-            <SelectValue placeholder="Select grade..." />
+            <SelectValue placeholder={isTeacher ? teacherClassName || "Loading..." : "Select grade..."} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__placeholder__" className="hidden">
-              Select grade
-            </SelectItem>
-            {GRADES.map((g) => (
-              <SelectItem key={g} value={g}>
-                {g}
+            {isTeacher && teacherClassName ? (
+              <SelectItem value={teacherClassName}>
+                {teacherClassName}
               </SelectItem>
-            ))}
+            ) : (
+              <>
+                <SelectItem value="__placeholder__" className="hidden">
+                  Select grade
+                </SelectItem>
+                {GRADES.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -372,21 +392,22 @@ export default function TimetableView() {
               </Select>
             </div>
 
-            <Button
-              onClick={() => {
-                if (!selectedTeacherId) {
-                  toast.error("Please select a teacher first");
-                  return;
-                }
-                setEditingPeriod(null);
-                setAssignModalOpen(true);
-              }}
-              disabled={!selectedTeacherId}
-              className="bg-teal-600 hover:bg-teal-700 text-white gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Period
-            </Button>
+            {!isTeacher && (
+              <Button
+                onClick={() => {
+                  if (!selectedTeacherId) {
+                    toast.error("Please select a teacher first");
+                    return;
+                  }
+                  setAssignModalOpen(true);
+                }}
+                disabled={!selectedTeacherId}
+                className="bg-teal-600 hover:bg-teal-700 text-white gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Period
+              </Button>
+            )}
           </div>
         </div>
 
@@ -466,13 +487,15 @@ export default function TimetableView() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-slate-50">
-              <TabsTrigger
-                value="teacher-view"
-                className="flex items-center gap-1.5"
-              >
-                <User className="h-4 w-4" />
-                Teacher Timetable
-              </TabsTrigger>
+              {!isTeacher && (
+                <TabsTrigger
+                  value="teacher-view"
+                  className="flex items-center gap-1.5"
+                >
+                  <User className="h-4 w-4" />
+                  Teacher Timetable
+                </TabsTrigger>
+              )}
               <TabsTrigger
                 value="grade-view"
                 className="flex items-center gap-1.5"
@@ -489,13 +512,15 @@ export default function TimetableView() {
                   My Timetable
                 </TabsTrigger>
               )}
-              <TabsTrigger
-                value="class-teacher"
-                className="flex items-center gap-1.5"
-              >
-                <User className="h-4 w-4" />
-                Class Teacher
-              </TabsTrigger>
+              {!isTeacher && (
+                <TabsTrigger
+                  value="class-teacher"
+                  className="flex items-center gap-1.5"
+                >
+                  <User className="h-4 w-4" />
+                  Class Teacher
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <div className="mt-6">
@@ -520,10 +545,8 @@ export default function TimetableView() {
         <AssignPeriodModal
           onClose={() => {
             setAssignModalOpen(false);
-            setEditingPeriod(null);
           }}
           preselectedTeacherId={selectedTeacherId}
-          existingPeriod={editingPeriod}
         />
       )}
     </div>

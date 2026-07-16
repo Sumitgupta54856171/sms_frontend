@@ -2,7 +2,7 @@ import axios from "axios";
 import { toast } from "sonner";
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL,
+  baseURL: '',
   headers: {
     "Content-Type": "application/json",
   },

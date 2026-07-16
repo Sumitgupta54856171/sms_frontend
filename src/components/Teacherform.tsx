@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -12,14 +12,19 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { saveTeacher } from "@/api/teacher";
+import { saveTeacher, updateTeacher } from "@/api/teacher";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setSelectedTeacher } from "@/store/slices/uiSlice";
 
 interface TeacherFormProps {
   onClose: () => void;
 }
 
 export default function TeacherForm({ onClose }: TeacherFormProps) {
+  const dispatch = useAppDispatch();
   const queryClient = useQueryClient();
+  const editingTeacher = useAppSelector((s) => s.ui.selectedTeacher);
+  const isEditing = !!editingTeacher;
 
   const [form, setForm] = useState({
     fullName: "",
@@ -35,16 +40,46 @@ export default function TeacherForm({ onClose }: TeacherFormProps) {
     education: "",
   });
 
+  useEffect(() => {
+    if (editingTeacher) {
+      setForm({
+        fullName: editingTeacher.fullName || "",
+        email: editingTeacher.email || "",
+        employee_id: editingTeacher.employee_id || "",
+        phone: editingTeacher.phone || "",
+        subject_specialization: editingTeacher.subject_specialization || "",
+        gender: editingTeacher.gender || "",
+        aadhaar_id: editingTeacher.aadhaar_id || "",
+        sssmid: editingTeacher.sssmid || "",
+        status: editingTeacher.status || "active",
+        password: "",
+        education: editingTeacher.education || "",
+      });
+    }
+  }, [editingTeacher]);
+
   const update = (field: string) => (e: any) =>
     setForm((prev) => ({ ...prev, [field]: e.target?.value ?? e }));
 
-  const mutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: saveTeacher,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teachers"] });
       onClose();
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<typeof form> }) =>
+      updateTeacher(id, data),
+    onSuccess: () => {
+      toast.success("Teacher updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["teachers"] });
+      onClose();
+    },
+  });
+
+  const mutation = isEditing ? updateMutation : saveMutation;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,12 +92,23 @@ export default function TeacherForm({ onClose }: TeacherFormProps) {
       toast.error("Employee ID is required");
       return;
     }
-    if (!form.password.trim()) {
+    if (!isEditing && !form.password.trim()) {
       toast.error("Password is required");
       return;
     }
 
-    mutation.mutate(form);
+    if (isEditing) {
+      const { password, ...data } = form;
+      const payload = password.trim() ? { ...data, password } : data;
+      updateMutation.mutate({ id: String(editingTeacher.id), data: payload });
+    } else {
+      saveMutation.mutate(form);
+    }
+  };
+
+  const handleClose = () => {
+    dispatch(setSelectedTeacher(null));
+    onClose();
   };
 
   return (
@@ -70,9 +116,11 @@ export default function TeacherForm({ onClose }: TeacherFormProps) {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-900">Add New Teacher</h2>
+          <h2 className="text-lg font-bold text-slate-900">
+            {isEditing ? "Edit Teacher" : "Add New Teacher"}
+          </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             <X className="h-5 w-5" />
@@ -234,7 +282,7 @@ export default function TeacherForm({ onClose }: TeacherFormProps) {
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
           <Button
             variant="outline"
-            onClick={onClose}
+            onClick={handleClose}
             className="w-full sm:w-auto"
           >
             Cancel
@@ -245,7 +293,11 @@ export default function TeacherForm({ onClose }: TeacherFormProps) {
             disabled={mutation.isPending}
             className="w-full sm:w-auto bg-[#0d9488] hover:bg-teal-700 text-white"
           >
-            {mutation.isPending ? "Saving..." : "Save Teacher"}
+            {mutation.isPending
+              ? "Saving..."
+              : isEditing
+                ? "Update Teacher"
+                : "Save Teacher"}
           </Button>
         </div>
       </div>

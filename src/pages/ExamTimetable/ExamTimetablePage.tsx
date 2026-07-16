@@ -1,128 +1,72 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Calendar,
   Plus,
-  Pencil,
-  Trash2,
-  BookOpen,
   Clock,
   GraduationCap,
   FileText,
-  X,
-  Hash,
-  Award,
 } from "lucide-react";
-import { format } from "date-fns";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/AuthProvider";
+import { useAppSelector } from "@/store/hooks";
 import {
-  fetchAllExamTimetables,
+  fetchExamNames,
+  fetchExamTimetableByName,
   saveExamTimetableEntry,
   bulkSaveExamTimetableEntries,
   deleteExamTimetableEntry,
 } from "@/api/exam-timetable";
 import type { ExamTimetableEntry } from "@/api/exam-timetable";
-
-const GRADES = [
-  "Nursery",
-  "LKG",
-  "UKG",
-  ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`),
-];
-
-const SUBJECTS = [
-  "Mathematics",
-  "English",
-  "Science",
-  "Social Studies",
-  "Hindi",
-  "Sanskrit",
-  "Computer Science",
-  "Physics",
-  "Chemistry",
-  "Biology",
-  "History",
-  "Geography",
-  "Civics",
-  "Economics",
-  "Accountancy",
-  "Business Studies",
-  "Physical Education",
-  "Art & Craft",
-  "Music",
-  "Moral Science",
-  "General Knowledge",
-  "Environmental Studies",
-];
-
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
-
-const formatTime = (time: string) => {
-  if (!time) return "";
-  try {
-    const [h, m] = time.split(":");
-    const hour = parseInt(h);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${m} ${ampm}`;
-  } catch {
-    return time;
-  }
-};
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return "";
-  try {
-    return format(new Date(dateStr), "dd MMM yyyy");
-  } catch {
-    return dateStr;
-  }
-};
+import {
+  saveTestTimetable,
+  fetchTestNames,
+  fetchTestTimetableByName,
+} from "@/api/test-timetable";
+import TimetableFilters from "./TimetableFilters";
+import TimetableFormModal from "./TimetableFormModal";
+import TimetableTable from "./TimetableTable";
+import { getCookie } from "@/lib/utils";
+import { fetchTeacherClass } from "@/api/teacher";
 
 export default function ExamTimetablePage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isAuthenticated = !!user;
+  const currentSession = useAppSelector((s) => s.session.currentSession);
+  const sessionId = currentSession?.sessionId;
 
-  const [activeTab, setActiveTab] = useState("test");
-  const [selectedGrade, setSelectedGrade] = useState("__placeholder__");
+  // Use cookie for instant role detection
+  const roleFromCookie = (getCookie("role") || "").replace(/^ROLE_/i, "");
+  const isTeacher = roleFromCookie?.toLowerCase() === "teacher";
+
+  // Fetch teacher's class via useQuery
+  const { data: teacherClassName = "" } = useQuery({
+    queryKey: ["teacher-class"],
+    queryFn: fetchTeacherClass,
+    enabled: isTeacher,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [activeTab, setActiveTab] = useState<"test" | "exam">("test");
+  const [selectedGrade, setSelectedGrade] = useState(
+    isTeacher ? "__placeholder__" : "__placeholder__"
+  );
   const [selectedExamName, setSelectedExamName] = useState("__placeholder__");
+
+  // Sync teacher's class once fetched
+  useEffect(() => {
+    if (isTeacher && teacherClassName) {
+      setSelectedGrade(teacherClassName);
+    }
+  }, [isTeacher, teacherClassName]);
 
   // ─── Add/Edit modal state ────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false);
@@ -139,39 +83,77 @@ export default function ExamTimetablePage() {
   const [formStartTime, setFormStartTime] = useState("");
   const [formEndTime, setFormEndTime] = useState("");
 
-  // ─── Data ────────────────────────────────────────────────────────────
-  const { data: allEntries = [], isLoading } = useQuery({
-    queryKey: ["exam-timetable"],
-    queryFn: fetchAllExamTimetables,
+  // ─── Fetch names (test or exam) ──────────────────────────────────────
+  const { data: testNamesFromApi = [] } = useQuery({
+    queryKey: ["test-names"],
+    queryFn: fetchTestNames,
+    enabled: activeTab === "test",
   });
 
-  // ─── Filter by type ──────────────────────────────────────────────────
-  const typeEntries = useMemo(
-    () => allEntries.filter((e: ExamTimetableEntry) => e.examType === activeTab),
-    [allEntries, activeTab]
-  );
+  const { data: examNamesFromApi = [] } = useQuery({
+    queryKey: ["exam-names"],
+    queryFn: fetchExamNames,
+    enabled: activeTab === "exam",
+  });
 
-  // ─── Unique exam names for the selected type ─────────────────────────
+  // ─── Fetch entries by selected name ──────────────────────────────────
+  const { data: testByNameEntries = [], isLoading: testByNameLoading } = useQuery({
+    queryKey: ["test-timetable-by-name", selectedExamName],
+    queryFn: () => fetchTestTimetableByName(selectedExamName),
+    enabled: activeTab === "test" && selectedExamName !== "__placeholder__",
+  });
+
+  const { data: examByNameEntries = [], isLoading: examByNameLoading } = useQuery({
+    queryKey: ["exam-timetable-by-name", selectedExamName],
+    queryFn: () => fetchExamTimetableByName(selectedExamName),
+    enabled: activeTab === "exam" && selectedExamName !== "__placeholder__",
+  });
+
+  // ─── Unique exam/test names ──────────────────────────────────────────
   const examNames = useMemo(() => {
-    const names = new Set(typeEntries.map((e: ExamTimetableEntry) => e.examName));
-    return Array.from(names).filter(Boolean);
-  }, [typeEntries]);
+    if (activeTab === "test") {
+      const names = Array.isArray(testNamesFromApi) ? testNamesFromApi : [];
+      return names.length > 0 ? names : [];
+    }
+    const names = Array.isArray(examNamesFromApi) ? examNamesFromApi : [];
+    return names.length > 0 ? names : [];
+  }, [activeTab, testNamesFromApi, examNamesFromApi]);
 
   // ─── Filter by grade + exam name ─────────────────────────────────────
   const filteredEntries = useMemo(() => {
-    let list = typeEntries;
+    if (selectedExamName === "__placeholder__") return [];
+
+    const source = activeTab === "test" ? testByNameEntries : examByNameEntries;
+
+    let list = source.map((e: any) => ({
+      testtimetableId: e.testtimetableId,
+      timetableName: e.timetableName,
+      examType: activeTab as "test" | "exam",
+      classNO: e.classNO,
+      subject: e.subject,
+      date: e.date,
+      day: e.day,
+      examcode: e.examcode ?? e.testcode,
+      maxMarks: e.maxMarks,
+      startTime: e.startTime || "",
+      endTime: e.endTime || "",
+      sessionId: e.sessionId,
+    }));
+
     if (selectedGrade && selectedGrade !== "__placeholder__") {
-      list = list.filter((e: ExamTimetableEntry) => e.gradeClass === selectedGrade);
-    }
-    if (selectedExamName && selectedExamName !== "__placeholder__") {
-      list = list.filter((e: ExamTimetableEntry) => e.examName === selectedExamName);
+      list = list.filter((e: any) => e.classNO === selectedGrade);
     }
     return list;
-  }, [typeEntries, selectedGrade, selectedExamName]);
+  }, [selectedGrade, selectedExamName, activeTab, testByNameEntries, examByNameEntries]);
+
+  const isLoading =
+    selectedExamName !== "__placeholder__"
+      ? activeTab === "test" ? testByNameLoading : examByNameLoading
+      : false;
 
   // ─── Group by date for display ───────────────────────────────────────
   const groupedByDate = useMemo(() => {
-    const groups: Record<string, ExamTimetableEntry[]> = {};
+    const groups: Record<string, any[]> = {};
     const sorted = [...filteredEntries].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
@@ -183,11 +165,17 @@ export default function ExamTimetablePage() {
     return groups;
   }, [filteredEntries]);
 
+  // ─── Invalidate both name lists ──────────────────────────────────────
+  const invalidateNames = () => {
+    queryClient.invalidateQueries({ queryKey: ["test-names"] });
+    queryClient.invalidateQueries({ queryKey: ["exam-names"] });
+  };
+
   // ─── Delete mutation ─────────────────────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: deleteExamTimetableEntry,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exam-timetable"] });
+      invalidateNames();
       toast.success("Entry deleted successfully");
     },
     onError: () => toast.error("Failed to delete entry"),
@@ -197,23 +185,34 @@ export default function ExamTimetablePage() {
   const saveMutation = useMutation({
     mutationFn: saveExamTimetableEntry,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exam-timetable"] });
+      invalidateNames();
       toast.success(editingEntry ? "Entry updated successfully" : "Entry added successfully");
       resetForm();
     },
     onError: () => toast.error("Failed to save entry"),
   });
 
-  // ─── Bulk save mutation ──────────────────────────────────────────────
+  // ─── Bulk save mutation (exam) ───────────────────────────────────────
   const bulkSaveMutation = useMutation({
     mutationFn: bulkSaveExamTimetableEntries,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["exam-timetable"] });
+      invalidateNames();
       const count = data?.length ?? formGrades.length;
       toast.success(`${count} entries created successfully`);
       resetForm();
     },
     onError: () => toast.error("Failed to create bulk entries"),
+  });
+
+  // ─── Save test timetable mutation ────────────────────────────────────
+  const saveTestMutation = useMutation({
+    mutationFn: saveTestTimetable,
+    onSuccess: () => {
+      invalidateNames();
+      toast.success("Test timetable saved successfully");
+      resetForm();
+    },
+    onError: () => toast.error("Failed to save test timetable"),
   });
 
   // ─── Toggle grade selection for multi-select ─────────────────────────
@@ -240,19 +239,19 @@ export default function ExamTimetablePage() {
   };
 
   // ─── Open edit form ──────────────────────────────────────────────────
-  const openEditForm = (entry: ExamTimetableEntry) => {
+  const openEditForm = (entry: any) => {
     setEditingEntry(entry);
-    setFormExamName(entry.examName);
+    setFormExamName(entry.timetableName ?? entry.examName);
     setFormExamType(entry.examType);
-    setFormTestCode(entry.testCode ?? "");
-    setFormTotalMarks(entry.totalMarks?.toString() ?? "");
-    setFormGrade(entry.gradeClass);
+    setFormTestCode(entry.examcode?.toString() ?? entry.testCode?.toString() ?? "");
+    setFormTotalMarks(entry.maxMarks?.toString() ?? entry.totalMarks?.toString() ?? "");
+    setFormGrade(entry.classNO ?? entry.gradeClass);
     setFormGrades([]);
     setFormSubject(entry.subject);
     setFormDate(entry.date);
-    setFormDay("__placeholder__");
-    setFormStartTime(entry.startTime);
-    setFormEndTime(entry.endTime);
+    setFormDay(entry.day || "__placeholder__");
+    setFormStartTime(entry.startTime || "");
+    setFormEndTime(entry.endTime || "");
     setShowForm(true);
   };
 
@@ -271,51 +270,133 @@ export default function ExamTimetablePage() {
       toast.error("Please select a date");
       return;
     }
+    if (formDay === "__placeholder__") {
+      toast.error("Please select a day");
+      return;
+    }
 
-    // Multi-class bulk mode (both test and exam)
+    // ── Test timetable: use dedicated test API ──────────────────────────
+    if (formExamType === "test") {
+      const testCodeNum = formTestCode.trim()
+        ? parseInt(formTestCode.trim())
+        : undefined;
+
+      if (!editingEntry && formGrades.length > 0) {
+        // Bulk: send all entries as a timetable array
+        const entries = formGrades.map((g) => ({
+          timetableName: formExamName.trim(),
+          classNO: g,
+          subject: formSubject,
+          day: formDay,
+          date: formDate,
+          testcode: testCodeNum,
+          sessionId: sessionId ?? undefined,
+          maxMarks: formTotalMarks ? parseInt(formTotalMarks) : undefined,
+        }));
+        saveTestMutation.mutate(entries, {
+          onSuccess: () => {
+            invalidateNames();
+            toast.success(`${entries.length} test entries created successfully`);
+            resetForm();
+          },
+          onError: () => toast.error("Failed to save test entries"),
+        });
+        return;
+      }
+
+      // Single test
+      if (!editingEntry && formGrade === "__placeholder__") {
+        toast.error("Please select a grade");
+        return;
+      }
+      saveTestMutation.mutate(
+        {
+          ...(editingEntry?.testtimetableId
+            ? { testtimetableId: editingEntry.testtimetableId }
+            : {}),
+          timetableName: formExamName.trim(),
+          classNO: formGrade,
+          subject: formSubject,
+          day: formDay,
+          date: formDate,
+          testcode: testCodeNum,
+          sessionId: sessionId ?? undefined,
+          maxMarks: formTotalMarks ? parseInt(formTotalMarks) : undefined,
+        },
+        {
+          onSuccess: () => {
+            invalidateNames();
+            toast.success("Test timetable saved successfully");
+            resetForm();
+          },
+          onError: () => toast.error("Failed to save test timetable"),
+        }
+      );
+      return;
+    }
+
+    // ── Exam timetable: use existing exam API ───────────────────────────
     if (!editingEntry && formGrades.length > 0) {
-      if (formExamType === "exam" && (!formStartTime || !formEndTime)) {
+      if (!formStartTime || !formEndTime) {
         toast.error("Please select start and end time");
         return;
       }
       const entries = formGrades.map((g) => ({
-        examName: formExamName.trim(),
+        timetableName: formExamName.trim(),
         examType: formExamType,
-        gradeClass: g,
+        classNO: g,
         subject: formSubject,
         date: formDate,
+        day: formDay,
         startTime: formStartTime,
         endTime: formEndTime,
-        totalMarks: formTotalMarks ? parseInt(formTotalMarks) : undefined,
-        testCode: formTestCode.trim() || undefined,
+        maxMarks: formTotalMarks ? parseInt(formTotalMarks) : undefined,
+        examcode: formTestCode.trim() ? parseInt(formTestCode.trim()) : undefined,
+        sessionId: sessionId ?? undefined,
       }));
       bulkSaveMutation.mutate(entries);
       return;
     }
 
-    // Single grade (test or editing)
     if (!editingEntry && formGrade === "__placeholder__") {
       toast.error("Please select a grade");
       return;
     }
-    if (formExamType === "exam" && (!formStartTime || !formEndTime)) {
+    if (!formStartTime || !formEndTime) {
       toast.error("Please select start and end time");
       return;
     }
 
     saveMutation.mutate({
-      ...(editingEntry?.id ? { id: editingEntry.id } : {}),
-      examName: formExamName.trim(),
+      ...(editingEntry?.testtimetableId ? { testtimetableId: editingEntry.testtimetableId } : {}),
+      timetableName: formExamName.trim(),
       examType: formExamType,
-      gradeClass: formGrade,
+      classNO: formGrade,
       subject: formSubject,
       date: formDate,
+      day: formDay,
       startTime: formStartTime,
       endTime: formEndTime,
-      totalMarks: formTotalMarks ? parseInt(formTotalMarks) : undefined,
-      testCode: formTestCode.trim() || undefined,
+      maxMarks: formTotalMarks ? parseInt(formTotalMarks) : undefined,
+      examcode: formTestCode.trim() ? parseInt(formTestCode.trim()) : undefined,
+      sessionId: sessionId ?? undefined,
     });
   };
+
+  // ─── Handle delete ───────────────────────────────────────────────────
+  const handleDelete = (id: number) => {
+    deleteMutation.mutate(id);
+  };
+
+  // ─── Handle add new ──────────────────────────────────────────────────
+  const handleAddNew = () => {
+    resetForm();
+    setFormExamType(activeTab as "test" | "exam");
+    setShowForm(true);
+  };
+
+  const isSaving =
+    saveMutation.isPending || bulkSaveMutation.isPending || saveTestMutation.isPending;
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 md:p-8 font-sans">
@@ -336,7 +417,7 @@ export default function ExamTimetablePage() {
             </div>
           </div>
 
-          {isAuthenticated && (
+          {isAuthenticated && !isTeacher && (
             <div className="flex gap-2">
               <Button
                 onClick={() => {
@@ -356,7 +437,7 @@ export default function ExamTimetablePage() {
                   setFormExamType("exam");
                   setShowForm(true);
                 }}
-                className="gap-2 bg-indigo-600 hover:bg-indigo-700"
+                className="gap-2 bg-[#0d9488] hover:bg-teal-700"
               >
                 <Plus className="h-4 w-4" />
                 Add Exam
@@ -366,7 +447,7 @@ export default function ExamTimetablePage() {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "test" | "exam")}>
           <TabsList className="bg-white border border-slate-200 mb-6">
             <TabsTrigger value="test" className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
@@ -379,440 +460,99 @@ export default function ExamTimetablePage() {
           </TabsList>
 
           <TabsContent value="test" className="mt-0">
-            {renderContent()}
+            <div className="space-y-6">
+              <TimetableFilters
+                selectedGrade={selectedGrade}
+                selectedExamName={selectedExamName}
+                examNames={examNames}
+                activeTab={activeTab}
+                isTeacher={isTeacher}
+                teacherClassName={teacherClassName}
+                onGradeChange={setSelectedGrade}
+                onExamNameChange={setSelectedExamName}
+                onClear={() => {
+                  setSelectedGrade(isTeacher && teacherClassName ? teacherClassName : "__placeholder__");
+                  setSelectedExamName("__placeholder__");
+                }}
+              />
+              <TimetableTable
+                groupedByDate={groupedByDate}
+                activeTab={activeTab}
+                isAuthenticated={isAuthenticated}
+                isLoading={isLoading}
+                filteredEntries={filteredEntries}
+                selectedGrade={selectedGrade}
+                selectedExamName={selectedExamName}
+                isTeacher={isTeacher}
+                onAddNew={handleAddNew}
+                onEdit={openEditForm}
+                onDelete={handleDelete}
+              />
+            </div>
           </TabsContent>
           <TabsContent value="exam" className="mt-0">
-            {renderContent()}
+            <div className="space-y-6">
+              <TimetableFilters
+                selectedGrade={selectedGrade}
+                selectedExamName={selectedExamName}
+                examNames={examNames}
+                activeTab={activeTab}
+                isTeacher={isTeacher}
+                teacherClassName={teacherClassName}
+                onGradeChange={setSelectedGrade}
+                onExamNameChange={setSelectedExamName}
+                onClear={() => {
+                  setSelectedGrade(isTeacher && teacherClassName ? teacherClassName : "__placeholder__");
+                  setSelectedExamName("__placeholder__");
+                }}
+              />
+              <TimetableTable
+                groupedByDate={groupedByDate}
+                activeTab={activeTab}
+                isAuthenticated={isAuthenticated}
+                isLoading={isLoading}
+                filteredEntries={filteredEntries}
+                selectedGrade={selectedGrade}
+                selectedExamName={selectedExamName}
+                isTeacher={isTeacher}
+                onAddNew={handleAddNew}
+                onEdit={openEditForm}
+                onDelete={handleDelete}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
 
       {/* Add/Edit Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-900">
-                {editingEntry
-                  ? "Edit Schedule"
-                  : formExamType === "test"
-                  ? "Add Test Schedule"
-                  : "Add Exam Schedule"}
-              </h2>
-              <button
-                onClick={resetForm}
-                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
-              {/* ── Test / Exam Name ── */}
-              <div>
-                <Label className="mb-1.5 block">
-                  {formExamType === "test" ? "Test Name" : "Exam Name"}
-                </Label>
-                <Input
-                  value={formExamName}
-                  onChange={(e) => setFormExamName(e.target.value)}
-                  placeholder={`e.g. ${formExamType === "test" ? "Weekly Test 1" : "Half Yearly"}`}
-                />
-              </div>
-
-              {/* ── Test / Exam Code ── */}
-              <div>
-                <Label className="mb-1.5 block">Test / Exam Code</Label>
-                <Input
-                  value={formTestCode}
-                  onChange={(e) => setFormTestCode(e.target.value)}
-                  placeholder="e.g. T-001 or MID-2026"
-                />
-              </div>
-
-              {/* ── Subject ── */}
-              <div>
-                <Label className="mb-1.5 block">Subject</Label>
-                <Select value={formSubject} onValueChange={setFormSubject}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select subject..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__placeholder__" className="hidden">
-                      Select subject
-                    </SelectItem>
-                    {SUBJECTS.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* ── Grade / Class ── */}
-              {!editingEntry ? (
-                /* Multi-class selection for bulk creation */
-                <div>
-                  <Label className="mb-1.5 block">Select Classes (bulk create)</Label>
-                  <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-3">
-                    {GRADES.map((g) => (
-                      <label
-                        key={g}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors ${
-                          formGrades.includes(g)
-                            ? "bg-indigo-100 text-indigo-700 border border-indigo-300"
-                            : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formGrades.includes(g)}
-                          onChange={() => toggleGrade(g)}
-                          className="sr-only"
-                        />
-                        {g}
-                      </label>
-                    ))}
-                  </div>
-                  {formGrades.length > 0 && (
-                    <p className="text-xs text-indigo-600 mt-1">
-                      {formGrades.length} class{formGrades.length > 1 ? "es" : ""} selected
-                    </p>
-                  )}
-                </div>
-              ) : (
-                /* Single grade selection for test or editing */
-                <div>
-                  <Label className="mb-1.5 block">Grade / Class</Label>
-                  <Select
-                    value={formGrade}
-                    onValueChange={setFormGrade}
-                    disabled={!!editingEntry}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select grade..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__placeholder__" className="hidden">
-                        Select grade
-                      </SelectItem>
-                      {GRADES.map((g) => (
-                        <SelectItem key={g} value={g}>
-                          {g}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* ── Day ── */}
-              <div>
-                <Label className="mb-1.5 block">Day</Label>
-                <Select value={formDay} onValueChange={setFormDay}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select day..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__placeholder__" className="hidden">
-                      Select day
-                    </SelectItem>
-                    {DAYS.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* ── Date ── */}
-              <div>
-                <Label className="mb-1.5 block">Date</Label>
-                <Input
-                  type="date"
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                />
-              </div>
-
-              {/* ── Start & End Time (exam only) ── */}
-              {formExamType === "exam" && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="mb-1.5 block">Start Time</Label>
-                    <Input
-                      type="time"
-                      value={formStartTime}
-                      onChange={(e) => setFormStartTime(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label className="mb-1.5 block">End Time</Label>
-                    <Input
-                      type="time"
-                      value={formEndTime}
-                      onChange={(e) => setFormEndTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* ── Total Marks ── */}
-              <div>
-                <Label className="mb-1.5 block">Total Marks</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={formTotalMarks}
-                  onChange={(e) => setFormTotalMarks(e.target.value)}
-                  placeholder="e.g. 100"
-                />
-              </div>
-
-              {/* ── Submit ── */}
-              <div className="pt-2">
-                <Button
-                  type="submit"
-                  className="w-full bg-indigo-600 hover:bg-indigo-700"
-                  disabled={saveMutation.isPending || bulkSaveMutation.isPending}
-                >
-                  {saveMutation.isPending || bulkSaveMutation.isPending
-                    ? "Saving..."
-                    : editingEntry
-                    ? "Update Schedule"
-                    : formExamType === "exam" && formGrades.length > 1
-                    ? `Create ${formGrades.length} Entries`
-                    : "Add Schedule"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <TimetableFormModal
+        showForm={showForm}
+        editingEntry={editingEntry}
+        formExamType={formExamType}
+        formExamName={formExamName}
+        formTestCode={formTestCode}
+        formTotalMarks={formTotalMarks}
+        formGrade={formGrade}
+        formGrades={formGrades}
+        formSubject={formSubject}
+        formDate={formDate}
+        formDay={formDay}
+        formStartTime={formStartTime}
+        formEndTime={formEndTime}
+        isSaving={isSaving}
+        onReset={resetForm}
+        onExamNameChange={setFormExamName}
+        onTestCodeChange={setFormTestCode}
+        onTotalMarksChange={setFormTotalMarks}
+        onGradeChange={setFormGrade}
+        onGradeToggle={toggleGrade}
+        onSubjectChange={setFormSubject}
+        onDateChange={setFormDate}
+        onDayChange={setFormDay}
+        onStartTimeChange={setFormStartTime}
+        onEndTimeChange={setFormEndTime}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
-
-  function renderContent() {
-    return (
-      <div className="space-y-6">
-        {/* Filters */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="w-full sm:w-48">
-                <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All grades" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__placeholder__">All Grades</SelectItem>
-                    {GRADES.map((g) => (
-                      <SelectItem key={g} value={g}>
-                        {g}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="w-full sm:w-56">
-                <Select value={selectedExamName} onValueChange={setSelectedExamName}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All names" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__placeholder__">
-                      {activeTab === "test" ? "All Tests" : "All Exams"}
-                    </SelectItem>
-                    {examNames.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {(selectedGrade !== "__placeholder__" || selectedExamName !== "__placeholder__") && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedGrade("__placeholder__");
-                    setSelectedExamName("__placeholder__");
-                  }}
-                  className="text-xs text-slate-500"
-                >
-                  Clear filters
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Timetable Display */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-indigo-600" />
-          </div>
-        ) : filteredEntries.length === 0 ? (
-          <div className="text-center py-16 text-slate-400">
-            <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm font-medium">No schedules found</p>
-            <p className="text-xs mt-1">
-              {selectedGrade !== "__placeholder__" || selectedExamName !== "__placeholder__"
-                ? "Try changing the filters."
-                : `No ${activeTab} schedules have been created yet.`}
-            </p>
-            {isAuthenticated && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  resetForm();
-                  setFormExamType(activeTab as "test" | "exam");
-                  setShowForm(true);
-                }}
-                className="mt-4 gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add {activeTab === "test" ? "Test" : "Exam"} Schedule
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {Object.entries(groupedByDate).map(([date, entries]) => (
-              <Card key={date}>
-                <CardHeader className="pb-3 px-4 sm:px-6">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-indigo-500" />
-                    {formatDate(date)}
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {entries.length} subject{entries.length !== 1 ? "s" : ""}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-slate-50">
-                          <TableHead className="text-xs font-bold text-slate-500 uppercase">
-                            Subject
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-slate-500 uppercase">
-                            Grade
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-slate-500 uppercase">
-                            {activeTab === "test" ? "Test" : "Exam"}
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-slate-500 uppercase">
-                            Code
-                          </TableHead>
-                          <TableHead className="text-xs font-bold text-slate-500 uppercase">
-                            Marks
-                          </TableHead>
-                          {activeTab === "exam" && (
-                            <TableHead className="text-xs font-bold text-slate-500 uppercase">
-                              Time
-                            </TableHead>
-                          )}
-                          {isAuthenticated && (
-                            <TableHead className="w-20 text-xs font-bold text-slate-500 uppercase">
-                              Actions
-                            </TableHead>
-                          )}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {entries.map((entry: ExamTimetableEntry, idx: number) => (
-                          <TableRow
-                            key={entry.id ?? idx}
-                            className="hover:bg-slate-50/50 transition-colors"
-                          >
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <BookOpen className="h-4 w-4 text-slate-400 shrink-0" />
-                                <span className="text-sm font-medium text-slate-800">
-                                  {entry.subject}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">
-                                {entry.gradeClass}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm text-slate-600">
-                                {entry.examName}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              {entry.testCode ? (
-                                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 font-mono text-xs">
-                                  <Hash className="h-3 w-3 mr-0.5" />
-                                  {entry.testCode}
-                                </Badge>
-                              ) : (
-                                <span className="text-xs text-slate-300">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {entry.totalMarks ? (
-                                <div className="flex items-center gap-1 text-sm text-slate-600">
-                                  <Award className="h-3.5 w-3.5 text-amber-500" />
-                                  {entry.totalMarks}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-slate-300">—</span>
-                              )}
-                            </TableCell>
-                            {activeTab === "exam" && (
-                              <TableCell>
-                                <div className="flex items-center gap-1.5 text-sm text-slate-600 whitespace-nowrap">
-                                  <Clock className="h-3.5 w-3.5 text-slate-400" />
-                                  {entry.startTime ? formatTime(entry.startTime) : "—"}
-                                  {entry.endTime ? ` — ${formatTime(entry.endTime)}` : ""}
-                                </div>
-                              </TableCell>
-                            )}
-                            {isAuthenticated && (
-                              <TableCell>
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={() => openEditForm(entry)}
-                                    className="p-1.5 rounded bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      if (entry.id) deleteMutation.mutate(entry.id);
-                                    }}
-                                    className="p-1.5 rounded bg-white border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-300 transition-colors"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
 }

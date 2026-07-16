@@ -7,6 +7,9 @@ import { Checkbox } from "../components/ui/checkbox";
 import { useAuth } from "@/hooks/AuthProvider";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { getCookie } from "@/lib/utils";
+import { useAppDispatch } from "@/store/hooks";
+import { loadSessions } from "@/store/slices/sessionSlice";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,6 +17,7 @@ export default function LoginPage() {
   const [isPending, setIsPending] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +34,20 @@ export default function LoginPage() {
     setIsPending(true);
     try {
       await login(email.trim(), password);
-      // Success toast is handled globally by the API client interceptor
+
+      // After login, read cookies set by backend and save them
+      const sessionIdFromCookie = getCookie("sessionId");
+      if (sessionIdFromCookie) {
+        localStorage.setItem("currentSessionId", sessionIdFromCookie);
+      }
+      const teacherIdFromCookie = getCookie("teacherId");
+      if (teacherIdFromCookie) {
+        localStorage.setItem("teacherId", teacherIdFromCookie);
+      }
+
+      // Load sessions — the session slice will auto-select the one matching currentSessionId
+      dispatch(loadSessions());
+
       navigate("/");
     } catch {
       // Error toast is handled globally by the API client interceptor

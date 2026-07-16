@@ -17,6 +17,7 @@ import {
   Check,
 } from "lucide-react";
 
+import StudentAvatar from "@/components/StudentAvatar";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -134,14 +135,6 @@ export default function ViewFees({ student, onBack }: ViewFeesProps) {
     queryFn: () => fetchSessionWiseHistory(student.id),
   });
 
-  const getInitials = (name: string) =>
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 md:p-8 font-sans">
       <div className="mx-auto max-w-5xl">
@@ -159,9 +152,12 @@ export default function ViewFees({ student, onBack }: ViewFeesProps) {
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg font-bold">
-                  {getInitials(student.name)}
-                </div>
+                <StudentAvatar
+                  studentId={student.id}
+                  studentName={student.name}
+                  className="h-14 w-14"
+                  fallbackClassName="bg-indigo-100 text-indigo-600 text-lg font-bold"
+                />
                 <div>
                   <h2 className="text-xl font-semibold text-slate-900">
                     {student.name}
@@ -200,6 +196,7 @@ export default function ViewFees({ student, onBack }: ViewFeesProps) {
                   size="icon"
                   className="h-6 w-6 text-slate-400 hover:text-indigo-600"
                   onClick={() => setShowDiscountInput(!showDiscountInput)}
+                  title="Apply discount"
                 >
                   <Percent className="h-3.5 w-3.5" />
                 </Button>
@@ -231,38 +228,6 @@ export default function ViewFees({ student, onBack }: ViewFeesProps) {
               <p className="text-xl font-bold text-blue-600">
                 {formatCurrency(discount)}
               </p>
-              {showDiscountInput && (
-                <div className="mt-2 flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    value={discountAmount}
-                    onChange={(e) => setDiscountAmount(e.target.value)}
-                    placeholder="Amount"
-                    className="flex-1 h-8 px-2 text-xs rounded-md border border-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                    min="0"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                    onClick={() => discountMutation.mutate()}
-                    disabled={!discountAmount || Number(discountAmount) <= 0 || discountMutation.isPending}
-                  >
-                    <Check className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => {
-                      setShowDiscountInput(false);
-                      setDiscountAmount("");
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
             </CardContent>
           </Card>
           <Card>
@@ -294,6 +259,77 @@ export default function ViewFees({ student, onBack }: ViewFeesProps) {
             </CardContent>
           </Card>
         </div>
+
+        {/* Apply Discount */}
+        {showDiscountInput && (
+          <Card className="mb-6 border-indigo-200 bg-indigo-50/30">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="flex items-center gap-2 shrink-0">
+                  <Percent className="h-4 w-4 text-indigo-600" />
+                  <p className="text-sm font-semibold text-slate-800">Apply Discount</p>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <input
+                    type="number"
+                    value={discountAmount}
+                    onChange={(e) => setDiscountAmount(e.target.value)}
+                    placeholder="Enter discount amount"
+                    className="flex-1 sm:w-48 h-9 px-3 text-sm rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    min="0"
+                  />
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => discountMutation.mutate()}
+                    disabled={!discountAmount || Number(discountAmount) <= 0 || discountMutation.isPending}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Apply
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowDiscountInput(false);
+                      setDiscountAmount("");
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Remaining Amount */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            {(() => {
+              const remaining = Math.max(0, annualFee - totalPaid - discount);
+              return (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-full bg-emerald-100 text-emerald-600">
+                      <Banknote className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Remaining Amount</p>
+                      <p className="text-xs text-slate-400">
+                        Annual Fee: {formatCurrency(annualFee)} — Paid: {formatCurrency(totalPaid)} — Discount: {formatCurrency(discount)}
+                      </p>
+                    </div>
+                  </div>
+                  <p className={`text-2xl font-bold ${remaining > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                    {remaining > 0 ? formatCurrency(remaining) : "Fully Paid ✓"}
+                  </p>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
 
         {/* Session Selector + Payment History */}
         <Card className="mb-6">

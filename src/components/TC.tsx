@@ -55,8 +55,8 @@ const defaultStudent: TCStudent = {
   tehsil: "Satna",
   motherTongue: "Hindi",
   dateAdmission: "2018-04-01",
-  classAdmitted: "Class 5",
-  classLeft: "Class 10",
+  classAdmitted: "Grade 5",
+  classLeft: "Grade 10",
   scholar_no: "SCH001",
 };
 

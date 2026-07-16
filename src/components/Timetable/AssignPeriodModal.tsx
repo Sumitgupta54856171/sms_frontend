@@ -15,10 +15,9 @@ import { fetchTeachers } from "@/api/teacher";
 import type { PeriodEntry } from "@/api/timetable";
 import { savePeriod } from "@/api/timetable";
 import { toast } from "sonner";
-import { getCookie } from "@/lib/utils";
 
 const PERIODS = [1, 2, 3, 4, 5, 6];
-const GRADES = Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`);
+const GRADES = ["Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)];
 const SUBJECTS = [
   "Mathematics",
   "English",
@@ -47,32 +46,20 @@ const SUBJECTS = [
 interface AssignPeriodModalProps {
   onClose: () => void;
   preselectedTeacherId?: string;
-  existingPeriod?: PeriodEntry | null;
 }
 
 export default function AssignPeriodModal({
   onClose,
   preselectedTeacherId,
-  existingPeriod,
 }: AssignPeriodModalProps) {
   const queryClient = useQueryClient();
 
-  const [gradeClass, setGradeClass] = useState(
-    existingPeriod?.gradeClass || "__placeholder__"
-  );
-  const [subjectName, setSubjectName] = useState(
-    existingPeriod?.subjectName || "__placeholder__"
-  );
-  const [periodNumber, setPeriodNumber] = useState(
-    existingPeriod?.periodNumber || 1
-  );
+  const [gradeClass, setGradeClass] = useState("__placeholder__");
+  const [subjectName, setSubjectName] = useState("__placeholder__");
+  const [periodNumber, setPeriodNumber] = useState(1);
   const [teacherId, setTeacherId] = useState(
-    existingPeriod?.teacher_id?.toString() || preselectedTeacherId || "__placeholder__"
+    preselectedTeacherId || "__placeholder__"
   );
-  const [sessionId] = useState(
-    existingPeriod?.session_id?.toString() || getCookie("sessionId") || ""
-  );
-
   const { data: teachers = [] } = useQuery({
     queryKey: ["teachers"],
     queryFn: fetchTeachers,
@@ -80,16 +67,14 @@ export default function AssignPeriodModal({
 
 
   const mutation = useMutation({
-    mutationFn: savePeriod,
+    mutationFn: async (formData: PeriodEntry) => {
+      return await savePeriod(formData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["all-periods"] });
       queryClient.invalidateQueries({ queryKey: ["timetable"] });
       queryClient.invalidateQueries({ queryKey: ["my-timetable"] });
-      toast.success(
-        existingPeriod
-          ? "Period updated successfully"
-          : "Period assigned successfully"
-      );
+      toast.success("Period assigned successfully");
       onClose();
     },
     onError: () => {
@@ -111,19 +96,13 @@ export default function AssignPeriodModal({
       toast.error("Please select a teacher");
       return;
     }
-    if (!sessionId) {
-      toast.error("Please select an academic session");
-      return;
-    }
-
-    mutation.mutate({
+    const payload: PeriodEntry = {
       gradeClass,
       subjectName,
       periodNumber,
       teacher_id: parseInt(teacherId),
-      session_id: parseInt(sessionId),
-      ...(existingPeriod?.id ? { id: existingPeriod.id } : {}),
-    });
+    };
+    mutation.mutate(payload);
   };
 
   return (
@@ -132,7 +111,7 @@ export default function AssignPeriodModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-lg font-bold text-slate-900">
-            {existingPeriod ? "Edit Period" : "Assign Period"}
+            Assign Period
           </h2>
           <button
             onClick={onClose}
@@ -243,8 +222,6 @@ export default function AssignPeriodModal({
             >
               {mutation.isPending
                 ? "Saving..."
-                : existingPeriod
-                ? "Update Period"
                 : "Assign Period"}
             </Button>
           </div>

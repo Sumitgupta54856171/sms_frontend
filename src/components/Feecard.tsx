@@ -22,7 +22,7 @@ export default function FeeCard() {
       
       {/* Action Bar (Hidden in Print) */}
       <div className="w-full max-w-5xl flex justify-end mb-6 print:hidden">
-        <Button onClick={handlePrint} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md rounded-full px-6">
+        <Button onClick={handlePrint} className="gap-2 bg-[#0d9488] hover:bg-teal-700 text-white shadow-md rounded-full px-6">
           <Printer className="h-4 w-4" /> Print Fee Card
         </Button>
       </div>

@@ -72,8 +72,9 @@ export default function App() {
           <div className="text-center mb-4">
             <h1 className="font-bold text-[1.1rem] leading-tight uppercase tracking-tight">Rose Convent High School</h1>
             <p className="text-xs mt-1">123 Education Lane, Knowledge Pk</p>
-            <p className="text-xs">City - 400001</p>
-            <p className="text-xs">Ph: +91-9876543210</p>
+            <p className="text-xs">Delaura,Satna (M.P)</p>
+            <p className="text-xs">Pincode - 485001 </p>
+
           </div>
 
           <div className="border-t-2 border-dashed border-black my-2"></div>

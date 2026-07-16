@@ -2,14 +2,11 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
-import LoadingPage from "@/pages/Loginpage/LoadingPage";
-
+import { Spinner } from "@/components/ui/spinner";
 
 type LoadingContextValue = {
   isLoading: boolean;
@@ -19,21 +16,14 @@ type LoadingContextValue = {
 
 const LoadingContext = createContext<LoadingContextValue | null>(null);
 
-const EXIT_ANIMATION_MS = 400;
-
 export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [tasks, setTasks] = useState<Set<string>>(() => new Set());
-  const [overlayVisible, setOverlayVisible] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
-  const exitTimerRef = useRef<number | undefined>(undefined);
 
   const startLoading = useCallback((key: string) => {
     setTasks((current) => {
-      if (current.has(key)) {
-        return current;
-      }
+      if (current.has(key)) return current;
       const next = new Set(current);
       next.add(key);
       return next;
@@ -42,9 +32,7 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const stopLoading = useCallback((key: string) => {
     setTasks((current) => {
-      if (!current.has(key)) {
-        return current;
-      }
+      if (!current.has(key)) return current;
       const next = new Set(current);
       next.delete(key);
       return next;
@@ -52,29 +40,6 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const isLoading = tasks.size > 0;
-
-  useEffect(() => {
-    if (isLoading) {
-      window.clearTimeout(exitTimerRef.current);
-      setOverlayVisible(true);
-      setIsExiting(false);
-      return;
-    }
-
-    if (!overlayVisible) {
-      return;
-    }
-
-    setIsExiting(true);
-    exitTimerRef.current = window.setTimeout(() => {
-      setOverlayVisible(false);
-      setIsExiting(false);
-    }, EXIT_ANIMATION_MS);
-
-    return () => {
-      window.clearTimeout(exitTimerRef.current);
-    };
-  }, [isLoading, overlayVisible]);
 
   const value = useMemo(
     () => ({ isLoading, startLoading, stopLoading }),
@@ -84,13 +49,11 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({
   return (
     <LoadingContext.Provider value={value}>
       {children}
-      {overlayVisible && (
-        <div
-          aria-busy={!isExiting}
-          aria-live="polite"
-          className={`loading-overlay${isExiting ? " loading-overlay--exit" : ""}`}
-        >
-          <LoadingPage />
+      {/* Non-blocking mini spinner — doesn't block interaction */}
+      {isLoading && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 shadow-sm border border-slate-200 backdrop-blur-sm">
+          <Spinner className="size-4 text-indigo-600" />
+          <span className="text-xs font-medium text-slate-600">Loading...</span>
         </div>
       )}
     </LoadingContext.Provider>

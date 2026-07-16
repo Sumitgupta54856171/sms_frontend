@@ -168,6 +168,9 @@ export interface StudentDetail {
   penId: string;
   address: string;
   createdAt: string;
+  class_no?: string;
+  roll_no?: string;
+  enrollment?: Array<{ class_no?: string; roll_no?: string }>;
 }
 
 export interface BankDetailData {
@@ -191,6 +194,7 @@ export interface StudentDetailResponse {
   student: StudentDetail | null;
   bank: BankDetailData | null;
   photo: PhotoData | null;
+  enrollment?: Array<{ class_no?: string; roll_no?: string }>;
 }
 
 export const fetchStudentDetail = async (studentId: number): Promise<StudentDetailResponse | null> => {
@@ -205,6 +209,7 @@ export const fetchStudentDetail = async (studentId: number): Promise<StudentDeta
       student: data.student ?? null,
       bank: data.bank ?? null,
       photo: data.photo ?? null,
+      enrollment: data.enrollment ?? data.student?.enrollment ?? [],
     };
   } catch {
     return null;

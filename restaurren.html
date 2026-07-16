@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TableFlow — Restaurant Operating System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/motion@10.16.4/dist/motion.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+:root {
+  --bg: #0c0805;
+  --surface: #1a1410;
+  --surface-2: #221a15;
+  --surface-3: #2a201a;
+  --border: rgba(255, 180, 120, 0.08);
+  --border-strong: rgba(255, 180, 120, 0.18);
+  --fg: #faf5ef;
+  --fg-2: #d4c5b8;
+  --muted: #8a7a6e;
+  --muted-2: #5e524a;
+  --accent: #ff6b35;
+  --accent-2: #ffa552;
+  --accent-3: #ffd166;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #60a5fa;
+  --purple: #c084fc;
+}
+* { -webkit-font-smoothing: antialiased; }
+html, body { background: var(--bg); color: var(--fg); font-family: 'Plus Jakarta Sans', sans-serif; }
+.font-display { font-family: 'Fraunces', serif; }
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background: 
+    radial-gradient(circle at 15% 10%, rgba(255,107,53,0.08), transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(255,165,82,0.06), transparent 50%);
+}
+body::after {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255,180,120,0.15); border-radius: 4px; }
+.glass { background: linear-gradient(135deg, rgba(34,26,21,0.85), rgba(26,20,16,0.65)); backdrop-filter: blur(20px) saturate(140%); border: 1px solid var(--border); }
+.glass-strong { background: linear-gradient(135deg, rgba(42,32,26,0.95), rgba(26,20,16,0.9)); backdrop-filter: blur(24px) saturate(160%); border: 1px solid var(--border-strong); }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
+.badge::before { content:''; width:6px; height:6px; border-radius:50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.badge-pending { background: rgba(251,191,36,0.12); color: #fbbf24; }
+.badge-confirmed { background: rgba(96,165,250,0.12); color: #60a5fa; }
+.badge-preparing { background: rgba(192,132,252,0.12); color: #c084fc; }
+.badge-ready { background: rgba(74,222,128,0.12); color: #4ade80; }
+.badge-served { background: rgba(148,163,184,0.12); color: #94a3b8; }
+.badge-paid { background: rgba(5,150,105,0.18); color: #34d399; }
+.badge-cancelled { background: rgba(248,113,113,0.12); color: #f87171; }
+.nav-item { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: var(--muted); font-size: 14px; font-weight: 500; transition: all 0.2s; cursor: pointer; }
+.nav-item:hover { color: var(--fg-2); background: rgba(255,180,120,0.04); }
+.nav-item.active { color: var(--fg); background: linear-gradient(90deg, rgba(255,107,53,0.12), rgba(255,107,53,0.02)); }
+.nav-item.active::before { content:''; position:absolute; left:-8px; top:50%; transform: translateY(-50%); width:3px; height:18px; border-radius:2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+.card-hover { transition: transform 0.3s cubic-bezier(0.2,0.8,0.2,1), border-color 0.3s, box-shadow 0.3s; }
+.card-hover:hover { transform: translateY(-2px); border-color: var(--border-strong); box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
+@keyframes pulse-dot { 0%,100% { opacity:1; transform:scale(1);} 50% { opacity:0.5; transform:scale(1.3);} }
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+.page-enter { animation: pageEnter 0.5s cubic-bezier(0.2,0.8,0.2,1); }
+@keyframes pageEnter { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform: translateY(0);} }
+.stagger > * { opacity: 0; animation: staggerIn 0.5s cubic-bezier(0.2,0.8,0.2,1) forwards; }
+@keyframes staggerIn { from { opacity:0; transform: translateY(12px);} to { opacity:1; transform: translateY(0);} }
+.btn-primary { background: linear-gradient(135deg, #ff6b35, #ff8855); color: white; font-weight: 600; padding: 9px 16px; border-radius: 10px; transition: all 0.2s; box-shadow: 0 4px 16px rgba(255,107,53,0.25), inset 0 1px 0 rgba(255,255,255,0.15); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,107,53,0.35); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-ghost { background: rgba(255,180,120,0.06); color: var(--fg-2); font-weight: 500; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--border); transition: all 0.2s; }
+.btn-ghost:hover { background: rgba(255,180,120,0.1); color: var(--fg); border-color: var(--border-strong); }
+.tab-btn { position: relative; padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--muted); border-radius: 8px; transition: all 0.2s; cursor: pointer; white-space: nowrap; }
+.tab-btn:hover { color: var(--fg-2); }
+.tab-btn.active { color: var(--fg); background: rgba(255,107,53,0.1); }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.sparkline path { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: drawLine 1.5s ease-out forwards; }
+@keyframes drawLine { to { stroke-dashoffset: 0; } }
+@keyframes barGrow { from { transform: scaleY(0);} to { transform: scaleY(1);} }
+.bar { transform-origin: bottom; animation: barGrow 0.9s cubic-bezier(0.2,0.8,0.2,1) forwards; }
+.orb { position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.4; pointer-events: none; }
+.toast { animation: toastIn 0.4s cubic-bezier(0.2,0.8,0.2,1); }
+@keyframes toastIn { from { transform: translateY(20px); opacity:0;} to { transform: translateY(0); opacity:1;} }
+.modal-backdrop { animation: fadeIn 0.2s ease; }
+.modal-content { animation: modalIn 0.3s cubic-bezier(0.2,0.8,0.2,1); }
+@keyframes fadeIn { from { opacity:0;} to { opacity:1;} }
+@keyframes modalIn { from { transform: scale(0.95) translateY(10px); opacity:0;} to { transform: scale(1) translateY(0); opacity:1;} }
+.table-card { aspect-ratio: 1; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s cubic-bezier(0.2,0.8,0.2,1); border: 2px solid; }
+.table-card:hover { transform: scale(1.04) translateY(-2px); z-index: 5; }
+.menu-item-card { position: relative; overflow: hidden; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); transition: all 0.3s; }
+.menu-item-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+.pos-item { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; text-align: left; cursor: pointer; transition: all 0.2s; }
+.pos-item:hover { background: var(--surface-2); border-color: var(--accent); transform: translateY(-1px); }
+.pos-item:active { transform: scale(0.97); }
+.heat-cell { border-radius: 3px; transition: transform 0.2s; }
+.heat-cell:hover { transform: scale(1.5); z-index: 10; }
+@keyframes bounce-dot { 0%,80%,100% { transform: translateY(0); opacity:0.4;} 40% { transform: translateY(-6px); opacity:1;} }
+.dot-1 { animation: bounce-dot 1.4s infinite; }
+.dot-2 { animation: bounce-dot 1.4s 0.2s infinite; }
+.dot-3 { animation: bounce-dot 1.4s 0.4s infinite; }
+.toggle { position: relative; width: 36px; height: 20px; background: rgba(255,180,120,0.1); border-radius: 999px; cursor: pointer; transition: background 0.2s; }
+.toggle::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px; background: white; border-radius:50%; transition: transform 0.2s; }
+.toggle.on { background: var(--accent); }
+.toggle.on::after { transform: translateX(16px); }
+.kds-card { background: var(--surface-2); border-radius: 14px; border: 1px solid var(--border); padding: 14px; transition: all 0.3s; }
+.kds-card.urgent { border-color: rgba(248,113,113,0.4); box-shadow: 0 0 24px rgba(248,113,113,0.15); }
+.line-anim { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: drawLine 1.8s ease-out forwards; }
+@media (max-width: 1024px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+}
+</style>
+</head>
+<body class="min-h-screen overflow-x-hidden">
+<div class="relative z-10 flex min-h-screen">
+  <aside class="sidebar fixed lg:sticky top-0 left-0 h-screen w-[240px] flex-shrink-0 z-40 transition-transform flex flex-col" style="background: linear-gradient(180deg, rgba(20,16,12,0.95), rgba(12,8,5,0.95)); backdrop-filter: blur(20px); border-right: 1px solid var(--border);">
+    <div class="px-5 pt-6 pb-5">
+      <div class="flex items-center gap-2.5">
+        <div class="relative w-9 h-9 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #ff6b35, #ffa552); box-shadow: 0 4px 16px rgba(255,107,53,0.4);">
+          <span class="font-display font-black text-white text-lg">T</span>
+        </div>
+        <div>
+          <div class="font-display font-black text-[17px] tracking-tight leading-none">TableFlow</div>
+          <div class="text-[10px] text-[var(--muted)] mt-0.5 uppercase tracking-widest">Restaurant OS</div>
+        </div>
+      </div>
+    </div>
+    <div class="px-3 mb-4">
+      <button class="w-full flex items-center gap-3 p-2.5 rounded-xl border border-[var(--border)] hover:border-[var(--border-strong)] transition" style="background: rgba(255,180,120,0.03);">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold" style="background: linear-gradient(135deg, #c2410c, #92400e);">S</div>
+        <div class="flex-1 text-left min-w-0">
+          <div class="text-[13px] font-semibold truncate">Saffron & Smoke</div>
+          <div class="text-[10px] text-[var(--muted)]">Pro Plan · NYC</div>
+        </div>
+        <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-[var(--muted)]"></i>
+      </button>
+    </div>
+    <nav class="px-3 space-y-0.5 overflow-y-auto no-scrollbar flex-1">
+      <div class="text-[10px] uppercase tracking-widest text-[var(--muted-2)] px-3 py-2">Operations</div>
+      <div class="nav-item active" data-page="dashboard"><i data-lucide="layout-dashboard" class="w-4 h-4"></i><span>Dashboard</span></div>
+      <div class="nav-item" data-page="orders"><i data-lucide="receipt" class="w-4 h-4"></i><span>Orders</span><span class="ml-auto text-[10px] px-1.5 py-0.5 rounded-full" style="background: rgba(255,107,53,0.15); color: var(--accent);">12</span></div>
+      <div class="nav-item" data-page="pos"><i data-lucide="credit-card" class="w-4 h-4"></i><span>POS Terminal</span></div>
+      <div class="nav-item" data-page="kds"><i data-lucide="chef-hat" class="w-4 h-4"></i><span>Kitchen Display</span><span class="ml-auto w-1.5 h-1.5 rounded-full bg-[var(--accent)] pulse-dot"></span></div>
+      <div class="nav-item" data-page="tables"><i data-lucide="grid-3x3" class="w-4 h-4"></i><span>Tables & Floor</span></div>
+      <div class="nav-item" data-page="reservations"><i data-lucide="calendar-days" class="w-4 h-4"></i><span>Reservations</span></div>
+      <div class="text-[10px] uppercase tracking-widest text-[var(--muted-2)] px-3 py-2 mt-3">Manage</div>
+      <div class="nav-item" data-page="menu"><i data-lucide="utensils-crossed" class="w-4 h-4"></i><span>Menu</span></div>
+      <div class="nav-item" data-page="inventory"><i data-lucide="package" class="w-4 h-4"></i><span>Inventory</span></div>
+      <div class="nav-item" data-page="customers"><i data-lucide="users" class="w-4 h-4"></i><span>Customers</span></div>
+      <div class="nav-item" data-page="staff"><i data-lucide="badge-concierge" class="w-4 h-4"></i><span>Staff</span></div>
+      <div class="text-[10px] uppercase tracking-widest text-[var(--muted-2)] px-3 py-2 mt-3">Intelligence</div>
+      <div class="nav-item" data-page="analytics"><i data-lucide="bar-chart-3" class="w-4 h-4"></i><span>Analytics</span></div>
+      <div class="nav-item" data-page="ai"><i data-lucide="sparkles" class="w-4 h-4"></i><span>AI Insights</span><span class="ml-auto text-[9px] px-1.5 py-0.5 rounded-full" style="background: linear-gradient(135deg, rgba(255,107,53,0.3), rgba(255,165,82,0.2)); color: var(--accent-2);">NEW</span></div>
+    </nav>
+    <div class="p-3 border-t border-[var(--border)]" style="background: rgba(12,8,5,0.6);">
+      <div class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-[rgba(255,180,120,0.04)] cursor-pointer">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background: linear-gradient(135deg, #ff6b35, #c2410c);">AR</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-[13px] font-semibold truncate">Arjun Rao</div>
+          <div class="text-[10px] text-[var(--muted)]">Owner · Admin</div>
+        </div>
+        <i data-lucide="settings" class="w-3.5 h-3.5 text-[var(--muted)]"></i>
+      </div>
+    </div>
+  </aside>
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
+  <main class="flex-1 min-w-0 relative">
+    <header class="sticky top-0 z-30 px-4 lg:px-8 py-3 flex items-center gap-3" style="background: rgba(12,8,5,0.7); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border);">
+      <button id="mobileMenu" class="lg:hidden p-2 rounded-lg hover:bg-[rgba(255,180,120,0.06)]"><i data-lucide="menu" class="w-5 h-5"></i></button>
+      <div class="flex items-center gap-2 text-sm">
+        <span class="text-[var(--muted)]">Saffron & Smoke</span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-[var(--muted-2)]"></i>
+        <span id="breadcrumb" class="font-semibold">Dashboard</span>
+      </div>
+      <div class="ml-auto flex items-center gap-2">
+        <div class="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--border)]" style="background: rgba(255,180,120,0.03); min-width: 220px;">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-[var(--muted)]"></i>
+          <input type="text" placeholder="Search orders, dishes..." class="bg-transparent text-sm outline-none flex-1 placeholder:text-[var(--muted-2)]">
+          <kbd class="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--muted)]">⌘K</kbd>
+        </div>
+        <button id="previewMenuBtn" class="btn-ghost flex items-center gap-2 text-sm"><i data-lucide="external-link" class="w-3.5 h-3.5"></i><span class="hidden sm:inline">Preview Menu</span></button>
+        <button class="relative p-2 rounded-xl hover:bg-[rgba(255,180,120,0.06)] border border-[var(--border)]"><i data-lucide="bell" class="w-4 h-4"></i><span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[var(--accent)] pulse-dot"></span></button>
+        <div class="flex items-center gap-2 pl-2 ml-1 border-l border-[var(--border)]">
+          <div class="text-right hidden sm:block">
+            <div class="text-[11px] font-semibold">Arjun Rao</div>
+            <div class="text-[10px] text-[var(--muted)]">Owner</div>
+          </div>
+          <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold" style="background: linear-gradient(135deg, #ff6b35, #c2410c);">AR</div>
+        </div>
+      </div>
+    </header>
+    <div id="pageContainer" class="px-4 lg:px-8 py-6"></div>
+  </main>
+</div>
+<div id="customerOverlay" class="fixed inset-0 z-50 hidden"></div>
+<div id="toastContainer" class="fixed bottom-6 right-6 z-[100] space-y-2"></div>
+
+<script>
+const state = {
+  currentPage: 'dashboard',
+  selectedCategory: 'c1',
+  posCart: [],
+  posTable: null,
+  cart: [],
+  orders: [
+    { id: 'ORD-2841', table: 'T12', customer: 'Meera K.', items: 4, total: 87.50, status: 'preparing', time: '2 min ago', elapsed: 2, type: 'DINE_IN' },
+    { id: 'ORD-2840', table: 'T05', customer: 'James L.', items: 2, total: 34.00, status: 'pending', time: '5 min ago', elapsed: 5, type: 'DINE_IN' },
+    { id: 'ORD-2839', table: 'Takeaway', customer: 'Sofia R.', items: 3, total: 42.50, status: 'ready', time: '12 min ago', elapsed: 12, type: 'TAKEAWAY' },
+    { id: 'ORD-2838', table: 'T08', customer: 'Liam W.', items: 5, total: 112.00, status: 'served', time: '18 min ago', elapsed: 18, type: 'DINE_IN' },
+    { id: 'ORD-2837', table: 'T03', customer: 'Aisha P.', items: 2, total: 28.50, status: 'paid', time: '32 min ago', elapsed: 32, type: 'DINE_IN' },
+    { id: 'ORD-2836', table: 'Delivery', customer: 'Noah S.', items: 4, total: 56.00, status: 'preparing', time: '8 min ago', elapsed: 8, type: 'DELIVERY' },
+    { id: 'ORD-2842', table: 'T14', customer: 'Ethan B.', items: 3, total: 68.00, status: 'pending', time: '1 min ago', elapsed: 1, type: 'DINE_IN' },
+  ],
+  tables: [
+    { id: 't1', number: 'T01', capacity: 2, status: 'free' },
+    { id: 't2', number: 'T02', capacity: 4, status: 'occupied', total: 87.50 },
+    { id: 't3', number: 'T03', capacity: 2, status: 'free' },
+    { id: 't4', number: 'T04', capacity: 6, status: 'reserved' },
+    { id: 't5', number: 'T05', capacity: 4, status: 'occupied', total: 34.00 },
+    { id: 't6', number: 'T06', capacity: 2, status: 'cleaning' },
+    { id: 't7', number: 'T07', capacity: 4, status: 'free' },
+    { id: 't8', number: 'T08', capacity: 8, status: 'occupied', total: 112.00 },
+    { id: 't9', number: 'T09', capacity: 2, status: 'free' },
+    { id: 't10', number: 'T10', capacity: 4, status: 'free' },
+    { id: 't11', number: 'T11', capacity: 6, status: 'reserved' },
+    { id: 't12', number: 'T12', capacity: 4, status: 'occupied', total: 87.50 },
+    { id: 't13', number: 'T13', capacity: 2, status: 'free' },
+    { id: 't14', number: 'T14', capacity: 4, status: 'occupied', total: 68.00 },
+    { id: 't15', number: 'T15', capacity: 8, status: 'free' },
+  ],
+  menu: {
+    categories: [
+      { id: 'c1', name: 'Tandoor & Grill', count: 4 },
+      { id: 'c2', name: 'Curry House', count: 3 },
+      { id: 'c3', name: 'Biryani & Rice', count: 1 },
+      { id: 'c4', name: 'Street Bites', count: 1 },
+      { id: 'c5', name: 'Breads', count: 1 },
+    ],
+    items: [
+      { id: 'i1', categoryId: 'c1', name: 'Murgh Tikka Masala', desc: 'Char-grilled chicken in creamy tomato gravy with fenugreek', price: 22, popular: true, veg: false, spicy: 2, prepTime: 18, available: true, gradient: 'from-orange-600 to-red-700' },
+      { id: 'i2', categoryId: 'c1', name: 'Lamb Seekh Kebab', desc: 'Hand-minced lamb skewers with mint chutney', price: 18, popular: true, veg: false, spicy: 1, prepTime: 15, available: true, gradient: 'from-rose-600 to-red-800' },
+      { id: 'i3', categoryId: 'c1', name: 'Tandoori Prawns', desc: 'Jumbo prawns marinated in yogurt and spices', price: 28, popular: false, veg: false, spicy: 2, prepTime: 20, available: true, gradient: 'from-pink-600 to-rose-800' },
+      { id: 'i4', categoryId: 'c1', name: 'Paneer Tikka', desc: 'Cottage cheese marinated in spiced yogurt', price: 16, popular: true, veg: true, spicy: 1, prepTime: 12, available: true, gradient: 'from-amber-500 to-orange-700' },
+      { id: 'i5', categoryId: 'c2', name: 'Butter Chicken', desc: 'Tandoor chicken simmered in butter tomato sauce', price: 24, popular: true, veg: false, spicy: 1, prepTime: 20, available: true, gradient: 'from-orange-500 to-red-600' },
+      { id: 'i6', categoryId: 'c2', name: 'Dal Makhani', desc: 'Black lentils slow-cooked overnight with cream', price: 14, popular: false, veg: true, spicy: 1, prepTime: 25, available: true, gradient: 'from-amber-700 to-yellow-900' },
+      { id: 'i7', categoryId: 'c2', name: 'Rogan Josh', desc: 'Kashmiri lamb curry with aromatic spices', price: 26, popular: false, veg: false, spicy: 3, prepTime: 30, available: true, gradient: 'from-red-700 to-rose-900' },
+      { id: 'i8', categoryId: 'c3', name: 'Hyderabadi Biryani', desc: 'Layered basmati with saffron and tender meat', price: 21, popular: true, veg: false, spicy: 2, prepTime: 28, available: true, gradient: 'from-yellow-600 to-orange-800' },
+      { id: 'i9', categoryId: 'c4', name: 'Samosa Chaat', desc: 'Crushed samosa with chickpeas, chutneys, yogurt', price: 11, popular: false, veg: true, spicy: 1, prepTime: 8, available: true, gradient: 'from-amber-600 to-orange-800' },
+      { id: 'i10', categoryId: 'c5', name: 'Garlic Naan', desc: 'Clay oven flatbread with fresh garlic and butter', price: 5, popular: true, veg: true, spicy: 0, prepTime: 5, available: true, gradient: 'from-yellow-500 to-amber-700' },
+    ]
+  },
+  reservations: [
+    { id: 'r1', name: 'Charlotte M.', party: 4, time: '7:00 PM', table: 'T04', status: 'confirmed', phone: '+1 212-555-0142' },
+    { id: 'r2', name: 'David K.', party: 2, time: '7:30 PM', table: 'T11', status: 'confirmed', phone: '+1 212-555-0198' },
+    { id: 'r3', name: 'Olivia K.', party: 6, time: '8:00 PM', table: '—', status: 'confirmed', phone: '+1 212-555-0117' },
+    { id: 'r4', name: 'Ethan B.', party: 3, time: '8:15 PM', table: '—', status: 'confirmed', phone: '+1 212-555-0163' },
+    { id: 'r5', name: 'Sophia L.', party: 2, time: '9:00 PM', table: 'T01', status: 'confirmed', phone: '+1 212-555-0184' },
+  ],
+  inventory: [
+    { id: 'inv1', name: 'Basmati Rice', qty: 4, unit: 'kg', min: 5, cost: 3.20 },
+    { id: 'inv2', name: 'Chicken Breast', qty: 12, unit: 'kg', min: 8, cost: 7.80 },
+    { id: 'inv3', name: 'Paneer', qty: 3, unit: 'kg', min: 4, cost: 6.50 },
+    { id: 'inv4', name: 'Tomatoes', qty: 18, unit: 'kg', min: 10, cost: 2.40 },
+    { id: 'inv5', name: 'Onions', qty: 25, unit: 'kg', min: 15, cost: 1.20 },
+    { id: 'inv6', name: 'Ginger Garlic Paste', qty: 0.5, unit: 'kg', min: 1, cost: 4.80 },
+    { id: 'inv7', name: 'Heavy Cream', qty: 6, unit: 'L', min: 4, cost: 5.20 },
+    { id: 'inv8', name: 'Ghee', qty: 2.5, unit: 'kg', min: 2, cost: 12.00 },
+  ],
+};
+
+const pages = {
+  dashboard: { title: 'Dashboard', render: renderDashboard },
+  orders: { title: 'Orders', render: renderOrders },
+  pos: { title: 'POS Terminal', render: renderPOS },
+  kds: { title: 'Kitchen Display', render: renderKDS },
+  tables: { title: 'Tables & Floor', render: renderTables },
+  reservations: { title: 'Reservations', render: renderReservations },
+  menu: { title: 'Menu', render: renderMenu },
+  inventory: { title: 'Inventory', render: renderInventory },
+  customers: { title: 'Customers', render: renderCustomers },
+  staff: { title: 'Staff', render: renderStaff },
+  analytics: { title: 'Analytics', render: renderAnalytics },
+  ai: { title: 'AI Insights', render: renderAI },
+};
+
+function $(s, p=document) { return p.querySelector(s); }
+function $$(s, p=document) { return Array.from(p.querySelectorAll(s)); }
+function fmt(n) { return '$' + n.toFixed(2); }
+
+function navigate(page) {
+  state.currentPage = page;
+  $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+  const cfg = pages[page];
+  $('#breadcrumb').textContent = cfg.title;
+  const c = $('#pageContainer');
+  c.classList.remove('page-enter');
+  void c.offsetWidth;
+  c.classList.add('page-enter');
+  cfg.render(c);
+  if (window.lucide) lucide.createIcons();
+  $('.sidebar')?.classList.remove('open');
+  $('#sidebarOverlay')?.classList.add('hidden');
+}
+
+ $$('.nav-item').forEach(el => el.addEventListener('click', () => navigate(el.dataset.page)));
+ $('#mobileMenu')?.addEventListener('click', () => { $('.sidebar').classList.add('open'); $('#sidebarOverlay').classList.remove('hidden'); });
+ $('#sidebarOverlay')?.addEventListener('click', () => { $('.sidebar').classList.remove('open'); $('#sidebarOverlay').classList.add('hidden'); });
+
+function toast(msg, type='success') {
+  const colors = { success: {bg:'rgba(74,222,128,0.12)', bd:'rgba(74,222,128,0.4)', ic:'check-circle', c:'#4ade80'}, error: {bg:'rgba(248,113,113,0.12)', bd:'rgba(248,113,113,0.4)', ic:'x-circle', c:'#f87171'}, info: {bg:'rgba(96,165,250,0.12)', bd:'rgba(96,165,250,0.4)', ic:'info', c:'#60a5fa'} };
+  const c = colors[type];
+  const el = document.createElement('div');
+  el.className = 'toast flex items-center gap-3 px-4 py-3 rounded-xl border';
+  el.style.cssText = `background:${c.bg};border-color:${c.bd};color:${c.c};backdrop-filter:blur(20px);min-width:240px;`;
+  el.innerHTML = `<i data-lucide="${c.ic}" class="w-4 h-4"></i><span class="text-sm font-medium text-white">${msg}</span>`;
+  $('#toastContainer').appendChild(el);
+  if (window.lucide) lucide.createIcons();
+  setTimeout(() => { el.style.transition='all 0.3s'; el.style.opacity='0'; el.style.transform='translateY(20px)'; setTimeout(()=>el.remove(), 300); }, 2800);
+}
+
+function animateNumber(el, target, duration=1200, prefix='', suffix='') {
+  const startTime = performance.now();
+  function tick(now) {
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const val = target * eased;
+    el.textContent = prefix + (Number.isInteger(target) ? Math.round(val) : val.toFixed(2)) + suffix;
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function statusBadge(s) {
+  const map = { pending:'Pending', confirmed:'Confirmed', preparing:'Preparing', ready:'Ready', served:'Served', paid:'Paid', cancelled:'Cancelled' };
+  return `<span class="badge badge-${s}">${map[s]}</span>`;
+}
+
+function sparkPath(values) {
+  const max = Math.max(...values), min = Math.min(...values);
+  const range = max - min || 1;
+  return 'M' + values.map((v, i) => `${(i/(values.length-1))*100},${40-((v-min)/range)*35-2}`).join(' L');
+}
+
+// ============= DASHBOARD =============
+function renderDashboard(c) {
+  c.innerHTML = `
+    <div class="space-y-6">
+      <div class="relative overflow-hidden rounded-2xl p-6 lg:p-8" style="background: linear-gradient(135deg, rgba(255,107,53,0.08), rgba(255,165,82,0.03) 50%, transparent); border: 1px solid var(--border-strong);">
+        <div class="orb" style="width:280px;height:280px;background:radial-gradient(circle, rgba(255,107,53,0.4), transparent);top:-100px;right:-50px;"></div>
+        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center gap-6 justify-between">
+          <div>
+            <div class="flex items-center gap-2 text-xs text-[var(--muted)] mb-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-[var(--success)] pulse-dot"></span>
+              <span class="uppercase tracking-widest">Live · ${new Date().toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' })} · 7:42 PM</span>
+            </div>
+            <h1 class="font-display font-black text-3xl lg:text-4xl leading-tight">Good evening, <span style="background:linear-gradient(135deg,#ff6b35,#ffa552);-webkit-background-clip:text;background-clip:text;color:transparent;">Arjun</span></h1>
+            <p class="text-[var(--muted)] mt-1.5 text-sm">You have <span class="text-[var(--accent-2)] font-semibold">12 active orders</span> and <span class="text-[var(--accent-2)] font-semibold">5 reservations</span> tonight.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button class="btn-ghost flex items-center gap-2 text-sm" onclick="navigate('kds')"><i data-lucide="chef-hat" class="w-4 h-4"></i> Open Kitchen</button>
+            <button class="btn-primary flex items-center gap-2 text-sm" onclick="navigate('pos')"><i data-lucide="credit-card" class="w-4 h-4"></i> New Order</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
+        ${[
+          { label:"Today's Revenue", value:3427.50, prefix:'$', trend:12.4, icon:'trending-up', spark:[12,18,14,22,19,28,32] },
+          { label:'Orders Today', value:87, prefix:'', trend:8.1, icon:'receipt', spark:[8,12,10,14,16,12,18] },
+          { label:'Active Tables', value:9, suffix:'/15', trend:-3.2, icon:'grid-3x3', spark:[6,8,7,9,10,8,9] },
+          { label:'New Customers', value:24, prefix:'', trend:18.7, icon:'user-plus', spark:[4,6,5,8,10,14,24] }
+        ].map(m => `
+          <div class="glass card-hover rounded-2xl p-5 relative overflow-hidden">
+            <div class="flex items-start justify-between mb-3">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(255,107,53,0.1);color:var(--accent-2);"><i data-lucide="${m.icon}" class="w-4 h-4"></i></div>
+              <span class="text-[11px] font-bold flex items-center gap-1 ${m.trend>=0?'text-[var(--success)]':'text-[var(--danger)]'}">
+                <i data-lucide="${m.trend>=0?'arrow-up-right':'arrow-down-right'}" class="w-3 h-3"></i>${Math.abs(m.trend)}%
+              </span>
+            </div>
+            <div class="text-3xl font-display font-bold tracking-tight" data-target="${m.value}" data-prefix="${m.prefix||''}" data-suffix="${m.suffix||''}">${m.prefix||''}0${m.suffix||''}</div>
+            <div class="text-xs text-[var(--muted)] mt-1">${m.label}</div>
+            <svg class="sparkline absolute bottom-0 right-0 w-24 h-12 opacity-50" viewBox="0 0 100 40" preserveAspectRatio="none">
+              <path d="${sparkPath(m.spark)}" fill="none" stroke="url(#sg)" stroke-width="2" stroke-linecap="round"/>
+              <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff6b35"/><stop offset="1" stop-color="#ffa552"/></linearGradient></defs>
+            </svg>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-display font-bold text-lg flex items-center gap-2">Live Orders <span class="w-2 h-2 rounded-full bg-[var(--accent)] pulse-dot"></span></h3>
+              <p class="text-xs text-[var(--muted)]">Real-time updates from kitchen and floor</p>
+            </div>
+            <button class="text-xs text-[var(--accent-2)] hover:underline flex items-center gap-1" onclick="navigate('orders')">View all <i data-lucide="arrow-right" class="w-3 h-3"></i></button>
+          </div>
+          <div class="space-y-2">${state.orders.slice(0,5).map(orderRow).join('')}</div>
+        </div>
+        <div class="space-y-6">
+          <div class="glass rounded-2xl p-5">
+            <h3 class="font-display font-bold text-lg mb-4">Top Dishes Today</h3>
+            <div class="space-y-3">
+              ${[
+                { name:'Butter Chicken', count:34, revenue:816, gradient:'from-orange-500 to-red-600' },
+                { name:'Hyderabadi Biryani', count:28, revenue:588, gradient:'from-yellow-600 to-orange-800' },
+                { name:'Garlic Naan', count:52, revenue:260, gradient:'from-yellow-500 to-amber-700' },
+                { name:'Paneer Tikka', count:21, revenue:336, gradient:'from-amber-500 to-orange-700' },
+              ].map((d,i) => `
+                <div class="flex items-center gap-3">
+                  <div class="text-[var(--muted-2)] font-display font-bold text-sm w-4">${i+1}</div>
+                  <div class="w-9 h-9 rounded-lg bg-gradient-to-br ${d.gradient} flex-shrink-0"></div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-semibold truncate">${d.name}</div>
+                    <div class="text-[11px] text-[var(--muted)]">${d.count} orders · ${fmt(d.revenue)}</div>
+                  </div>
+                  <div class="w-12 h-1 rounded-full bg-[var(--surface-3)] overflow-hidden"><div class="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)]" style="width:${Math.min(100,d.count*2)}%"></div></div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="glass rounded-2xl p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-display font-bold text-lg">Low Stock</h3>
+              <span class="badge badge-cancelled">3 alerts</span>
+            </div>
+            <div class="space-y-2.5">
+              ${state.inventory.filter(i => i.qty < i.min).map(i => `
+                <div class="flex items-center gap-3 p-2.5 rounded-lg" style="background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.15);">
+                  <div class="w-7 h-7 rounded-md flex items-center justify-center" style="background:rgba(248,113,113,0.15);"><i data-lucide="package-x" class="w-3.5 h-3.5 text-[var(--danger)]"></i></div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-semibold truncate">${i.name}</div>
+                    <div class="text-[11px] text-[var(--muted)]">${i.qty} ${i.unit} left · min ${i.min} ${i.unit}</div>
+                  </div>
+                  <button class="text-[11px] font-semibold text-[var(--accent-2)] hover:underline">Restock</button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-5">
+            <div>
+              <h3 class="font-display font-bold text-lg">Revenue · Last 7 days</h3>
+              <p class="text-xs text-[var(--muted)]">Daily revenue with order count</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+              <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[var(--accent)]"></span>Revenue</span>
+            </div>
+          </div>
+          ${renderBarChart()}
+        </div>
+        <div class="glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-display font-bold text-lg">Upcoming</h3>
+            <button class="text-xs text-[var(--accent-2)] hover:underline" onclick="navigate('reservations')">View all</button>
+          </div>
+          <div class="space-y-3">
+            ${state.reservations.slice(0,4).map(r => `
+              <div class="flex items-center gap-3 p-3 rounded-xl border border-[var(--border)] hover:border-[var(--border-strong)] transition">
+                <div class="text-center w-12">
+                  <div class="text-[10px] text-[var(--muted)] uppercase tracking-wider">${r.time.split(' ')[1]}</div>
+                  <div class="font-display font-bold text-sm">${r.time.split(' ')[0]}</div>
+                </div>
+                <div class="w-px h-8 bg-[var(--border)]"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-semibold truncate">${r.name}</div>
+                  <div class="text-[11px] text-[var(--muted)]">${r.party} guests · Table ${r.table}</div>
+                </div>
+                <span class="badge badge-confirmed">${r.party}p</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  $$('[data-target]', c).forEach(el => animateNumber(el, parseFloat(el.dataset.target), 1200, el.dataset.prefix, el.dataset.suffix));
+}
+
+function orderRow(o) {
+  const ti = { DINE_IN:'utensils', TAKEAWAY:'shopping-bag', DELIVERY:'bike' };
+  return `<div class="flex items-center gap-3 p-3 rounded-xl border border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[rgba(255,180,120,0.02)] transition cursor-pointer group" onclick="navigate('orders')">
+    <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(255,107,53,0.08);"><i data-lucide="${ti[o.type]||'utensils'}" class="w-4 h-4 text-[var(--accent-2)]"></i></div>
+    <div class="flex-1 min-w-0">
+      <div class="flex items-center gap-2"><span class="font-mono text-xs font-bold text-[var(--accent-2)]">${o.id}</span>${statusBadge(o.status)}</div>
+      <div class="text-xs text-[var(--muted)] mt-0.5">${o.table} · ${o.customer} · ${o.items} items · ${o.time}</div>
+    </div>
+    <div class="text-right"><div class="font-display font-bold">${fmt(o.total)}</div><div class="text-[10px] text-[var(--muted)] group-hover:text-[var(--accent-2)] transition">View →</div></div>
+  </div>`;
+}
+
+function renderBarChart() {
+  const data = [ {day:'Mon',rev:2800}, {day:'Tue',rev:2400}, {day:'Wed',rev:3200}, {day:'Thu',rev:2900}, {day:'Fri',rev:4100}, {day:'Sat',rev:5200}, {day:'Sun',rev:3427} ];
+  const max = Math.max(...data.map(d=>d.rev));
+  return `<div class="flex items-end justify-between gap-2 lg:gap-4 h-48 px-2">
+    ${data.map((d,i) => `
+      <div class="flex-1 flex flex-col items-center gap-2 group">
+        <div class="text-[10px] text-[var(--muted)] opacity-0 group-hover:opacity-100 transition font-semibold">${fmt(d.rev)}</div>
+        <div class="w-full relative flex items-end" style="height:140px;">
+          <div class="bar absolute bottom-0 left-0 right-0 mx-auto rounded-t-md" style="width:60%;max-width:32px;height:${(d.rev/max)*100}%;background:linear-gradient(180deg,#ff6b35,#c2410c);animation-delay:${i*60}ms;box-shadow:0 0 12px rgba(255,107,53,0.3);"></div>
+        </div>
+        <div class="text-[11px] text-[var(--muted)] font-medium">${d.day}</div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+// ============= ORDERS =============
+function renderOrders(c) {
+  c.innerHTML = `
+    <div class="space-y-5">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div>
+          <h2 class="font-display font-black text-2xl">Orders</h2>
+          <p class="text-sm text-[var(--muted)]">Track and manage all orders in real-time</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="btn-ghost flex items-center gap-2 text-sm"><i data-lucide="filter" class="w-4 h-4"></i> Filter</button>
+          <button class="btn-primary flex items-center gap-2 text-sm" onclick="navigate('pos')"><i data-lucide="plus" class="w-4 h-4"></i> New Order</button>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1" id="orderTabs">
+        ${['all','pending','confirmed','preparing','ready','served','paid','cancelled'].map(s => `
+          <button class="tab-btn ${s==='all'?'active':''}" data-status="${s}">${s.charAt(0).toUpperCase()+s.slice(1)}<span class="ml-1 text-[10px] opacity-60">${s==='all'?state.orders.length:state.orders.filter(o=>o.status===s).length}</span></button>
+        `).join('')}
+      </div>
+      <div id="ordersGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">${state.orders.map(orderCard).join('')}</div>
+    </div>`;
+  $$('#orderTabs .tab-btn', c).forEach(btn => btn.addEventListener('click', () => {
+    $$('#orderTabs .tab-btn', c).forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const s = btn.dataset.status;
+    const f = s==='all' ? state.orders : state.orders.filter(o => o.status === s);
+    $('#ordersGrid', c).innerHTML = f.map(orderCard).join('') || '<div class="col-span-full text-center py-12 text-[var(--muted)]">No orders in this status</div>';
+    if (window.lucide) lucide.createIcons();
+  }));
+}
+
+function orderCard(o) {
+  const ti = { DINE_IN:'utensils', TAKEAWAY:'shopping-bag', DELIVERY:'bike' };
+  return `<div class="order-card glass card-hover rounded-2xl p-4 cursor-pointer" data-id="${o.id}" onclick="openOrderDetail('${o.id}')">
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <div class="flex items-center gap-2"><span class="font-mono text-xs font-bold text-[var(--accent-2)]">${o.id}</span><i data-lucide="${ti[o.type]||'utensils'}" class="w-3 h-3 text-[var(--muted)]"></i></div>
+        <div class="font-display font-bold text-lg mt-1">${o.table}</div>
+        <div class="text-xs text-[var(--muted)]">${o.customer}</div>
+      </div>
+      ${statusBadge(o.status)}
+    </div>
+    <div class="flex items-center justify-between pt-3 border-t border-[var(--border)]">
+      <div class="text-xs text-[var(--muted)]">${o.items} items · ${o.time}</div>
+      <div class="font-display font-bold text-base">${fmt(o.total)}</div>
+    </div>
+    ${o.status==='pending' ? `<div class="mt-3"><button class="w-full text-xs font-semibold py-2 rounded-lg btn-primary" onclick="event.stopPropagation();advanceOrder('${o.id}','preparing')">Start Preparing</button></div>` : ''}
+    ${o.status==='preparing' ? `<div class="mt-3"><button class="w-full text-xs font-semibold py-2 rounded-lg" style="background:rgba(74,222,128,0.1);color:var(--success);" onclick="event.stopPropagation();advanceOrder('${o.id}','ready')">Mark Ready</button></div>` : ''}
+    ${o.status==='ready' ? `<div class="mt-3"><button class="w-full text-xs font-semibold py-2 rounded-lg" style="background:rgba(148,163,184,0.1);color:var(--fg-2);" onclick="event.stopPropagation();advanceOrder('${o.id}','served')">Mark Served</button></div>` : ''}
+    ${o.status==='served' ? `<div class="mt-3"><button class="w-full text-xs font-semibold py-2 rounded-lg" style="background:rgba(5,150,105,0.15);color:var(--success);" onclick="event.stopPropagation();advanceOrder('${o.id}','paid')">Mark Paid</button></div>` : ''}
+  </div>`;
+}
+
+window.advanceOrder = function(id, ns) {
+  const o = state.orders.find(x => x.id === id);
+  if (o) { o.status = ns; toast(`Order ${id} → ${ns}`, 'success'); navigate(state.currentPage); }
+};
+
+window.openOrderDetail = function(id) {
+  const o = state.orders.find(x => x.id === id);
+  if (!o) return;
+  showModal(`
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <div class="font-mono text-xs text-[var(--accent-2)] font-bold">${o.id}</div>
+        <h3 class="font-display font-bold text-xl mt-1">Table ${o.table}</h3>
+        <p class="text-sm text-[var(--muted)]">${o.customer} · ${o.time}</p>
+      </div>
+      ${statusBadge(o.status)}
+    </div>
+    <div class="space-y-2 mb-4">
+      ${Array.from({length:o.items}, (_,i) => {
+        const item = state.menu.items[(i+o.id.length)%state.menu.items.length];
+        return `<div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(255,180,120,0.03);"><div class="w-10 h-10 rounded-lg bg-gradient-to-br ${item.gradient}"></div><div class="flex-1"><div class="text-sm font-semibold">${item.name}</div><div class="text-[11px] text-[var(--muted)]">Qty 1 · ${fmt(item.price)}</div></div><div class="text-sm font-bold">${fmt(item.price)}</div></div>`;
+      }).join('')}
+    </div>
+    <div class="border-t border-[var(--border)] pt-4 space-y-1.5 text-sm">
+      <div class="flex justify-between"><span class="text-[var(--muted)]">Subtotal</span><span>${fmt(o.total*0.85)}</span></div>
+      <div class="flex justify-between"><span class="text-[var(--muted)]">Tax (15%)</span><span>${fmt(o.total*0.15)}</span></div>
+      <div class="flex justify-between font-display font-bold text-lg pt-2 border-t border-[var(--border)] mt-2"><span>Total</span><span>${fmt(o.total)}</span></div>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button class="btn-ghost flex-1 text-sm" onclick="closeModal()">Close</button>
+      <button class="btn-primary flex-1 text-sm" onclick="closeModal();toast('Receipt sent to printer','success')"><i data-lucide="printer" class="w-4 h-4 inline mr-1"></i>Print</button>
+    </div>
+  `);
+};
+
+// ============= POS =============
+function renderPOS(c) {
+  c.innerHTML = `
+    <div class="grid grid-cols-1 xl:grid-cols-[260px_1fr_340px] gap-4" style="height:calc(100vh - 140px);">
+      <div class="glass rounded-2xl p-4 overflow-y-auto no-scrollbar hidden xl:block">
+        <h3 class="font-display font-bold mb-3 text-xs uppercase tracking-widest text-[var(--muted)]">Select Table</h3>
+        <div class="grid grid-cols-3 gap-2">
+          ${state.tables.map(t => `
+            <button class="pos-table-btn p-2 rounded-lg border text-xs font-semibold transition" style="border-color:${t.status==='free'?'var(--border)':t.status==='occupied'?'rgba(248,113,113,0.3)':'rgba(251,191,36,0.3)'};background:${t.status==='free'?'rgba(74,222,128,0.05)':t.status==='occupied'?'rgba(248,113,113,0.05)':'rgba(251,191,36,0.05)'};color:${t.status==='free'?'var(--success)':t.status==='occupied'?'var(--danger)':'var(--warning)'};" data-table="${t.number}">${t.number}<div class="text-[9px] opacity-60 mt-0.5">${t.capacity}p</div></button>
+          `).join('')}
+          <button class="pos-table-btn p-2 rounded-lg border text-xs font-semibold col-span-3 mt-1" style="border-color:var(--accent);background:rgba(255,107,53,0.08);color:var(--accent-2);" data-table="Takeaway"><i data-lucide="shopping-bag" class="w-3 h-3 inline mr-1"></i> Takeaway</button>
+        </div>
+        <h3 class="font-display font-bold mt-5 mb-3 text-xs uppercase tracking-widest text-[var(--muted)]">Categories</h3>
+        <div class="space-y-1">
+          ${state.menu.categories.map(cat => `<button class="pos-cat-btn w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between hover:bg-[rgba(255,180,120,0.05)] transition ${cat.id===state.selectedCategory?'bg-[rgba(255,107,53,0.1)] text-[var(--accent-2)]':''}" data-cat="${cat.id}"><span>${cat.name}</span><span class="text-[10px] text-[var(--muted)]">${cat.count}</span></button>`).join('')}
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-4 overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-display font-bold text-lg">${state.menu.categories.find(c=>c.id===state.selectedCategory)?.name||'Menu'}</h3>
+          <div class="text-xs text-[var(--muted)]">${state.menu.items.filter(i=>i.categoryId===state.selectedCategory).length} items</div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 overflow-y-auto no-scrollbar flex-1">
+          ${state.menu.items.filter(i => i.categoryId === state.selectedCategory).map(item => `
+            <button class="pos-item" onclick="addToPOS('${item.id}')">
+              <div class="w-full h-16 rounded-md bg-gradient-to-br ${item.gradient} mb-2"></div>
+              <div class="text-xs font-semibold leading-tight line-clamp-2">${item.name}</div>
+              <div class="text-xs text-[var(--accent-2)] font-bold mt-1">${fmt(item.price)}</div>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="glass rounded-2xl flex flex-col overflow-hidden">
+        <div class="p-4 border-b border-[var(--border)]">
+          <div class="flex items-center justify-between"><h3 class="font-display font-bold text-lg">Current Order</h3><button class="text-xs text-[var(--muted)] hover:text-[var(--danger)]" onclick="clearPOS()">Clear</button></div>
+          <div id="posTableDisplay" class="text-xs text-[var(--accent-2)] mt-1 font-semibold">No table selected</div>
+        </div>
+        <div id="posCart" class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-2">
+          <div class="text-center text-[var(--muted)] text-sm py-8"><i data-lucide="shopping-cart" class="w-8 h-8 mx-auto mb-2 opacity-30"></i><div>Tap menu items to add</div></div>
+        </div>
+        <div id="posTotals" class="p-4 border-t border-[var(--border)] space-y-2 hidden">
+          <div class="flex justify-between text-sm"><span class="text-[var(--muted)]">Subtotal</span><span id="posSubtotal">$0.00</span></div>
+          <div class="flex justify-between text-sm"><span class="text-[var(--muted)]">Tax (8.5%)</span><span id="posTax">$0.00</span></div>
+          <div class="flex justify-between font-display font-bold text-xl pt-2 border-t border-[var(--border)]"><span>Total</span><span id="posTotal">$0.00</span></div>
+        </div>
+        <div class="p-4 border-t border-[var(--border)]">
+          <div class="grid grid-cols-3 gap-2 mb-2">
+            <button class="btn-ghost text-xs py-2" onclick="applyPOSDisc()"><i data-lucide="percent" class="w-3 h-3 inline"></i></button>
+            <button class="btn-ghost text-xs py-2" onclick="splitPOS()"><i data-lucide="split" class="w-3 h-3 inline"></i></button>
+            <button class="btn-ghost text-xs py-2" onclick="toast('Notes added','info')"><i data-lucide="notebook-pen" class="w-3 h-3 inline"></i></button>
+          </div>
+          <button class="btn-primary w-full text-sm" onclick="checkoutPOS()"><i data-lucide="credit-card" class="w-4 h-4 inline mr-1"></i> Charge</button>
+        </div>
+      </div>
+    </div>`;
+  $$('.pos-table-btn', c).forEach(btn => btn.addEventListener('click', () => {
+    $$('.pos-table-btn', c).forEach(b => b.style.outline='');
+    btn.style.outline = '2px solid var(--accent)';
+    btn.style.outlineOffset = '2px';
+    state.posTable = btn.dataset.table;
+    $('#posTableDisplay', c).textContent = 'Table: ' + state.posTable;
+  }));
+  $$('.pos-cat-btn', c).forEach(btn => btn.addEventListener('click', () => { state.selectedCategory = btn.dataset.cat; renderPOS(c); }));
+}
+
+window.addToPOS = function(id) {
+  const item = state.menu.items.find(i => i.id === id);
+  const ex = state.posCart.find(x => x.id === id);
+  if (ex) ex.qty++; else state.posCart.push({ id, qty:1, name:item.name, price:item.price, gradient:item.gradient });
+  updatePOSCart();
+  toast(`${item.name} added`, 'success');
+};
+window.removeFromPOS = function(id) {
+  const it = state.posCart.find(x => x.id === id);
+  if (it) { it.qty--; if (it.qty<=0) state.posCart = state.posCart.filter(x => x.id !== id); }
+  updatePOSCart();
+};
+window.clearPOS = function() { state.posCart = []; updatePOSCart(); toast('Cart cleared', 'info'); };
+window.applyPOSDisc = function() { if (!state.posCart.length) return toast('Cart is empty','error'); toast('10% discount applied','success'); updatePOSCart(true); };
+window.splitPOS = function() {
+  if (!state.posCart.length) return toast('Cart is empty','error');
+  showModal(`<h3 class="font-display font-bold text-xl mb-2">Split the Bill</h3><p class="text-sm text-[var(--muted)] mb-4">Divide equally between guests</p><div class="grid grid-cols-3 gap-2 mb-4">${[2,3,4,5,6,8].map(n=>`<button class="split-btn p-3 rounded-xl border border-[var(--border)] hover:border-[var(--accent)] text-lg font-bold" data-n="${n}">${n}</button>`).join('')}</div><div class="text-xs text-[var(--muted)] text-center">Select number of guests</div>`);
+  $$('.split-btn').forEach(b => b.addEventListener('click', () => {
+    const total = state.posCart.reduce((s,i) => s+i.price*i.qty, 0);
+    closeModal(); toast(`Split into ${b.dataset.n} ways: ${fmt(total/parseInt(b.dataset.n))} each`, 'success');
+  }));
+};
+window.checkoutPOS = function() {
+  if (!state.posCart.length) return toast('Cart is empty','error');
+  if (!state.posTable) return toast('Select a table first','error');
+  const total = state.posCart.reduce((s,i) => s+i.price*i.qty, 0) * 1.085;
+  showModal(`
+    <h3 class="font-display font-bold text-xl mb-1">Payment</h3>
+    <p class="text-sm text-[var(--muted)] mb-4">Table ${state.posTable} · ${state.posCart.reduce((s,i)=>s+i.qty,0)} items</p>
+    <div class="text-center py-6 rounded-xl mb-4" style="background:rgba(255,107,53,0.05);"><div class="text-xs text-[var(--muted)] uppercase tracking-wider">Amount Due</div><div class="font-display font-black text-4xl mt-1" style="background:linear-gradient(135deg,#ff6b35,#ffa552);-webkit-background-clip:text;background-clip:text;color:transparent;">${fmt(total)}</div></div>
+    <div class="grid grid-cols-3 gap-2 mb-4">
+      <button class="pay-btn p-3 rounded-xl border border-[var(--border)] hover:border-[var(--accent)] text-sm font-semibold flex flex-col items-center gap-1" data-method="cash"><i data-lucide="banknote" class="w-5 h-5 text-[var(--success)]"></i> Cash</button>
+      <button class="pay-btn p-3 rounded-xl border border-[var(--border)] hover:border-[var(--accent)] text-sm font-semibold flex flex-col items-center gap-1" data-method="card"><i data-lucide="credit-card" class="w-5 h-5 text-[var(--info)]"></i> Card</button>
+      <button class="pay-btn p-3 rounded-xl border border-[var(--border)] hover:border-[var(--accent)] text-sm font-semibold flex flex-col items-center gap-1" data-method="upi"><i data-lucide="smartphone" class="w-5 h-5 text-[var(--purple)]"></i> UPI</button>
+    </div>
+    <button class="btn-ghost w-full text-sm" onclick="closeModal()">Cancel</button>
+  `);
+  $$('.pay-btn').forEach(b => b.addEventListener('click', () => {
+    closeModal(); state.posCart = []; state.posTable = null; updatePOSCart();
+    $('#posTableDisplay').textContent = 'No table selected';
+    toast('Payment successful · Receipt printed', 'success');
+  }));
+};
+
+function updatePOSCart(discount=false) {
+  const cartEl = $('#posCart'); const totalsEl = $('#posTotals');
+  if (!cartEl) return;
+  if (!state.posCart.length) {
+    cartEl.innerHTML = `<div class="text-center text-[var(--muted)] text-sm py-8"><i data-lucide="shopping-cart" class="w-8 h-8 mx-auto mb-2 opacity-30"></i><div>Tap menu items to add</div></div>`;
+    totalsEl.classList.add('hidden');
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+  let sub = state.posCart.reduce((s,i) => s+i.price*i.qty, 0);
+  if (discount) sub *= 0.9;
+  const tax = sub * 0.085;
+  cartEl.innerHTML = state.posCart.map(i => `
+    <div class="flex items-center gap-2 p-2.5 rounded-lg" style="background:rgba(255,180,120,0.03);">
+      <div class="w-10 h-10 rounded-md bg-gradient-to-br ${i.gradient}"></div>
+      <div class="flex-1 min-w-0"><div class="text-xs font-semibold truncate">${i.name}</div><div class="text-[10px] text-[var(--muted)]">${fmt(i.price)} each</div></div>
+      <div class="flex items-center gap-1.5">
+        <button class="w-5 h-5 rounded-md flex items-center justify-center text-xs" style="background:rgba(255,180,120,0.08);" onclick="removeFromPOS('${i.id}')">−</button>
+        <span class="text-xs font-bold w-5 text-center">${i.qty}</span>
+        <button class="w-5 h-5 rounded-md flex items-center justify-center text-xs" style="background:rgba(255,180,120,0.08);" onclick="addToPOS('${i.id}')">+</button>
+      </div>
+      <div class="text-xs font-bold ml-1 w-12 text-right">${fmt(i.price*i.qty)}</div>
+    </div>
+  `).join('');
+  totalsEl.classList.remove('hidden');
+  $('#posSubtotal').textContent = fmt(sub);
+  $('#posTax').textContent = fmt(tax);
+  $('#posTotal').textContent = fmt(sub+tax);
+  if (window.lucide) lucide.createIcons();
+}
+
+// ============= KDS =============
+function renderKDS(c) {
+  const cols = [ {key:'pending',title:'New Orders',color:'var(--warning)'}, {key:'preparing',title:'In Preparation',color:'var(--purple)'}, {key:'ready',title:'Ready to Serve',color:'var(--success)'} ];
+  c.innerHTML = `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div><h2 class="font-display font-black text-2xl flex items-center gap-2">Kitchen Display <span class="w-2 h-2 rounded-full bg-[var(--accent)] pulse-dot"></span></h2><p class="text-sm text-[var(--muted)]">Live orders · auto-refresh every 5s</p></div>
+        <div class="flex items-center gap-3">
+          <div class="text-right"><div class="font-display font-bold text-2xl">${state.orders.filter(o=>o.status==='pending'||o.status==='preparing').length}</div><div class="text-[10px] text-[var(--muted)] uppercase tracking-wider">Active</div></div>
+          <div class="w-px h-10 bg-[var(--border)]"></div>
+          <div class="text-right"><div class="font-display font-bold text-2xl text-[var(--success)]">${state.orders.filter(o=>o.status==='ready').length}</div><div class="text-[10px] text-[var(--muted)] uppercase tracking-wider">Ready</div></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        ${cols.map(col => `
+          <div class="glass rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-4"><h3 class="font-display font-bold text-base flex items-center gap-2"><span class="w-2 h-2 rounded-full" style="background:${col.color};"></span>${col.title}</h3><span class="text-xs text-[var(--muted)]">${state.orders.filter(o=>o.status===col.key).length}</span></div>
+            <div class="space-y-3 min-h-[200px]">${state.orders.filter(o=>o.status===col.key).map(o => kdsCard(o)).join('') || '<div class="text-center py-8 text-[var(--muted)] text-xs">No orders</div>'}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function kdsCard(o) {
+  const mins = o.elapsed;
+  const color = mins > 20 ? 'var(--danger)' : mins > 10 ? 'var(--warning)' : 'var(--success)';
+  return `<div class="kds-card ${mins>20?'urgent':''}" style="border-left:3px solid ${color};">
+    <div class="flex items-start justify-between mb-2">
+      <div><div class="font-display font-bold text-base">${o.table}</div><div class="font-mono text-[10px] text-[var(--muted)]">${o.id}</div></div>
+      <div class="text-right"><div class="font-mono font-bold text-sm" style="color:${color};">${mins}m</div><div class="text-[9px] text-[var(--muted)] uppercase">elapsed</div></div>
+    </div>
+    <div class="space-y-1 mb-3">
+      ${Array.from({length:o.items}, (_,i) => {
+        const item = state.menu.items[(i+o.id.length)%state.menu.items.length];
+        return `<div class="flex items-center gap-2 text-xs"><span class="font-bold text-[var(--accent-2)]">1×</span><span class="flex-1">${item.name}</span>${item.spicy?'<span class="text-[var(--danger)]">🌶</span>':''}</div>`;
+      }).join('')}
+    </div>
+    <div class="flex gap-1.5">
+      ${o.status==='pending'?`<button class="flex-1 text-[11px] font-semibold py-1.5 rounded-md btn-primary" onclick="advanceOrder('${o.id}','preparing')">Start</button>`:''}
+      ${o.status==='preparing'?`<button class="flex-1 text-[11px] font-semibold py-1.5 rounded-md" style="background:rgba(74,222,128,0.15);color:var(--success);" onclick="advanceOrder('${o.id}','ready')">Mark Ready</button>`:''}
+      ${o.status==='ready'?`<button class="flex-1 text-[11px] font-semibold py-1.5 rounded-md" style="background:rgba(148,163,184,0.15);color:var(--fg-2);" onclick="advanceOrder('${o.id}','served')">Served</button>`:''}
+    </div>
+  </div>`;
+}
+
+// ============= TABLES =============
+function renderTables(c) {
+  const sc = {
+    free: { bg:'rgba(74,222,128,0.1)', bd:'rgba(74,222,128,0.4)', tx:'var(--success)' },
+    occupied: { bg:'rgba(248,113,113,0.1)', bd:'rgba(248,113,113,0.4)', tx:'var(--danger)' },
+    reserved: { bg:'rgba(251,191,36,0.1)', bd:'rgba(251,191,36,0.4)', tx:'var(--warning)' },
+    cleaning: { bg:'rgba(148,163,184,0.1)', bd:'rgba(148,163,184,0.4)', tx:'var(--muted)' },
+  };
+  c.innerHTML = `
+    <div class="space-y-5">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div><h2 class="font-display font-black text-2xl">Floor Plan</h2><p class="text-sm text-[var(--muted)]">15 tables · ${state.tables.filter(t=>t.status==='occupied').length} occupied</p></div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-3 text-xs">${Object.entries(sc).map(([k,v])=>`<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:${v.tx};"></span>${k.charAt(0).toUpperCase()+k.slice(1)}</span>`).join('')}</div>
+          <button class="btn-primary text-sm flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add Table</button>
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-6 relative overflow-hidden">
+        <div class="text-[10px] uppercase tracking-widest text-[var(--muted-2)] mb-4">Main Dining Hall</div>
+        <div class="relative p-6 rounded-xl" style="background:radial-gradient(circle,rgba(255,107,53,0.02),transparent 70%);background-image:radial-gradient(circle,rgba(255,180,120,0.05) 1px,transparent 1px);background-size:24px 24px;">
+          <div class="grid grid-cols-3 sm:grid-cols-5 gap-4 lg:gap-6">
+            ${state.tables.map(t => {
+              const s = sc[t.status];
+              return `
+                <div class="table-card" style="background:${s.bg};border-color:${s.bd};color:${s.tx};" onclick="openTable('${t.id}')">
+                  <div class="font-display font-black text-xl">${t.number}</div>
+                  <div class="text-[10px] uppercase tracking-wider opacity-80 mt-1">${t.capacity} seats</div>
+                  ${t.total ? `<div class="text-xs font-semibold mt-1">${fmt(t.total)}</div>` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+window.openTable = function(id) {
+  const t = state.tables.find(x => x.id === id);
+  if (!t) return;
+  showModal(`
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h3 class="font-display font-bold text-2xl">${t.number}</h3>
+        <p class="text-sm text-[var(--muted)]">Capacity: ${t.capacity} guests</p>
+      </div>
+      <span class="badge badge-${t.status==='free'?'paid':t.status==='occupied'?'cancelled':t.status==='reserved'?'pending':'served'}">${t.status}</span>
+    </div>
+    ${t.status === 'occupied' ? `<div class="p-4 rounded-xl mb-4" style="background:rgba(248,113,113,0.05);"><div class="text-xs text-[var(--muted)] mb-1">Current Bill</div><div class="font-display font-bold text-2xl">${fmt(t.total)}</div></div>` : ''}
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      ${t.status !== 'free' ? `<button class="btn-ghost text-sm py-2" onclick="changeTableStatus('${t.id}','free')"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i> Mark Free</button>` : ''}
+      ${t.status !== 'occupied' ? `<button class="btn-ghost text-sm py-2" onclick="changeTableStatus('${t.id}','occupied')"><i data-lucide="utensils" class="w-4 h-4 inline mr-1"></i> Mark Occupied</button>` : ''}
+      ${t.status !== 'reserved' ? `<button class="btn-ghost text-sm py-2" onclick="changeTableStatus('${t.id}','reserved')"><i data-lucide="calendar-clock" class="w-4 h-4 inline mr-1"></i> Mark Reserved</button>` : ''}
+      ${t.status !== 'cleaning' ? `<button class="btn-ghost text-sm py-2" onclick="changeTableStatus('${t.id}','cleaning')"><i data-lucide="sparkles" class="w-4 h-4 inline mr-1"></i> Mark Cleaning</button>` : ''}
+    </div>
+    <div class="flex gap-2">
+      <button class="btn-ghost flex-1 text-sm" onclick="closeModal()">Close</button>
+      <button class="btn-primary flex-1 text-sm" onclick="closeModal();navigate('pos')"><i data-lucide="plus-circle" class="w-4 h-4 inline mr-1"></i> New Order</button>
+    </div>
+    <button class="w-full mt-3 text-xs text-[var(--accent-2)] hover:underline" onclick="toast('QR Code downloaded','success')"><i data-lucide="qr-code" class="w-3 h-3 inline mr-1"></i> Download QR Code</button>
+  `);
+};
+
+window.changeTableStatus = function(id, status) {
+  const t = state.tables.find(x => x.id === id);
+  if (t) { t.status = status; if (status === 'free') t.total = 0; closeModal(); navigate('tables'); toast(`${t.number} marked as ${status}`, 'success'); }
+};
+
+// ============= RESERVATIONS =============
+function renderReservations(c) {
+  c.innerHTML = `
+    <div class="space-y-5">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div><h2 class="font-display font-black text-2xl">Reservations</h2><p class="text-sm text-[var(--muted)]">Today's bookings · ${state.reservations.length} guests expected</p></div>
+        <button class="btn-primary text-sm flex items-center gap-2" onclick="openNewReservation()"><i data-lucide="plus" class="w-4 h-4"></i> New Booking</button>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-display font-bold text-lg">Today's Timeline</h3>
+            <div class="text-xs text-[var(--muted)]">July 15, 2024</div>
+          </div>
+          <div class="space-y-3">
+            ${state.reservations.map(r => `
+              <div class="flex items-center gap-4 p-3 rounded-xl border border-[var(--border)] hover:border-[var(--border-strong)] transition group">
+                <div class="text-center w-16 flex-shrink-0">
+                  <div class="font-display font-black text-xl">${r.time.split(' ')[0]}</div>
+                  <div class="text-[10px] text-[var(--muted)] uppercase tracking-wider">${r.time.split(' ')[1]}</div>
+                </div>
+                <div class="w-px h-12 bg-[var(--border)]"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold text-sm">${r.name}</div>
+                  <div class="text-xs text-[var(--muted)]">${r.party} guests · ${r.phone}</div>
+                </div>
+                <div class="text-right">
+                  <div class="text-xs text-[var(--muted)]">Table</div>
+                  <div class="font-bold text-sm">${r.table}</div>
+                </div>
+                <span class="badge badge-confirmed">Confirmed</span>
+                <button class="opacity-0 group-hover:opacity-100 transition p-2 rounded-lg hover:bg-[rgba(255,180,120,0.05)]" onclick="toast('Reservation seated','success')"><i data-lucide="check" class="w-4 h-4 text-[var(--success)]"></i></button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        <div class="glass rounded-2xl p-5">
+          <h3 class="font-display font-bold text-lg mb-4">Waitlist</h3>
+          <div class="space-y-3">
+            <div class="p-3 rounded-xl border border-[var(--border)]"><div class="flex justify-between"><span class="font-semibold text-sm">Marcus T.</span><span class="text-xs text-[var(--warning)]">15 min</span></div><div class="text-xs text-[var(--muted)] mt-1">Party of 2 · No table</div></div>
+            <div class="p-3 rounded-xl border border-[var(--border)]"><div class="flex justify-between"><span class="font-semibold text-sm">Elena V.</span><span class="text-xs text-[var(--warning)]">22 min</span></div><div class="text-xs text-[var(--muted)] mt-1">Party of 4 · No table</div></div>
+            <div class="p-3 rounded-xl border border-[var(--border)]"><div class="flex justify-between"><span class="font-semibold text-sm">Raj P.</span><span class="text-xs text-[var(--danger)]">35 min</span></div><div class="text-xs text-[var(--muted)] mt-1">Party of 6 · No table</div></div>
+          </div>
+          <button class="btn-ghost w-full mt-4 text-xs py-2">Add to Waitlist</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+window.openNewReservation = function() {
+  showModal(`
+    <h3 class="font-display font-bold text-xl mb-4">New Reservation</h3>
+    <div class="space-y-3">
+      <input type="text" placeholder="Customer name" class="w-full p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-sm outline-none focus:border-[var(--accent)]" />
+      <input type="text" placeholder="Phone number" class="w-full p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-sm outline-none focus:border-[var(--accent)]" />
+      <div class="grid grid-cols-2 gap-3">
+        <input type="date" class="w-full p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-sm outline-none focus:border-[var(--accent)]" />
+        <input type="time" class="w-full p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-sm outline-none focus:border-[var(--accent)]" />
+      </div>
+      <select class="w-full p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-sm outline-none focus:border-[var(--accent)]">
+        <option>2 guests</option><option>4 guests</option><option>6 guests</option>
+      </select>
+      <button class="btn-primary w-full text-sm" onclick="closeModal();toast('Reservation created','success')">Confirm Booking</button>
+    </div>
+  `);
+};
+
+// ============= MENU =============
+function renderMenu(c) {
+  c.innerHTML = `
+    <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+      <div class="glass rounded-2xl p-5 h-fit lg:sticky lg:top-24">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-display font-bold text-lg">Categories</h3>
+          <button class="text-xs text-[var(--accent-2)] hover:underline" onclick="toast('Add category modal','info')">+ Add</button>
+        </div>
+        <div class="space-y-1">
+          ${state.menu.categories.map(cat => `
+            <button class="w-full flex items-center justify-between p-3 rounded-lg text-sm transition ${cat.id===state.selectedCategory?'bg-[rgba(255,107,53,0.1)] text-[var(--accent-2)]':'hover:bg-[rgba(255,180,120,0.04)] text-[var(--fg-2)]'}" onclick="selectMenuCat('${cat.id}')">
+              <span class="font-medium">${cat.name}</span>
+              <span class="text-xs text-[var(--muted)]">${cat.count}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <h2 class="font-display font-black text-2xl">${state.menu.categories.find(c=>c.id===state.selectedCategory)?.name}</h2>
+          <button class="btn-primary text-sm flex items-center gap-2" onclick="openAddMenuItem()"><i data-lucide="plus" class="w-4 h-4"></i> Add Dish</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 stagger" id="menuGrid">
+          ${state.menu.items.filter(i => i.categoryId === state.selectedCategory).map(item => `
+            <div class="menu-item-card group">
+              <div class="h-32 bg-gradient-to-br ${item.gradient} relative overflow-hidden">
+                ${item.popular ? '<span class="absolute top-2 left-2 badge badge-ready" style="background:rgba(0,0,0,0.4);color:white;">★ Popular</span>' : ''}
+                <button class="absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(0,0,0,0.4);" onclick="toggleAvail('${item.id}')">
+                  <div class="toggle ${item.available?'on':''}" style="transform:scale(0.7);"></div>
+                </button>
+              </div>
+              <div class="p-4">
+                <div class="flex items-start justify-between gap-2">
+                  <h4 class="font-display font-bold text-base">${item.name}</h4>
+                  <span class="font-display font-bold text-lg text-[var(--accent-2)]">${fmt(item.price)}</span>
+                </div>
+                <p class="text-xs text-[var(--muted)] mt-1 line-clamp-2">${item.desc}</p>
+                <div class="flex items-center gap-2 mt-3">
+                  ${item.veg ? '<span class="w-3 h-3 rounded-full border-2 border-[var(--success)] flex items-center justify-center"><span class="w-1.5 h-1.5 rounded-full bg-[var(--success)]"></span></span>' : '<span class="w-3 h-3 rounded-full border-2 border-[var(--danger)] flex items-center justify-center"><span class="w-1.5 h-1.5 rounded-full bg-[var(--danger)]"></span></span>'}
+                  ${item.spicy ? `<span class="text-[10px] text-[var(--danger)]">${'🌶'.repeat(item.spicy)}</span>` : ''}
+                  <span class="text-[10px] text-[var(--muted)] ml-auto">${item.prepTime} min</span>
+                </div>
+                <div class="flex gap-1.5 mt-4">
+                  <button class="flex-1 text-xs font-semibold py-2 rounded-lg btn-ghost" onclick="toast('Edit dish','info')"><i data-lucide="pencil" class="w-3 h-3 inline"></i></button>
+                  <button class="flex-1 text-xs font-semibold py-2 rounded-lg" style="background:rgba(192,132,252,0.1);color:var(--purple);" onclick="generateAI('${item.id}')"><i data-lucide="sparkles" class="w-3 h-3 inline"></i> AI Desc</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+window.selectMenuCat = function(id) { state.selectedCategory = id; renderMenu($('#pageContainer')); if(window.lucide)lucide.createIcons(); };
+window.toggleAvail = function(id) { const it = state.menu.items.find(i=>i.id===id); if(it){it.available=!it.available; toast(`${it.name} ${it.available?'available':'unavailable'}`,'info'); renderMenu($('#pageContainer')); if(window.lucide)lucide.createIcons();}};
+window.generateAI = function(id) {
+  const it = state.menu.items.find(i=>i.id===id);
+  showModal(`
+    <div class="flex items-center gap-2 mb-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#c084fc,#8b5cf6);"><i data-lucide="sparkles" class="w-4 h-4 text-white"></i></div><h3 class="font-display font-bold text-lg">AI Description</h3></div>
+    <p class="text-xs text-[var(--muted)] mb-4">Generating delicious copy for <b class="text-[var(--fg)]">${it.name}</b>...</p>
+    <div class="space-y-2" id="aiGen">
+      <div class="flex gap-1.5"><div class="w-2 h-2 rounded-full bg-[var(--accent)] dot-1"></div><div class="w-2 h-2 rounded-full bg-[var(--accent)] dot-2"></div><div class="w-2 h-2 rounded-full bg-[var(--accent)] dot-3"></div></div>
+    </div>
+  `);
+  setTimeout(() => {
+    const desc = `Tender pieces of ${it.name.split(' ')[0].toLowerCase()} marinated in traditional spices, slow-cooked in a fragrant blend of herbs and served with a touch of culinary artistry.`;
+    $('#aiGen').innerHTML = `
+      <div class="p-3 rounded-lg border border-[var(--border)] hover:border-[var(--purple)] transition cursor-pointer" onclick="closeModal();toast('Description applied','success')">
+        <p class="text-sm">${desc}</p>
+        <button class="text-xs text-[var(--purple)] mt-2">Use this →</button>
+      </div>
+    `;
+    if(window.lucide) lucide.createIcons();
+  }, 1500);
+};
+
+// ============= INVENTORY =============
+function renderInventory(c) {
+  c.innerHTML = `
+    <div class="space-y-5">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div><h2 class="font-display font-black text-2xl">Inventory</h2><p class="text-sm text-[var(--muted)]">${state.inventory.length} items · ${state.inventory.filter(i=>i.qty<i.min).length} low stock</p></div>
+        <div class="flex gap-2"><button class="btn-ghost text-sm flex items-center gap-2"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</button><button class="btn-primary text-sm flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add Item</button></div>
+      </div>
+      <div class="glass rounded-2xl overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-[var(--border)] text-xs text-[var(--muted)] uppercase tracking-wider"><th class="text-left p-4 font-medium">Item</th><th class="text-left p-4 font-medium">Quantity</th><th class="text-left p-4 font-medium">Unit</th><th class="text-left p-4 font-medium">Min Level</th><th class="text-left p-4 font-medium">Cost/Unit</th><th class="text-left p-4 font-medium">Status</th><th class="p-4"></th></tr></thead>
+          <tbody>
+            ${state.inventory.map(i => {
+              const status = i.qty < i.min ? {c:'danger',t:'Low'} : i.qty < i.min*1.3 ? {c:'warning',t:'Near'} : {c:'success',t:'OK'};
+              return `<tr class="border-b border-[var(--border)] hover:bg-[rgba(255,180,120,0.02)] transition">
+                <td class="p-4 font-semibold">${i.name}</td>
+                <td class="p-4"><span class="font-mono font-bold">${i.qty}</span></td>
+                <td class="p-4 text-[var(--muted)]">${i.unit}</td>
+                <td class="p-4 text-[var(--muted)]">${i.min}</td>
+                <td class="p-4 font-mono">${fmt(i.cost)}</td>
+                <td class="p-4"><span class="badge badge-${status.c==='danger'?'cancelled':status.c==='warning'?'pending':'paid'}">${status.t}</span></td>
+                <td class="p-4 text-right"><button class="text-xs text-[var(--accent-2)] hover:underline" onclick="toast('Adjust stock','info')">Adjust</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ============= CUSTOMERS =============
+function renderCustomers(c) {
+  const cust = [
+    { name:'Meera Kapoor', visits:24, points:450, last:'Today', phone:'+1 212-555-0142', pref:'Vegetarian, No Nuts' },
+    { name:'James Lee', visits:18, points:320, last:'1 day ago', phone:'+1 212-555-0188', pref:'Spicy' },
+    { name:'Sofia Rossi', visits:32, points:680, last:'2 hours ago', phone:'+1 212-555-0199', pref:'Gluten Free' },
+    { name:'Liam Walsh', visits:12, points:210, last:'3 days ago', phone:'+1 212-555-0177', pref:'Vegan' },
+    { name:'Aisha Patel', visits:45, points:920, last:'Today', phone:'+1 212-555-0155', pref:'None' },
+  ];
+  c.innerHTML = `
+    <div class="space-y-5">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div><h2 class="font-display font-black text-2xl">Customers</h2><p class="text-sm text-[var(--muted)]">5,420 total · 24 new this week</p></div>
+        <div class="flex gap-2"><button class="btn-ghost text-sm flex items-center gap-2"><i data-lucide="download" class="w-4 h-4"></i> Export</button></div>
+      </div>
+      <div class="relative max-w-md">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-[var(--muted)]"></i>
+        <input type="text" placeholder="Search by name, phone, email..." class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--surface)] border border-[var(--border)] text-sm outline-none focus:border-[var(--accent)]" />
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        ${cust.map(u => `
+          <div class="glass card-hover rounded-2xl p-5 cursor-pointer" onclick="toast('Open profile','info')">
+            <div class="flex items-start gap-3">
+              <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg" style="background:linear-gradient(135deg,#ff6b35,#c2410c);">${u.name.split(' ').map(n=>n[0]).join('')}</div>
+              <div class="flex-1 min-w-0">
+                <div class="font-display font-bold text-base truncate">${u.name}</div>
+                <div class="text-xs text-[var(--muted)]">${u.phone}</div>
+              </div>
+              <span class="badge badge-ready">Loyal</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-[var(--border)] text-center">
+              <div><div class="font-display font-bold text-lg">${u.visits}</div><div class="text-[10px] text-[var(--muted)] uppercase">Visits</div></div>
+              <div><div class="font-display font-bold text-lg text-[var(--accent-2)]">${u.points}</div><div class="text-[10px] text-[var(--muted)] uppercase">Points</div></div>
+              <div><div class="font-display font-bold text-sm">${u.last}</div><div class="text-[10px] text-[var(--muted)] uppercase">Last Visit</div></div>
+            </div>
+            <div class="mt-3 text-xs text-[var(--muted)]"><i data-lucide="utensils" class="w-3 h-3 inline mr-1"></i> ${u.pref}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ============= STAFF =============
+function renderStaff(c) {
+  const staff = [
+    { name:'Arjun Rao', role:'Owner', shift:'10:00 - 22:00', status:'active', rating:4.9, orders:0 },
+    { name:'Priya Sharma', role:'Manager', shift:'11:00 - 23:00', status:'active', rating:4.8, orders:34 },
+    { name:'Marco Rossi', role:'Chef', shift:'14:00 - 00:00', status:'active', rating:4.9, orders:87 },
+    { name:'Sarah Connor', role:'Waiter', shift:'16:00 - 00:00', status:'break', rating:4.7, orders:42 },
+    { name:'Mike Brown', role:'Waiter', shift:'16:00 - 00:00', status:'active', rating:4.6, orders:38 },
+  ];
+  c.innerHTML = `
+    <div class="space-y-5">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div><h2 class="font-display font-black text-2xl">Staff</h2><p class="text-sm text-[var(--muted)]">5 team members on duty</p></div>
+        <button class="btn-primary text-sm flex items-center gap-2" onclick="toast('Invite staff','info')"><i data-lucide="user-plus" class="w-4 h-4"></i> Invite Member</button>
+      </div>
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="grid grid-cols-12 gap-4 p-4 border-b border-[var(--border)] text-xs text-[var(--muted)] uppercase tracking-wider">
+          <div class="col-span-4">Name</div><div class="col-span-2">Role</div><div class="col-span-2">Shift</div><div class="col-span-2">Performance</div><div class="col-span-2 text-right">Status</div>
+        </div>
+        ${staff.map(s => `
+          <div class="grid grid-cols-12 gap-4 p-4 border-b border-[var(--border)] hover:bg-[rgba(255,180,120,0.02)] items-center transition">
+            <div class="col-span-4 flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm" style="background:linear-gradient(135deg,#ff6b35,#c2410c);">${s.name.split(' ').map(n=>n[0]).join('')}</div>
+              <div><div class="font-semibold text-sm">${s.name}</div><div class="text-xs text-[var(--muted)]">arjun@tableflow.app</div></div>
+            </div>
+            <div class="col-span-2 text-sm">${s.role}</div>
+            <div class="col-span-2 text-sm font-mono text-[var(--fg-2)]">${s.shift}</div>
+            <div class="col-span-2"><div class="flex items-center gap-1.5"><i data-lucide="star" class="w-3 h-3 text-[var(--accent-3)]"></i><span class="text-sm font-semibold">${s.rating}</span><span class="text-xs text-[var(--muted)]">· ${s.orders} orders</span></div></div>
+            <div class="col-span-2 text-right"><span class="badge badge-${s.status==='active'?'ready':'pending'}">${s.status}</span></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+// ============= ANALYTICS =============
+function renderAnalytics(c) {
+  c.innerHTML = `
+    <div class="space-y-5">
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+        ${['Sales','Menu Performance','Customers','Staff'].map((t,i) => `<button class="tab-btn ${i===0?'active':''}" data-tab="${i}">${t}</button>`).join('')}
+      </div>
+      <div id="analyticsContent">${renderAnalyticsSales()}</div>
+    </div>`;
+  $$('.tab-btn', c).forEach(btn => btn.addEventListener('click', () => {
+    $$('.tab-btn', c).forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const i = parseInt(btn.dataset.tab);
+    const content = [renderAnalyticsSales, renderAnalyticsMenu, renderAnalyticsCustomers, renderAnalyticsStaff][i];
+    $('#analyticsContent').innerHTML = content();
+    if (window.lucide) lucide.createIcons();
+  }));
+}
+
+function renderAnalyticsSales() {
+  return `
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      ${[
+        {l:'Gross Revenue', v:'$48,250', t:14.2, i:'trending-up'},
+        {l:'Total Orders', v:'1,284', t:8.7, i:'receipt'},
+        {l:'Avg Order Value', v:'$37.58', t:5.1, i:'circle-dollar-sign'}
+      ].map(m => `
+        <div class="glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-2"><span class="text-xs text-[var(--muted)] uppercase tracking-wider">${m.l}</span><i data-lucide="${m.i}" class="w-4 h-4 text-[var(--accent-2)]"></i></div>
+          <div class="font-display font-black text-3xl">${m.v}</div>
+          <div class="text-xs text-[var(--success)] mt-1 flex items-center gap-1"><i data-lucide="arrow-up-right" class="w-3 h-3"></i> ${m.t}% vs last month</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="glass rounded-2xl p-5">
+      <h3 class="font-display font-bold text-lg mb-4">Revenue Trend (30 Days)</h3>
+      <svg viewBox="0 0 600 200" class="w-full h-48">
+        <defs><linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6b35" stop-opacity="0.4"/><stop offset="1" stop-color="#ff6b35" stop-opacity="0"/></linearGradient></defs>
+        <path d="M0,150 C50,140 100,120 150,130 C200,140 250,80 300,70 C350,60 400,90 450,60 C500,30 550,50 600,40 L600,200 L0,200 Z" fill="url(#lg1)"/>
+        <path class="line-anim" d="M0,150 C50,140 100,120 150,130 C200,140 250,80 300,70 C350,60 400,90 450,60 C500,30 550,50 600,40" fill="none" stroke="#ff6b35" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+  `;
+}
+
+function renderAnalyticsMenu() {
+  return `
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="glass rounded-2xl p-5">
+        <h3 class="font-display font-bold text-lg mb-4">Top 5 Items Sold</h3>
+        <div class="space-y-3">
+          ${[
+            {n:'Butter Chicken', c:340, p:100},
+            {n:'Hyderabadi Biryani', c:280, p:82},
+            {n:'Garlic Naan', c:520, p:65},
+            {n:'Paneer Tikka', c:210, p:50},
+            {n:'Samosa Chaat', c:180, p:38}
+          ].map(i => `
+            <div><div class="flex justify-between text-sm mb-1"><span class="font-medium">${i.n}</span><span class="text-[var(--muted)]">${i.c} sold</span></div><div class="h-2 rounded-full bg-[var(--surface-3)] overflow-hidden"><div class="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)]" style="width:${i.p}%"></div></div></div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <h3 class="font-display font-bold text-lg mb-4">Revenue by Category</h3>
+        <div class="flex items-center justify-center h-48">
+          <svg viewBox="0 0 200 200" class="w-40 h-40">
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#2a201a" stroke-width="30"/>
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#ff6b35" stroke-width="30" stroke-dasharray="150 502" transform="rotate(-90 100 100)"/>
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#ffa552" stroke-width="30" stroke-dasharray="100 502" transform="rotate(18 100 100)"/>
+            <circle cx="100" cy="100" r="80" fill="none" stroke="#ffd166" stroke-width="30" stroke-dasharray="80 502" transform="rotate(90 100 100)"/>
+          </svg>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#ff6b35]"></span>Tandoor (30%)</span>
+          <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#ffa552]"></span>Curry (20%)</span>
+          <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#ffd166]"></span>Biryani (16%)</span>
+          <span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-[#2a201a]"></span>Other (34%)</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAnalyticsCustomers() {
+  const hours = ['12p','1p','2p','3p','4p','5p','6p','7p','8p','9p','10p','11p'];
+  const days = ['M','T','W','T','F','S','S'];
+  return `
+    <div class="glass rounded-2xl p-5">
+      <h3 class="font-display font-bold text-lg mb-4">Peak Hours Heatmap</h3>
+      <div class="overflow-x-auto no-scrollbar">
+        <div class="min-w-[500px]">
+          <div class="grid gap-1" style="grid-template-columns: 30px repeat(12, 1fr);">
+            <div></div>
+            ${hours.map(h=>`<div class="text-[10px] text-[var(--muted)] text-center">${h}</div>`).join('')}
+            ${days.map((d,di) => `
+              <div class="text-[10px] text-[var(--muted)] flex items-center">${d}</div>
+              ${hours.map((_,hi) => {
+                const intensity = (di===4||di===5) && (hi>=5&&hi<=8) ? 0.9 : (di<4)&&(hi>=5&&hi<=7) ? 0.6 : (hi<4) ? 0.1 : 0.3;
+                return `<div class="heat-cell h-8 rounded" style="background:rgba(255,107,53,${intensity});"></div>`;
+              }).join('')}
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAnalyticsStaff() {
+  return `
+    <div class="glass rounded-2xl p-5">
+      <h3 class="font-display font-bold text-lg mb-4">Staff Performance</h3>
+      <div class="space-y-4">
+        ${[
+          {n:'Sarah Connor', o:42, r:4.7, t:'$1,580'},
+          {n:'Mike Brown', o:38, r:4.6, t:'$1,420'},
+          {n:'Priya Sharma', o:34, r:4.8, t:'$1,280'}
+        ].map(s => `
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm" style="background:linear-gradient(135deg,#ff6b35,#c2410c);">${s.n.split(' ').map(n=>n[0]).join('')}</div>
+            <div class="flex-1">
+              <div class="font-semibold text-sm">${s.n}</div>
+              <div class="text-xs text-[var(--muted)]">${s.o} orders · ${s.r}★ rating</div>
+            </div>
+            <div class="text-right"><div class="font-display font-bold">${s.t}</div><div class="text-[10px] text-[var(--muted)]">Revenue</div></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// ============= AI INSIGHTS =============
+function renderAI(c) {
+  c.innerHTML = `
+    <div class="space-y-6">
+      <div class="relative overflow-hidden rounded-2xl p-6" style="background:linear-gradient(135deg,rgba(192,132,252,0.1),rgba(255,107,53,0.05));border:1px solid var(--border-strong);">
+        <div class="orb" style="width:300px;height:300px;background:radial-gradient(circle,rgba(192,132,252,0.3),transparent);top:-100px;right:-50px;"></div>
+        <div class="relative z-10">
+          <div class="flex items-center gap-2 mb-2"><i data-lucide="sparkles" class="w-4 h-4 text-[var(--purple)]"></i><span class="text-xs uppercase tracking-widest text-[var(--purple)]">Fireworks AI</span></div>
+          <h2 class="font-display font-black text-2xl mb-1">Your AI Business Copilot</h2>
+          <p class="text-sm text-[var(--muted)]">Predict demand, optimize menu, and automate copywriting.</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="glass rounded-2xl p-5">
+          <div class="flex items-center gap-2 mb-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(192,132,252,0.1);"><i data-lucide="lightbulb" class="w-4 h-4 text-[var(--purple)]"></i></div><h3 class="font-display font-bold text-lg">Business Insights</h3></div>
+          <div class="space-y-3">
+            <div class="p-3 rounded-xl border border-[var(--border)]">
+              <div class="text-sm font-semibold mb-1 text-[var(--accent-2)]">Dead Hours Detected</div>
+              <p class="text-xs text-[var(--muted)]">Tuesdays 2-4pm have 80% less traffic. Consider launching a "Happy Hour" promotion with 30% off appetizers.</p>
+            </div>
+            <div class="p-3 rounded-xl border border-[var(--border)]">
+              <div class="text-sm font-semibold mb-1 text-[var(--accent-2)]">Menu Optimization</div>
+              <p class="text-xs text-[var(--muted)]">"Samosa Chaat" has low sales but high profit margins. Bundle it with Biryanis to increase visibility.</p>
+            </div>
+            <div class="p-3 rounded-xl border border-[var(--border)]">
+              <div class="text-sm font-semibold mb-1 text-[var(--accent-2)]">Staffing Forecast</div>
+              <p class="text-xs text-[var(--muted)]">Expect 35% higher volume this Saturday due to local event. Schedule 2 extra waiters for 6pm-10pm.</p>
+            </div>
+          </div>
+          <button class="btn-ghost w-full mt-4 text-sm" onclick="toast('Generating fresh insights...','info')"><i data-lucide="refresh-cw" class="w-3 h-3 inline mr-1"></i> Generate New</button>
+        </div>
+        <div class="glass rounded-2xl p-5">
+          <div class="flex items-center gap-2 mb-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(255,107,53,0.1);"><i data-lucide="trending-up" class="w-4 h-4 text-[var(--accent)]"></i></div><h3 class="font-display font-bold text-lg">7-Day Demand Forecast</h3></div>
+          <svg viewBox="0 0 400 180" class="w-full h-40">
+            <defs><linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c084fc" stop-opacity="0.4"/><stop offset="1" stop-color="#c084fc" stop-opacity="0"/></linearGradient></defs>
+            <path d="M0,140 L50,130 L100,120 L150,100 L200,60 L250,40 L300,70 L350,90 L400,80 L400,180 L0,180 Z" fill="url(#fc)"/>
+            <path class="line-anim" d="M0,140 L50,130 L100,120 L150,100 L200,60 L250,40 L300,70 L350,90 L400,80" fill="none" stroke="#c084fc" stroke-width="2.5"/>
+            ${[0,50,100,150,200,250,300,350,400].map((x,i) => `<circle cx="${x}" cy="${[140,130,120,100,60,40,70,90,80][i]}" r="3" fill="#c084fc"/>`).join('')}
+          </svg>
+          <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-[var(--muted)] mt-2">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div>${d}</div>`).join('')}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ============= CUSTOMER VIEW (PREVIEW) =============
+ $('#previewMenuBtn').addEventListener('click', openCustomerView);
+
+function openCustomerView() {
+  const ov = $('#customerOverlay');
+  ov.classList.remove('hidden');
+  ov.innerHTML = `
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm modal-backdrop" onclick="closeCustomerView()"></div>
+    <div class="absolute right-0 top-0 bottom-0 w-full max-w-md glass-strong overflow-y-auto no-scrollbar modal-content" style="border-left:1px solid var(--border-strong);" onclick="event.stopPropagation()">
+      <div class="relative h-40 bg-gradient-to-br from-orange-600 to-red-700 flex-shrink-0">
+        <button class="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/40 flex items-center justify-center" onclick="closeCustomerView()"><i data-lucide="x" class="w-4 h-4"></i></button>
+        <div class="absolute bottom-4 left-4">
+          <div class="text-[10px] uppercase tracking-widest text-white/70">Welcome to</div>
+          <div class="font-display font-black text-3xl text-white">Saffron & Smoke</div>
+          <div class="text-xs text-white/80 mt-1">Table T05 · 4 guests</div>
+        </div>
+      </div>
+      <div class="sticky top-0 z-10 glass-strong p-3 flex gap-2 overflow-x-auto no-scrollbar border-b border-[var(--border)]">
+        ${state.menu.categories.map((c,i) => `<button class="tab-btn ${i===0?'active':''}" data-ccat="${c.id}">${c.name}</button>`).join('')}
+      </div>
+      <div id="customerMenuList" class="p-4 space-y-3"></div>
+      <div id="customerCart" class="sticky bottom-0 left-0 right-0 p-4 glass-strong border-t border-[var(--border-strong)] hidden">
+        <div class="flex items-center justify-between mb-2"><span class="text-sm font-semibold">Order Total</span><span class="font-display font-bold text-lg" id="custTotal">$0.00</span></div>
+        <button class="btn-primary w-full text-sm" onclick="placeCustomerOrder()">Place Order</button>
+      </div>
+    </div>
+  `;
+  renderCustomerMenu('c1');
+  $$('[data-ccat]', ov).forEach(b => b.addEventListener('click', () => {
+    $$('[data-ccat]', ov).forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    renderCustomerMenu(b.dataset.ccat);
+  }));
+  if(window.lucide) lucide.createIcons();
+}
+
+window.closeCustomerView = function() { $('#customerOverlay').classList.add('hidden'); $('#customerOverlay').innerHTML=''; state.cart = []; };
+
+function renderCustomerMenu(catId) {
+  const items = state.menu.items.filter(i => i.categoryId === catId && i.available);
+  $('#customerMenuList').innerHTML = items.map(i => `
+    <div class="flex gap-3 p-3 rounded-xl border border-[var(--border)] hover:border-[var(--border-strong)] transition">
+      <div class="w-16 h-16 rounded-lg bg-gradient-to-br ${i.gradient} flex-shrink-0"></div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-2">
+          <div><div class="font-semibold text-sm">${i.name}</div><div class="text-[10px] text-[var(--muted)] mt-0.5">${i.prepTime} min</div></div>
+          <div class="font-display font-bold text-sm text-[var(--accent-2)]">${fmt(i.price)}</div>
+        </div>
+        <p class="text-xs text-[var(--muted)] mt-1 line-clamp-2">${i.desc}</p>
+        <button class="mt-2 text-xs font-semibold text-[var(--accent)] flex items-center gap-1" onclick="addToCustomerCart('${i.id}')"><i data-lucide="plus-circle" class="w-3 h-3"></i> Add to order</button>
+      </div>
+    </div>
+  `).join('');
+  if(window.lucide) lucide.createIcons();
+}
+
+window.addToCustomerCart = function(id) {
+  const item = state.menu.items.find(i => i.id === id);
+  const ex = state.cart.find(x => x.id === id);
+  if (ex) ex.qty++; else state.cart.push({ id, qty:1, price:item.price, name:item.name });
+  updateCustomerCart();
+  toast(`${item.name} added`, 'success');
+};
+
+window.placeCustomerOrder = function() {
+  if (!state.cart.length) return;
+  closeCustomerView();
+  toast('Order placed! Kitchen notified.', 'success');
+};
+
+function updateCustomerCart() {
+  const cartEl = $('#customerCart');
+  if (!cartEl) return;
+  if (!state.cart.length) { cartEl.classList.add('hidden'); return; }
+  cartEl.classList.remove('hidden');
+  const total = state.cart.reduce((s,i) => s+i.price*i.qty, 0);
+  $('#custTotal').textContent = fmt(total);
+}
+
+// ============= MODAL & INIT =============
+function showModal(html) {
+  const m = document.createElement('div');
+  m.id = 'activeModal';
+  m.className = 'fixed inset-0 z-[90] flex items-center justify-center p-4';
+  m.innerHTML = `<div class="absolute inset-0 bg-black/70 backdrop-blur-sm modal-backdrop" onclick="closeModal()"></div><div class="relative glass-strong rounded-2xl p-6 w-full max-w-md modal-content">${html}</div>`;
+  document.body.appendChild(m);
+  if(window.lucide) lucide.createIcons();
+}
+window.closeModal = function() { $('#activeModal')?.remove(); };
+
+// Initial render
+navigate('dashboard');
+if (window.lucide) lucide.createIcons();
+
+// Simulate live updates on KDS and Dashboard
+setInterval(() => {
+  if (state.currentPage === 'kds' || state.currentPage === 'orders' || state.currentPage === 'dashboard') {
+    const pending = state.orders.find(o => o.status === 'pending');
+    if (pending && Math.random() > 0.7) {
+      pending.elapsed += 1;
+      if (state.currentPage === 'kds') renderKDS($('#pageContainer'));
+    }
+  }
+}, 5000);
+</script>
+</body>
+</html>

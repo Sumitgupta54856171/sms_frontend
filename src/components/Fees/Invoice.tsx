@@ -108,41 +108,64 @@ export default function Invoice({ student, onClose }: InvoiceProps) {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
+            font-size: 11px;
             width: 72mm;
             margin: 0 auto;
-            padding: 5mm 3mm;
+            padding: 4mm 3mm;
             color: #000;
-            line-height: 1.4;
+            line-height: 1.5;
           }
           .text-center { text-align: center; }
           .flex { display: flex; }
           .justify-between { justify-content: space-between; }
           .border-dashed { border-style: dashed; }
           .border-black { border-color: #000; }
+          .border-t { border-top-width: 1px; }
           .border-t-2 { border-top-width: 2px; }
+          .border-t-3 { border-top-width: 3px; }
+          .border-b { border-bottom-width: 1px; }
+          .border-b-2 { border-bottom-width: 2px; }
+          .my-1 { margin-top: 2px; margin-bottom: 2px; }
           .my-2 { margin-top: 4px; margin-bottom: 4px; }
-          .mb-4 { margin-bottom: 8px; }
-          .mb-3 { margin-bottom: 6px; }
+          .my-3 { margin-top: 6px; margin-bottom: 6px; }
+          .mb-1 { margin-bottom: 2px; }
           .mb-2 { margin-bottom: 4px; }
-          .mb-1\\.5 { margin-bottom: 3px; }
+          .mb-3 { margin-bottom: 6px; }
+          .mb-4 { margin-bottom: 8px; }
+          .mt-1 { margin-top: 2px; }
+          .mt-2 { margin-top: 4px; }
           .mt-3 { margin-top: 6px; }
+          .mt-4 { margin-top: 8px; }
           .mt-6 { margin-top: 12px; }
           .text-xs { font-size: 10px; }
-          .text-sm { font-size: 11px; }
-          .text-base { font-size: 13px; }
+          .text-sm { font-size: 12px; }
+          .text-base { font-size: 14px; }
+          .text-lg { font-size: 16px; }
           .font-bold { font-weight: bold; }
+          .font-normal { font-weight: normal; }
           .uppercase { text-transform: uppercase; }
           .tracking-tight { letter-spacing: -0.5px; }
           .tracking-widest { letter-spacing: 2px; }
+          .tracking-wide { letter-spacing: 1px; }
           .leading-tight { line-height: 1.2; }
+          .leading-relaxed { line-height: 1.6; }
           .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
           .pr-2 { padding-right: 4px; }
           .pl-2 { padding-left: 4px; }
+          .px-1 { padding-left: 2px; padding-right: 2px; }
+          .py-1 { padding-top: 2px; padding-bottom: 2px; }
           .text-right { text-align: right; }
+          .text-left { text-align: left; }
+          .h-6 { height: 12px; }
           .h-8 { height: 16px; }
           .text-gray-600 { color: #666; }
+          .text-gray-400 { color: #999; }
           .text-\\[10px\\] { font-size: 9px; }
+          .w-full { width: 100%; }
+          .inline-block { display: inline-block; }
+          .border-0 { border: none; }
+          table { width: 100%; border-collapse: collapse; }
+          td { padding: 2px 0; }
         </style>
       </head>
       <body>
@@ -175,98 +198,107 @@ export default function Invoice({ student, onClose }: InvoiceProps) {
   if (step === "receipt" && invoice) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full max-h-[90vh] overflow-y-auto">
+        <div className="bg-white rounded-xl shadow-2xl w-[340px] max-h-[90vh] overflow-y-auto">
           {/* Toolbar */}
-          <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10 print:hidden">
-            <h2 className="text-lg font-semibold text-slate-900">Invoice</h2>
+          <div className="flex items-center justify-between p-3 border-b sticky top-0 bg-white z-10 print:hidden">
+            <h2 className="text-base font-semibold text-slate-900">Invoice</h2>
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
                 onClick={handlePrint}
-                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 h-8 text-xs"
               >
-                <Printer className="h-4 w-4" />
+                <Printer className="h-3.5 w-3.5" />
                 Print
               </Button>
-              <Button size="sm" variant="ghost" onClick={onClose}>
+              <Button size="sm" variant="ghost" onClick={onClose} className="h-8 w-8">
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          {/* Thermal Receipt */}
-          <div className="p-4">
+          {/* Thermal Receipt - 3 inch width */}
+          <div className="p-3">
             <div id="thermal-receipt">
-              <div className="text-center mb-4">
-                <h1 className="font-bold text-[1.1rem] leading-tight uppercase tracking-tight">
-                  Rose Convent High School
-                </h1>
-                <p className="text-xs mt-1">Satna (M.P)</p>
-                <p className="text-xs">Pincode - 485001</p>
-                
-              </div>
-
-              <div className="border-t-2 border-dashed border-black my-2" />
-              <div className="text-center font-bold uppercase text-sm tracking-widest">
-                Fee Receipt
-              </div>
-              <div className="border-t-2 border-dashed border-black my-2" />
-
-              <div className="flex justify-between text-xs mb-1.5">
-                <span>Invoice No:</span>
-                <span className="font-bold">{invoice.invoice_id}</span>
-              </div>
-              <div className="flex justify-between text-xs mb-1.5">
-                <span>Date:</span>
-                <span>{formatDate(invoice.createdAt)}</span>
-              </div>
-              <div className="flex justify-between text-xs mb-1.5">
-                <span>Student:</span>
-                <span className="font-bold text-right truncate pl-2">
-                  {student.name.toUpperCase()}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs mb-1.5">
-                <span>Class:</span>
-                <span>{invoice.enrollementSession.class_no}</span>
-              </div>
-              <div className="flex justify-between text-xs mb-1.5">
-                <span>Roll No:</span>
-                <span>{invoice.enrollementSession.roll_no}</span>
-              </div>
-              <div className="flex justify-between text-xs mb-3">
-                <span>Sch. No:</span>
-                <span>{invoice.scholar_no}</span>
+              <div className="text-center mb-3">
+                <div className="text-lg font-bold uppercase tracking-wide leading-tight">Rose Convent High School</div>
+                <div className="text-xs mt-1">Satna (M.P) - 485001</div>
+                <div className="text-xs text-gray-600">Affiliated to M.P. Board</div>
               </div>
 
               <div className="border-t-2 border-dashed border-black my-2" />
 
-              <div className="flex justify-between text-xs font-bold mb-2">
-                <span>Particulars</span>
-                <span>Amount</span>
-              </div>
-              <div className="flex justify-between text-xs mb-2">
-                <span className="pr-4">{invoice.paymentType}</span>
-                <span>{formatCurrency(invoice.amount)}</span>
-              </div>
+              <div className="text-center font-bold uppercase text-sm tracking-widest py-1">Fee Receipt</div>
+
+              <div className="border-t border-dashed border-black my-2" />
+
+              <table>
+                <tbody>
+                  <tr>
+                    <td className="text-xs text-gray-600" width="40%">Invoice No</td>
+                    <td className="text-xs font-bold text-right" width="60%">{invoice.invoice_id}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-xs text-gray-600">Date</td>
+                    <td className="text-xs font-bold text-right">{formatDate(invoice.createdAt)}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-xs text-gray-600">Student Name</td>
+                    <td className="text-xs font-bold text-right uppercase">{student.name}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-xs text-gray-600">Class</td>
+                    <td className="text-xs font-bold text-right">{invoice.enrollementSession.class_no}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-xs text-gray-600">Roll No</td>
+                    <td className="text-xs font-bold text-right">{invoice.enrollementSession.roll_no}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-xs text-gray-600">Scholar No</td>
+                    <td className="text-xs font-bold text-right">{invoice.scholar_no}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="border-t border-dashed border-black my-2" />
+
+              <table>
+                <tbody>
+                  <tr>
+                    <td className="text-xs font-bold" width="70%">Particulars</td>
+                    <td className="text-xs font-bold text-right" width="30%">Amount</td>
+                  </tr>
+                  <tr>
+                    <td className="text-xs py-1">{invoice.paymentType}</td>
+                    <td className="text-xs font-bold text-right py-1">{formatCurrency(invoice.amount)}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="border-t border-dashed border-black my-2" />
+
+              <table>
+                <tbody>
+                  <tr>
+                    <td className="text-sm font-bold" width="70%">TOTAL (INR)</td>
+                    <td className="text-sm font-bold text-right" width="30%">{formatCurrency(invoice.amount)}</td>
+                  </tr>
+                </tbody>
+              </table>
 
               <div className="border-t-2 border-dashed border-black my-2" />
 
-              <div className="flex justify-between text-base font-bold mt-3 mb-3">
-                <span>TOTAL (INR)</span>
-                <span>{formatCurrency(invoice.amount)}</span>
+              <div className="text-xs text-center text-gray-600 mt-2 mb-2">
+                Rupees {formatCurrency(invoice.amount)} Only
               </div>
 
-              <div className="border-t-2 border-dashed border-black my-2" />
+              <div className="border-t border-dashed border-black my-2" />
 
-              <div className="text-center mt-6">
-                <p className="text-sm font-bold">*** THANK YOU ***</p>
-                <p className="mt-3 text-[10px] text-gray-600">
-                  Computer Generated Receipt
-                </p>
-                <p className="text-[10px] text-gray-600">
-                  No signature required.
-                </p>
+              <div className="text-center mt-3">
+                <div className="text-sm font-bold tracking-widest">*** THANK YOU ***</div>
+                <div className="text-xs text-gray-400 mt-2">Computer Generated Receipt</div>
+                <div className="text-xs text-gray-400">No signature required.</div>
               </div>
 
               <div className="h-8" />

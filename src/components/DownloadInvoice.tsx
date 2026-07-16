@@ -81,7 +81,7 @@ export default function InvoiceTemplate() {
           <Button variant="outline" onClick={handleDownloadPDF} disabled={isDownloading} className="gap-2 bg-white hover:bg-slate-50 text-slate-700">
             <Printer className="h-4 w-4" /> Print
           </Button>
-          <Button onClick={handleDownloadPDF} disabled={isDownloading} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md">
+          <Button onClick={handleDownloadPDF} disabled={isDownloading} className="gap-2 bg-[#0d9488] hover:bg-teal-700 text-white shadow-md">
             {isDownloading ? (
                <span className="flex items-center gap-2">Downloading...</span>
             ) : (
@@ -97,7 +97,7 @@ export default function InvoiceTemplate() {
         className="w-full max-w-[800px] bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-200 p-0"
       >
         {/* Top Colored Band */}
-        <div className="h-3 w-full bg-indigo-600"></div>
+        <div className="h-3 w-full bg-[#0d9488]"></div>
 
         <div className="p-8 sm:p-12">
           

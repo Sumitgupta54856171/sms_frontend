@@ -9,10 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
 
 import { fetchStudentDetail, updateStudentDetail, type StudentDetail } from "@/api/student";
+import StudentAvatar from "@/components/StudentAvatar";
 
 export default function StudentProfilePage() {
   const { studentId } = useParams<{ studentId: string }>();
@@ -116,11 +116,12 @@ export default function StudentProfilePage() {
         <Card className="mb-6 bg-linear-to-r from-teal-600 to-teal-500 border-none">
           <CardContent className="pt-6 pb-6">
             <div className="flex items-center gap-5">
-              <Avatar className="h-20 w-20 border-4 border-white/80 shadow-lg">
-                <AvatarFallback className="bg-white/90 text-teal-700 text-xl font-bold">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              <StudentAvatar
+                studentId={student.id}
+                studentName={student.name}
+                className="h-20 w-20 border-4 border-white/80 shadow-lg"
+                fallbackClassName="bg-white/90 text-teal-700 text-xl font-bold"
+              />
               <div className="text-white flex-1">
                 <h2 className="text-2xl font-bold">{student.name}</h2>
                 <p className="text-teal-100 text-sm mt-1">{student.email}</p>

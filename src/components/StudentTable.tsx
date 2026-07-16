@@ -13,13 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 import { fetchStudentList, type StudentListItem } from "@/api/student";
 import StudentForm from "./Studentform";
+import StudentAvatar from "./StudentAvatar";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { openModal, closeModal } from "@/store/slices/uiSlice";
 
@@ -154,13 +154,11 @@ export default function StudentTable() {
                       {/* Student Cell */}
                       <TableCell className="py-2">
                         <div className="flex items-center gap-3 py-2">
-                          <Avatar
-                            className={`h-10 w-10 text-white ${getColor(idx)}`}
-                          >
-                            <AvatarFallback className="bg-transparent">
-                              {initials}
-                            </AvatarFallback>
-                          </Avatar>
+                          <StudentAvatar
+                            studentId={student.studentId}
+                            studentName={student.StudentName}
+                            className="h-10 w-10"
+                          />
                           <div className="flex flex-col">
                             <span className="font-semibold text-slate-900 text-[14px]">
                               {student.StudentName}

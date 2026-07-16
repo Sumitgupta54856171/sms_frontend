@@ -1,18 +1,43 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Users, LayoutGrid, ArrowRight } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { classes } from "./data/class";
 import { GlowingEffect } from "@/components/ui/glowing-effect";
-
-
+import { getCookie } from "@/lib/utils";
+import { fetchTeacherClass } from "@/api/teacher";
 
 const classesData = classes;
 
 export default function ClassGrid() {
   const navigate = useNavigate();
+
+  // Use cookie for instant role detection
+  const roleFromCookie = (getCookie("role") || "").replace(/^ROLE_/i, "");
+  const isTeacher = roleFromCookie?.toLowerCase() === "teacher";
+
+  // Fetch teacher's class via useQuery
+  const { data: teacherClassName = "" } = useQuery({
+    queryKey: ["teacher-class"],
+    queryFn: fetchTeacherClass,
+    enabled: isTeacher,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Teachers only see their assigned class
+  const filteredClasses = useMemo(() => {
+    if (!isTeacher || !teacherClassName) return classesData;
+    // Match by name (e.g. "Grade 1") or by numeric name (e.g. "1")
+    return classesData.filter(
+      (c) =>
+        c.name === teacherClassName ||
+        c.name === teacherClassName.replace("Grade ", "")
+    );
+  }, [isTeacher, teacherClassName]);
+
   const [activeClass, setActiveClass] = useState(null);
 
   const toggleClass = (cls) => {
@@ -32,7 +57,7 @@ export default function ClassGrid() {
 
       {/* Grid Layout for Classes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {classesData.map((cls) => {
+        {filteredClasses.map((cls) => {
           const isActive = activeClass?.id === cls.id;
           
           return (

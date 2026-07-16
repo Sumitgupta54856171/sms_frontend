@@ -46,14 +46,18 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchStudents, type StudentResponse } from "@/api/student";
+import { fetchStudents, fetchStudentsByClass, type StudentResponse } from "@/api/student";
 import {
   saveAttendance,
   updateAttendance,
   fetchAttendanceByDate,
+  fetchAttendanceByClassAndDate,
   type AttendancePayload,
   type AttendanceRecord,
 } from "@/api/attendance";
+import { getCookie } from "@/lib/utils";
+import { fetchTeacherClass } from "@/api/teacher";
+
 const CLASSES = ["Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)];
 
 const EMPTY_STUDENTS: StudentResponse[] = [];
@@ -79,7 +83,29 @@ interface StudentRow {
 
 export default function Attendance() {
   const queryClient = useQueryClient();
-  const [selectedClass, setSelectedClass] = useState("Nursery");
+
+  // Use cookie for instant role detection (no Redux delay)
+  const roleFromCookie = (getCookie("role") || "").replace(/^ROLE_/i, "");
+  const isTeacher = roleFromCookie?.toLowerCase() === "teacher";
+
+  // Fetch teacher's class via useQuery (reliable, cached, always fresh)
+  const { data: teacherClassName = "" } = useQuery({
+    queryKey: ["teacher-class"],
+    queryFn: fetchTeacherClass,
+    enabled: isTeacher,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [selectedClass, setSelectedClass] = useState(
+    isTeacher ? "" : "Nursery"
+  );
+
+  // Once teacher's class is fetched, set it as selected
+  useEffect(() => {
+    if (isTeacher && teacherClassName) {
+      setSelectedClass(teacherClassName);
+    }
+  }, [isTeacher, teacherClassName]);
   const [date, setDate] = useState<Date>(new Date());
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [editing, setEditing] = useState(false);
@@ -87,17 +113,39 @@ export default function Attendance() {
 
   const formattedDate = useMemo(() => format(date, "yyyy-MM-dd"), [date]);
 
+  // ─── Derive numeric class number from selectedClass ──────────────────
+  // "Grade 1" → "1", "Nursery" → "Nursery", "LKG" → "LKG", etc.
+  const classNumber = useMemo(() => {
+    const match = selectedClass.match(/Grade\s+(\d+)/i);
+    return match ? match[1] : selectedClass;
+  }, [selectedClass]);
+
   // ─── Fetch students ──────────────────────────────────────────────────
+  // Teachers use class-specific API; admins fetch all students
+  const studentsQueryKey = isTeacher ? ["students", "class", classNumber] : ["students"];
+  const studentsQueryFn = isTeacher
+    ? () => fetchStudentsByClass(classNumber)
+    : fetchStudents;
+
   const { data: allStudents, isLoading: studentsLoading } = useQuery({
-    queryKey: ["students"],
-    queryFn: fetchStudents,
+    queryKey: studentsQueryKey,
+    queryFn: studentsQueryFn,
+    enabled: isTeacher ? !!classNumber : true,
   });
 
   // ─── Fetch existing attendance for selected date ─────────────────────
+  // Teachers use class+date API; admins use date-only API
+  const attendanceQueryKey = isTeacher
+    ? ["attendance", classNumber, formattedDate]
+    : ["attendance", formattedDate];
+  const attendanceQueryFn = isTeacher
+    ? () => fetchAttendanceByClassAndDate(classNumber, formattedDate)
+    : () => fetchAttendanceByDate(formattedDate);
+
   const { data: existingAttendance } = useQuery({
-    queryKey: ["attendance", formattedDate],
-    queryFn: () => fetchAttendanceByDate(formattedDate),
-    enabled: !!formattedDate,
+    queryKey: attendanceQueryKey,
+    queryFn: attendanceQueryFn,
+    enabled: !!formattedDate && (isTeacher ? !!classNumber : true),
     retry: 1,
     staleTime: 30_000,
   });
@@ -116,26 +164,39 @@ export default function Attendance() {
       return;
     }
 
-    // Filter students by selected class
-    const classStudents = studentList.filter((s) => {
-      const classInfo = s.classInfo ?? "";
-      // For Nursery/LKG/UKG, match the class name directly
-      if (["Nursery", "LKG", "UKG"].includes(selectedClass)) {
-        return classInfo === selectedClass;
-      }
-      // For Grade 1-12, match by number
-      const classNum = classInfo.replace(/\D/g, "");
-      const selectedNum = selectedClass.replace(/\D/g, "");
-      return classNum && selectedNum && classNum === selectedNum;
-    });
+    let classStudents: StudentResponse[];
+
+    if (isTeacher) {
+      // For teachers, fetchStudentsByClass returns { studentdetail: [...] }
+      const detail = (allStudents as any)?.studentdetail ?? [];
+      classStudents = detail.map((s: any, idx: number) => ({
+        id: s.studentId ?? s.id ?? idx,
+        name: s.studentName ?? s["Student name"] ?? "",
+        classInfo: s.className ?? selectedClass,
+        roll: s.rolleNo ?? "-",
+        scholar_no: s.scholarNo ?? "-",
+        status: "active",
+      }));
+    } else {
+      // For admins, filter the full student list by selected class
+      classStudents = studentList.filter((s: StudentResponse) => {
+        const classInfo = s.classInfo ?? "";
+        if (["Nursery", "LKG", "UKG"].includes(selectedClass)) {
+          return classInfo === selectedClass;
+        }
+        const classNum = classInfo.replace(/\D/g, "");
+        const selectedNum = selectedClass.replace(/\D/g, "");
+        return classNum && selectedNum && classNum === selectedNum;
+      });
+    }
 
     // Merge with existing attendance records (skip records with null studentId)
     const validAttendance = attendanceList.filter((a) => a.studentId != null);
     console.log("Merging attendance:", {
-      classStudents: classStudents.map((s) => ({ id: s.id, name: s.name })),
+      classStudents: classStudents.map((s: any) => ({ id: s.id, name: s.name })),
       validAttendance: validAttendance.map((a) => ({ studentId: a.studentId, status: a.status })),
     });
-    const merged: StudentRow[] = classStudents.map((s) => {
+    const merged: StudentRow[] = classStudents.map((s: any) => {
       const record = validAttendance.find((a) => a.studentId === s.id);
       return {
         id: s.id,
@@ -147,7 +208,7 @@ export default function Attendance() {
     });
 
     setStudents(merged);
-  }, [selectedClass, allStudents, existingAttendance, studentList, attendanceList]);
+  }, [selectedClass, allStudents, existingAttendance, studentList, attendanceList, isTeacher]);
 
   // ─── Sort students by roll number ───────────────────────────────────
   const sortedStudents = useMemo(() => {
@@ -258,17 +319,27 @@ export default function Attendance() {
               )}
             </Button>
 
-            {/* Class Select */}
-            <Select value={selectedClass} onValueChange={setSelectedClass}>
+            {/* Class Select — teachers see only their assigned class */}
+            <Select
+              value={selectedClass}
+              onValueChange={setSelectedClass}
+              disabled={isTeacher}
+            >
               <SelectTrigger className="w-36 bg-white">
-                <SelectValue />
+                <SelectValue placeholder={isTeacher ? "Loading..." : "Select class"} />
               </SelectTrigger>
               <SelectContent>
-                {CLASSES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
+                {isTeacher && teacherClassName ? (
+                  <SelectItem key={teacherClassName} value={teacherClassName}>
+                    {teacherClassName}
                   </SelectItem>
-                ))}
+                ) : (
+                  CLASSES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
 

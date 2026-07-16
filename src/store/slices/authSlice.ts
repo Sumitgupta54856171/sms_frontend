@@ -43,6 +43,8 @@ const authSlice = createSlice({
       localStorage.removeItem("token");
       localStorage.removeItem("useRole");
       localStorage.removeItem("currentSessionId");
+      localStorage.removeItem("className");
+      localStorage.removeItem("teacherId");
     },
     finishInitializing(state) {
       state.initializing = false;

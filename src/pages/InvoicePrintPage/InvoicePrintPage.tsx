@@ -148,7 +148,7 @@ export default function InvoicePrintPage() {
           <Button variant="outline" onClick={handlePrint} className="gap-2">
             <Printer className="h-4 w-4" /> Print
           </Button>
-          <Button onClick={handleDownloadPDF} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md">
+          <Button onClick={handleDownloadPDF} className="gap-2 bg-[#0d9488] hover:bg-teal-700 text-white shadow-md">
             <Download className="h-4 w-4" /> Download PDF
           </Button>
         </div>
@@ -160,7 +160,7 @@ export default function InvoicePrintPage() {
         className="w-full max-w-[800px] bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-200 p-0"
       >
         {/* Top Colored Band */}
-        <div className="h-3 w-full bg-indigo-600"></div>
+        <div className="h-3 w-full bg-[#0d9488]"></div>
 
         <div className="p-8 sm:p-12">
           {/* HEADER SECTION */}

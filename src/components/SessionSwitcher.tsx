@@ -8,10 +8,15 @@ export default function SessionSwitcher() {
   const { sessions, currentSession, loading } = useAppSelector((s) => s.session);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const fetchedRef = useRef(false);
 
+  // Only fetch sessions once, not on every mount
   useEffect(() => {
-    dispatch(loadSessions());
-  }, [dispatch]);
+    if (!fetchedRef.current && sessions.length === 0) {
+      fetchedRef.current = true;
+      dispatch(loadSessions());
+    }
+  }, [dispatch, sessions.length]);
 
   // Close dropdown on outside click
   useEffect(() => {

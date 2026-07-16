@@ -9,6 +9,7 @@ import {
   GraduationCap,
   ArrowUpDown,
   User,
+  FileSpreadsheet,
 } from "lucide-react";
 import Invoice from "@/components/Fees/Invoice";
 
@@ -28,8 +29,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {useDispatch} from "react-redux";
+import { useDispatch } from "react-redux";
+import StudentAvatar from "@/components/StudentAvatar";
 import {
   Table,
   TableBody,
@@ -40,36 +41,81 @@ import {
 } from "@/components/ui/table";
 
 import { fetchStudentsByClass } from "@/api/fee";
+import { fetchStudents } from "@/api/student";
 import { setDetail } from "@/store/slices/detailSlice";
 
 const ALL_CLASSES = [
+  "All Classes",
   "Nursery",
   "LKG",
   "UKG",
   ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`),
 ];
 
+const SECTIONS = ["All Sections", "A", "B", "C"];
+
 export default function FeePage() {
   const navigate = useNavigate();
-  const [selectedClass, setSelectedClass] = useState("Nursery");
+  const [selectedClass, setSelectedClass] = useState("All Classes");
+  const [selectedSection, setSelectedSection] = useState("All Sections");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [payStudent, setPayStudent] = useState<any | null>(null);
 
   const dispatch = useDispatch();
 
+  // Fetch all students when "All Classes" is selected, otherwise by class
+  const isAllClasses = selectedClass === "All Classes";
 
+  const allStudentsQuery = useQuery({
+    queryKey: ["all-students"],
+    queryFn: fetchStudents,
+    enabled: isAllClasses,
+  });
 
-  // Fetch students by class
-  const { data: students = [], isLoading } = useQuery({
+  const byClassQuery = useQuery({
     queryKey: ["students-by-class", selectedClass],
     queryFn: () => fetchStudentsByClass(selectedClass),
+    enabled: !isAllClasses,
   });
-  console.log("check this data is correct",students)
+
+  const students = isAllClasses ? allStudentsQuery.data ?? [] : byClassQuery.data ?? [];
+  const isLoading = isAllClasses ? allStudentsQuery.isLoading : byClassQuery.isLoading;
+
+  // Normalize students to a common format
+  const normalizedStudents = useMemo(() => {
+    if (isAllClasses) {
+      // fetchStudents returns a different shape — map it
+      return (students as any[]).map((s: any) => ({
+        id: s.id,
+        name: s.name ?? "",
+        scholarNo: s.scholar_no ?? "-",
+        rollNo: s.roll ?? "-",
+        className: s.classInfo ?? "-",
+        section: s.section ?? "A",
+        parent: s.parent ?? "-",
+        phone: s.phone ?? "-",
+        status: s.status ?? "active",
+        enrollmentId: s.enrollment?.[0]?.enrollmentId,
+      }));
+    }
+    // fetchStudentsByClass already returns the right shape
+    return (students as any[]).map((s: any) => ({
+      ...s,
+      section: s.section ?? "A",
+    }));
+  }, [students, isAllClasses]);
 
   // Filter + sort
   const filteredStudents = useMemo(() => {
-    let list = students;
+    let list = normalizedStudents;
+
+    // Filter by section
+    if (selectedSection !== "All Sections") {
+      list = list.filter((s: any) => s.section === selectedSection);
+    }
+
+    // Filter by search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -85,15 +131,7 @@ export default function FeePage() {
       const bNum = parseInt(b.rollNo) || 0;
       return sortOrder === "asc" ? aNum - bNum : bNum - aNum;
     });
-  }, [students, searchQuery, sortOrder]);
-
-  const getInitials = (name: string) =>
-    name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+  }, [normalizedStudents, searchQuery, sortOrder, selectedSection]);
 
   // If paying fees for a student
   if (payStudent) {
@@ -107,7 +145,7 @@ export default function FeePage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 md:p-8 font-sans">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -115,11 +153,23 @@ export default function FeePage() {
               Fee Management
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Select a class to view students and manage fees.
+              View all students or filter by class &amp; section to manage fees.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
+            <Select value={selectedSection} onValueChange={setSelectedSection}>
+              <SelectTrigger className="w-36 bg-white">
+                <SelectValue placeholder="Section" />
+              </SelectTrigger>
+              <SelectContent>
+                {SECTIONS.map((sec) => (
+                  <SelectItem key={sec} value={sec}>
+                    {sec}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={selectedClass} onValueChange={setSelectedClass}>
               <SelectTrigger className="w-44 bg-white">
                 <SelectValue />
@@ -136,7 +186,7 @@ export default function FeePage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -145,7 +195,7 @@ export default function FeePage() {
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-medium">Total Students</p>
-                  <p className="text-xl font-bold text-slate-900">{students.length}</p>
+                  <p className="text-xl font-bold text-slate-900">{normalizedStudents.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -159,6 +209,19 @@ export default function FeePage() {
                 <div>
                   <p className="text-xs text-slate-500 font-medium">Class</p>
                   <p className="text-xl font-bold text-slate-900">{selectedClass}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-purple-100 text-purple-600">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Section</p>
+                  <p className="text-xl font-bold text-slate-900">{selectedSection}</p>
                 </div>
               </div>
             </CardContent>
@@ -203,7 +266,8 @@ export default function FeePage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">
-              Students — {selectedClass}
+              Students
+              {selectedClass !== "All Classes" && <span> — {selectedClass}</span>}
               <span className="text-sm font-normal text-slate-400 ml-2">
                 ({filteredStudents.length} students)
               </span>
@@ -221,7 +285,7 @@ export default function FeePage() {
                 <p className="text-xs mt-1">
                   {searchQuery
                     ? "Try a different search term."
-                    : `No students enrolled in ${selectedClass}.`}
+                    : "No students enrolled."}
                 </p>
               </div>
             ) : (
@@ -232,6 +296,7 @@ export default function FeePage() {
                     <TableHead>Student</TableHead>
                     <TableHead>Scholar No.</TableHead>
                     <TableHead>Roll No.</TableHead>
+                    <TableHead>Section</TableHead>
                     <TableHead>Parent</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -248,11 +313,12 @@ export default function FeePage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xs font-semibold">
-                              {getInitials(student.name)}
-                            </AvatarFallback>
-                          </Avatar>
+                          <StudentAvatar
+                            studentId={student.id}
+                            studentName={student.name}
+                            className="h-8 w-8"
+                            fallbackClassName="bg-indigo-100 text-indigo-700 text-xs font-semibold"
+                          />
                           <div>
                             <p className="text-sm font-medium text-slate-900">
                               {student.name}
@@ -269,6 +335,11 @@ export default function FeePage() {
                       <TableCell>
                         <Badge variant="secondary" className="font-mono">
                           {student.rollNo}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {student.section}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-slate-600">
@@ -301,6 +372,18 @@ export default function FeePage() {
                           >
                             <Wallet className="h-3.5 w-3.5" />
                             Pay Fees
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              sessionStorage.setItem("reportCardStudent", JSON.stringify(student));
+                              navigate("/student/report-card");
+                            }}
+                            className="gap-1.5 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                          >
+                            <FileSpreadsheet className="h-3.5 w-3.5" />
+                            Report Card
                           </Button>
                         </div>
                       </TableCell>

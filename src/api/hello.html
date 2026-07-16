@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>लाडली लक्ष्मी योजना - छात्रवृत्ति प्रपत्र</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            body {
+                background-color: white;
+                margin: 0;
+                padding: 0;
+            }
+            .print-container {
+                box-shadow: none !important;
+                border: none !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+            table {
+                border-collapse: collapse !important;
+                width: 100% !important;
+            }
+            th, td {
+                border: 1px solid black !important;
+            }
+            /* Hide non-printable elements */
+            .no-print {
+                display: none !important;
+            }
+        }
+        
+        /* General table styling */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        td {
+            border: 1px solid #000;
+            padding: 0.25rem 0.5rem;
+            vertical-align: top;
+            font-size: 0.875rem; 
+            line-height: 1.25rem;
+            height: 30px; /* Thodi height add ki hai taaki print mein khali boxes clear dikhein */
+        }
+        .col-label {
+            width: 40%;
+            font-weight: 500;
+        }
+        .col-input {
+            width: 60%;
+        }
+        .section-title {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 1rem;
+            margin-bottom: 0.25rem;
+            font-size: 1rem;
+            background-color: #f3f4f6; /* Halda grey background heading ke liye */
+            padding: 0.25rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8 font-sans text-black">
+
+    <div class="print-container max-w-3xl mx-auto bg-white p-6 md:p-10 shadow-lg border border-gray-300">
+        
+        <div class="text-center mb-6">
+            <h1 class="text-2xl md:text-3xl font-extrabold tracking-wide mb-1">लाडली लक्ष्मी योजना</h1>
+            <h2 class="text-xl md:text-2xl font-bold">छात्रवृत्ति प्रपत्र</h2>
+        </div>
+
+        <div class="section-title">सामान्य जानकारी</div>
+        <table class="mb-4">
+            <tbody>
+                <tr>
+                    <td class="col-label">जिला</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">परियोजना का नाम</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">परियोजना कोड</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">आंगनवाड़ी केन्द्र का नाम/क्रमांक</td>
+                    <td class="col-input"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="section-title">बालिका की व्यक्तिगत जानकारी</div>
+        <table class="mb-4">
+            <tbody>
+                <tr>
+                    <td class="col-label">वर्ष</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">बालिका क्रमांक (ऑनलाइन नम्बर)</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">बालिका का नाम</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">बालिका के पिता का नाम</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">बालिका के माता का नाम</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">समग्र आईडी</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">बालिका का आधार</td>
+                    <td class="col-input"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="section-title">बालिका की शाला संबंधित जानकारी</div>
+        <table class="mb-4">
+            <tbody>
+                <tr>
+                    <td class="w-[30%] font-medium">शाला</td>
+                    <td colspan="2" class="w-[70%]">
+                        <span class="mr-4">शासकीय / अशासकीय</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-medium">शाला का प्रकार</td>
+                    <td colspan="2">
+                         <span>प्राथमिक / मिडिल / हाईस्कूल / हायर स.</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-label">जन शिक्षा केन्द्र</td>
+                    <td colspan="2" class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">शाला का डायस कोड</td>
+                    <td colspan="2" class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">शाला का नाम</td>
+                    <td colspan="2" class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">बालिका किस कक्षा में अध्ययनरत्</td>
+                    <td colspan="2" class="col-input"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="section-title">पत्राचार हेतु जानकारी</div>
+        <table class="mb-4">
+            <tbody>
+                <tr>
+                    <td class="col-label">शाला का पता पूर्ण पता</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">विकासखण्ड</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">ग्राम/वार्ड/पोस्ट</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">पिन कोड</td>
+                    <td class="col-input"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="section-title">बालिका की बैंक संबंधित जानकारी</div>
+        <table class="mb-4">
+            <tbody>
+                <tr>
+                    <td class="col-label">बैंक का नाम</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">शाखा का नाम</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">बैंक का खाता क्रमांक</td>
+                    <td class="col-input"></td>
+                </tr>
+                <tr>
+                    <td class="col-label">बैंक का IFSC क्रमांक</td>
+                    <td class="col-input"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="mt-8 text-center no-print">
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow transition duration-200">
+                Print Form
+            </button>
+        </div>
+
+    </div>
+
+</body>
+</html>
