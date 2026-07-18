@@ -55,7 +55,8 @@ export default function NoticeBoard() {
   const queryClient = useQueryClient();
   const currentSession = useAppSelector((s) => s.session.currentSession);
   const userRole = useAppSelector((s) => s.auth.user?.role ?? "");
-  const canAddNotice = userRole.toLowerCase() === "admin";
+  const normalizedRole = userRole.replace(/^ROLE_/i, "").toLowerCase();
+  const canAddNotice = ["admin", "super_admin"].includes(normalizedRole);
 
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);

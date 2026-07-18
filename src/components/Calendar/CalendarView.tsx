@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -9,6 +10,7 @@ import {
   Plus,
   X,
   ChevronDownIcon,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +21,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
+import { useAppSelector } from "@/store/hooks";
+import { fetchEvents, saveEvent, type EventItem } from "@/api/event";
 
 type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
@@ -29,64 +32,63 @@ interface CalendarEvent {
   id: number;
   title: string;
   date: Date;
-  time?: string;
   location?: string;
-  type: "event" | "holiday" | "exam" | "meeting";
   color?: string;
 }
 
-const sampleEvents: CalendarEvent[] = [
-  {
-    id: 1,
-    title: "Staff Meeting",
-    date: new Date(2026, 6, 14),
-    time: "10:00 AM",
-    location: "Conference Room",
-    type: "meeting",
-  },
-  {
-    id: 2,
-    title: "Mathematics Exam",
-    date: new Date(2026, 6, 16),
-    time: "9:00 AM",
-    location: "Hall A",
-    type: "exam",
-  },
-  {
-    id: 3,
-    title: "Summer Break",
-    date: new Date(2026, 6, 20),
-    type: "holiday",
-  },
-  {
-    id: 4,
-    title: "Science Fair",
-    date: new Date(2026, 6, 25),
-    time: "11:00 AM",
-    location: "School Ground",
-    type: "event",
-  },
-  {
-    id: 5,
-    title: "PTA Meeting",
-    date: new Date(2026, 6, 28),
-    time: "2:00 PM",
-    location: "Auditorium",
-    type: "meeting",
-  },
-];
-
 export default function CalendarView() {
+  const queryClient = useQueryClient();
+  const currentSession = useAppSelector((s) => s.session.currentSession);
+  const userRole = useAppSelector((s) => s.auth.user?.role ?? "");
+  const normalizedRole = userRole.replace(/^ROLE_/i, "").toLowerCase();
+  const canAddEvent = ["admin", "super_admin"].includes(normalizedRole);
+
   const [date, setDate] = useState<Value>(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
-  const [events, setEvents] = useState<CalendarEvent[]>(sampleEvents);
   const [form, setForm] = useState({
     title: "",
     date: undefined as Date | undefined,
     venue: "",
-    time: "",
     color: "#3b82f6",
   });
+
+  // ── Fetch events from backend ──────────────────────────────────────
+  const {
+    data: apiEvents,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["events"],
+    queryFn: fetchEvents,
+  });
+
+  // ── Save event mutation ────────────────────────────────────────────
+  const { mutate: addEvent } = useMutation({
+    mutationFn: (payload: {
+      eventname: string;
+      eventdate: string;
+      venue: string;
+      color: string;
+      sessionId: number;
+    }) => saveEvent(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      setForm({ title: "", date: undefined, venue: "", color: "#3b82f6" });
+      setShowAddModal(false);
+    },
+  });
+
+  // ── Map backend items to UI events ─────────────────────────────────
+  const events: CalendarEvent[] = useMemo(() => {
+    if (!apiEvents) return [];
+    return apiEvents.map((item: EventItem) => ({
+      id: item.eventid,
+      title: item.eventname,
+      date: new Date(item.eventdate),
+      location: item.venue || undefined,
+      color: item.color || "#3b82f6",
+    }));
+  }, [apiEvents]);
 
   const handleFormChange = (field: string, value: string | Date | undefined) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -94,18 +96,14 @@ export default function CalendarView() {
 
   const handleAddEvent = () => {
     if (!form.title || !form.date) return;
-    const newEvent: CalendarEvent = {
-      id: Date.now(),
-      title: form.title,
-      date: form.date,
-      time: form.time || undefined,
-      location: form.venue || undefined,
-      type: "event",
+    if (!currentSession?.sessionId) return;
+    addEvent({
+      eventname: form.title,
+      eventdate: form.date.toISOString().split("T")[0],
+      venue: form.venue,
       color: form.color,
-    };
-    setEvents((prev) => [...prev, newEvent]);
-    setForm({ title: "", date: undefined, venue: "", time: "", color: "#3b82f6" });
-    setShowAddModal(false);
+      sessionId: currentSession.sessionId,
+    });
   };
 
   // Get events for a specific day (for tile content)
@@ -129,144 +127,167 @@ export default function CalendarView() {
               View and manage school events, exams, and holidays.
             </p>
           </div>
-          <Button
-            onClick={() => setShowAddModal(true)}
-            className="bg-linear-to-r from-[#0d9488] to-teal-600 hover:from-teal-700 hover:to-teal-700 text-white shadow-lg shadow-[#0d9488]/30 rounded-xl px-5 py-2.5 font-medium transition-all hover:scale-105"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Event
-          </Button>
+          {canAddEvent && (
+            <Button
+              onClick={() => setShowAddModal(true)}
+              className="bg-linear-to-r from-[#0d9488] to-teal-600 hover:from-teal-700 hover:to-teal-700 text-white shadow-lg shadow-[#0d9488]/30 rounded-xl px-5 py-2.5 font-medium transition-all hover:scale-105"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Event
+            </Button>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          {/* Calendar - Full Width */}
-          <div className="w-full">
-            <Card className="border-0 shadow-xl shadow-slate-200/50 bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
-              <CardContent className="p-8">
-                <style>{`
-                  .react-calendar {
-                    width: 100%;
-                    border: none;
-                    font-family: inherit;
-                    background: transparent;
-                  }
-                  .react-calendar__navigation {
-                    display: flex;
-                    align-items: center;
-                    margin-bottom: 2rem;
-                    gap: 0.5rem;
-                  }
-                  .react-calendar__navigation button {
-                    min-width: 44px;
-                    background: none;
-                    font-size: 16px;
-                    font-weight: 600;
-                    color: #1e293b;
-                    border-radius: 12px;
-                    padding: 10px 14px;
-                    transition: all 0.2s ease;
-                  }
-                  .react-calendar__navigation button:enabled:hover,
-                  .react-calendar__navigation button:enabled:focus {
-                    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-                    transform: translateY(-1px);
-                  }
-                  .react-calendar__navigation button[disabled] {
-                    opacity: 0.3;
-                  }
-                  .react-calendar__navigation__label {
-                    font-size: 1.25rem !important;
-                    font-weight: 800 !important;
-                    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                  }
-                  .react-calendar__month-view__weekdays {
-                    text-align: center;
-                    text-transform: uppercase;
-                    font-weight: 700;
-                    font-size: 0.75rem;
-                    color: #64748b;
-                    padding: 0.75rem 0;
-                    letter-spacing: 0.05em;
-                  }
-                  .react-calendar__month-view__weekdays__weekday {
-                    padding: 0.75rem 0;
-                  }
-                  .react-calendar__month-view__weekdays__weekday abbr {
-                    text-decoration: none;
-                    cursor: default;
-                  }
-                  .react-calendar__tile {
-                    text-align: center;
-                    padding: 14px 8px;
-                    background: none;
-                    border-radius: 12px;
-                    font-size: 0.95rem;
-                    font-weight: 500;
-                    color: #334155;
-                    transition: all 0.2s ease;
-                    position: relative;
-                    margin: 2px;
-                    min-height: 100px;
-                    vertical-align: top;
-                  }
-                  .react-calendar__tile:enabled:hover,
-                  .react-calendar__tile:enabled:focus {
-                    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-                    color: #4f46e5;
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
-                  }
-                  .react-calendar__tile--now {
-                    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
-                    color: #d97706 !important;
-                    font-weight: 700 !important;
-                    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2);
-                  }
-                  .react-calendar__tile--now:enabled:hover,
-                  .react-calendar__tile--now:enabled:focus {
-                    background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%) !important;
-                  }
-                  .react-calendar__tile--active {
-                    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
-                    color: white !important;
-                    font-weight: 700 !important;
-                    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4);
-                    transform: translateY(-2px);
-                  }
-                  .react-calendar__tile--active:enabled:hover,
-                  .react-calendar__tile--active:enabled:focus {
-                    background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%) !important;
-                  }
-                  .react-calendar__tile--hasActive {
-                    background: #eef2ff;
-                  }
-                  .react-calendar__month-view__days__day--weekend {
-                    color: #ef4444;
-                  }
-                  .react-calendar__month-view__days__day--neighboringMonth {
-                    color: #cbd5e1;
-                  }
-                  .event-dot {
-                    display: flex;
-                    justify-content: center;
-                    gap: 4px;
-                    margin-top: 6px;
-                  }
-                  .event-dot span {
-                    width: 7px;
-                    height: 7px;
-                    border-radius: 50%;
-                    display: inline-block;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                  }
-                  .event-dot span.blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
-                  .event-dot span.green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-                  .event-dot span.red { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
-                  .event-dot span.purple { background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); }
-                `}</style>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-[#0d9488]" />
+          </div>
+        )}
+
+        {/* Error State */}
+        {isError && (
+          <div className="text-center py-20 text-red-400">
+            <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p className="text-lg font-medium">Failed to load events</p>
+            <p className="text-sm mt-1">Please try again later.</p>
+          </div>
+        )}
+
+        {/* Calendar */}
+        {!isLoading && !isError && (
+          <div className="grid grid-cols-1 gap-6">
+            <div className="w-full">
+              <Card className="border-0 shadow-xl shadow-slate-200/50 bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+                <CardContent className="p-8">
+                  <style>{`
+                    .react-calendar {
+                      width: 100%;
+                      border: none;
+                      font-family: inherit;
+                      background: transparent;
+                    }
+                    .react-calendar__navigation {
+                      display: flex;
+                      align-items: center;
+                      margin-bottom: 2rem;
+                    }
+                    .react-calendar__navigation button {
+                      min-width: 44px;
+                      background: none;
+                      font-size: 16px;
+                      font-weight: 600;
+                      color: #1e293b;
+                      border-radius: 12px;
+                      padding: 10px 14px;
+                      transition: all 0.2s ease;
+                    }
+                    .react-calendar__navigation button:enabled:hover,
+                    .react-calendar__navigation button:enabled:focus {
+                      background: rgba(13, 148, 136, 0.1);
+                      transform: translateY(-1px);
+                    }
+                    .react-calendar__navigation button[disabled] {
+                      opacity: 0.3;
+                    }
+                    .react-calendar__navigation__label {
+                      flex: 1 1 auto !important;
+                      text-align: center !important;
+                      font-size: 1.25rem !important;
+                      font-weight: 800 !important;
+                      color: #0d9488 !important;
+                      -webkit-text-fill-color: #0d9488 !important;
+                      pointer-events: none;
+                    }
+                    .react-calendar__navigation__prev-button,
+                    .react-calendar__navigation__next-button {
+                      flex: 0 0 auto !important;
+                    }
+                    .react-calendar__month-view__weekdays {
+                      text-align: center;
+                      text-transform: uppercase;
+                      font-weight: 700;
+                      font-size: 0.75rem;
+                      color: #64748b;
+                      padding: 0.75rem 0;
+                      letter-spacing: 0.05em;
+                    }
+                    .react-calendar__month-view__weekdays__weekday {
+                      padding: 0.75rem 0;
+                    }
+                    .react-calendar__month-view__weekdays__weekday abbr {
+                      text-decoration: none;
+                      cursor: default;
+                    }
+                    .react-calendar__tile {
+                      text-align: center;
+                      padding: 14px 8px;
+                      background: none;
+                      border-radius: 12px;
+                      font-size: 0.95rem;
+                      font-weight: 500;
+                      color: #334155;
+                      transition: all 0.2s ease;
+                      position: relative;
+                      margin: 2px;
+                      min-height: 100px;
+                      vertical-align: top;
+                    }
+                    .react-calendar__tile:enabled:hover,
+                    .react-calendar__tile:enabled:focus {
+                      background: rgba(13, 148, 136, 0.08);
+                      color: #0d9488;
+                      transform: translateY(-2px);
+                      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.15);
+                    }
+                    .react-calendar__tile--now {
+                      background: rgba(245, 158, 11, 0.15) !important;
+                      color: #d97706 !important;
+                      font-weight: 700 !important;
+                      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2);
+                    }
+                    .react-calendar__tile--now:enabled:hover,
+                    .react-calendar__tile--now:enabled:focus {
+                      background: rgba(245, 158, 11, 0.25) !important;
+                    }
+                    .react-calendar__tile--active {
+                      background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%) !important;
+                      color: white !important;
+                      font-weight: 700 !important;
+                      box-shadow: 0 8px 20px rgba(13, 148, 136, 0.4);
+                      transform: translateY(-2px);
+                    }
+                    .react-calendar__tile--active:enabled:hover,
+                    .react-calendar__tile--active:enabled:focus {
+                      background: linear-gradient(135deg, #0f766e 0%, #115e59 100%) !important;
+                    }
+                    .react-calendar__tile--hasActive {
+                      background: rgba(13, 148, 136, 0.08);
+                    }
+                    .react-calendar__month-view__days__day--weekend {
+                      color: #ef4444;
+                    }
+                    .react-calendar__month-view__days__day--neighboringMonth {
+                      color: #cbd5e1;
+                    }
+                    .event-dot {
+                      display: flex;
+                      justify-content: center;
+                      gap: 4px;
+                      margin-top: 6px;
+                    }
+                    .event-dot span {
+                      width: 7px;
+                      height: 7px;
+                      border-radius: 50%;
+                      display: inline-block;
+                      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    }
+                    .event-dot span.blue { background: #3b82f6; }
+                    .event-dot span.green { background: #10b981; }
+                    .event-dot span.red { background: #ef4444; }
+                    .event-dot span.purple { background: #0d9488; }
+                  `}</style>
 
                 <Calendar
                   onChange={setDate}
@@ -308,6 +329,7 @@ export default function CalendarView() {
             </Card>
           </div>
         </div>
+        )}
 
         {/* Add Event Modal */}
         {showAddModal && (
@@ -341,50 +363,35 @@ export default function CalendarView() {
                   />
                 </div>
 
-                {/* Event Date & Time - shadcn/ui modern pattern */}
-                <FieldGroup className="flex-row gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="event-date" className="text-sm font-semibold text-slate-700">
-                      Event Date <span className="text-rose-500">*</span>
-                    </FieldLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          id="event-date"
-                          className="w-full justify-between font-normal rounded-xl border-slate-200 h-11"
-                        >
-                          {form.date ? format(form.date, "PPP") : "Select date"}
-                          <ChevronDownIcon className="h-4 w-4 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto overflow-hidden p-0 rounded-xl" align="start">
-                        <ShadcnCalendar
-                          mode="single"
-                          selected={form.date}
-                          captionLayout="dropdown"
-                          defaultMonth={form.date}
-                          onSelect={(date) => {
-                            handleFormChange("date", date);
-                          }}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </Field>
-                  <Field className="w-32">
-                    <FieldLabel htmlFor="event-time" className="text-sm font-semibold text-slate-700">
-                      Time
-                    </FieldLabel>
-                    <Input
-                      type="time"
-                      id="event-time"
-                      step="1"
-                      value={form.time}
-                      onChange={(e) => handleFormChange("time", e.target.value)}
-                      className="rounded-xl border-slate-200 focus:border-[#0d9488] focus:ring-[#0d9488]/20 h-11 appearance-none bg-background [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                    />
-                  </Field>
-                </FieldGroup>
+                {/* Event Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="event-date" className="text-sm font-semibold text-slate-700">
+                    Event Date <span className="text-rose-500">*</span>
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        id="event-date"
+                        className="w-full justify-between font-normal rounded-xl border-slate-200 h-11"
+                      >
+                        {form.date ? format(form.date, "PPP") : "Select date"}
+                        <ChevronDownIcon className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto overflow-hidden p-0 rounded-xl" align="start">
+                      <ShadcnCalendar
+                        mode="single"
+                        selected={form.date}
+                        captionLayout="dropdown"
+                        defaultMonth={form.date}
+                        onSelect={(date) => {
+                          handleFormChange("date", date);
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
                 {/* Event Venue */}
                 <div className="space-y-2">

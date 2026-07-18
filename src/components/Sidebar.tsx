@@ -144,6 +144,7 @@ export default function SchoolSidebar() {
     "Grades",
     "Lesson Plans",
     "Notice Board",
+    "Calendar",
   ]);
 
   // Accountant-allowed menu items
@@ -153,6 +154,7 @@ export default function SchoolSidebar() {
     "Fee Structure",
     "Transfer Certificate",
     "Notice Board",
+    "Calendar",
   ]);
 
   // Filter menu groups based on role
