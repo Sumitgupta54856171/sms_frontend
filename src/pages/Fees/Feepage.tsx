@@ -373,18 +373,6 @@ export default function FeePage() {
                             <Wallet className="h-3.5 w-3.5" />
                             Pay Fees
                           </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => {
-                              sessionStorage.setItem("reportCardStudent", JSON.stringify(student));
-                              navigate("/student/report-card");
-                            }}
-                            className="gap-1.5 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
-                          >
-                            <FileSpreadsheet className="h-3.5 w-3.5" />
-                            Report Card
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>

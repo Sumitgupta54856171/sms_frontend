@@ -1,16 +1,15 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
-  Pin,
   Calendar,
-  User,
-  Paperclip,
   Search,
   X,
   ChevronDown,
   ChevronUp,
   Megaphone,
   Plus,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,70 +24,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import DatePickerSimple from "@/components/DatePicker";
+import { useAppSelector } from "@/store/hooks";
+import { fetchNotices, saveNotice, type NoticeItem } from "@/api/notice";
 
 interface Notice {
   id: number;
   title: string;
   content: string;
   date: Date;
-  author: string;
-  pinned: boolean;
   category: "general" | "exam" | "holiday" | "meeting" | "sports";
-  attachments?: string[];
 }
 
-const sampleNotices: Notice[] = [
-  {
-    id: 1,
-    title: "Annual Sports Day - Save the Date!",
-    content:
-      "The Annual Sports Day will be held on 15th August 2026. All students are requested to participate actively. Parents are cordially invited to attend the event. Please submit your participation forms by 5th August.",
-    date: new Date(2026, 6, 13),
-    author: "Principal",
-    pinned: true,
-    category: "sports",
-  },
-  {
-    id: 2,
-    title: "Mid-Term Examination Schedule",
-    content:
-      "The mid-term examinations will commence from 1st September 2026. The detailed schedule has been uploaded. Students are advised to start their preparations early.",
-    date: new Date(2026, 6, 12),
-    author: "Academic Coordinator",
-    pinned: true,
-    category: "exam",
-  },
-  {
-    id: 3,
-    title: "Holiday on 15th August",
-    content:
-      "The school will remain closed on 15th August 2026 on account of Independence Day. Regular classes will resume on 16th August.",
-    date: new Date(2026, 6, 11),
-    author: "Administration",
-    pinned: false,
-    category: "holiday",
-  },
-  {
-    id: 4,
-    title: "PTA Meeting Rescheduled",
-    content:
-      "The Parent-Teacher Association meeting originally scheduled for 20th July has been rescheduled to 25th July 2026 at 2:00 PM in the school auditorium.",
-    date: new Date(2026, 6, 10),
-    author: "PTA Coordinator",
-    pinned: false,
-    category: "meeting",
-  },
-  {
-    id: 5,
-    title: "Science Exhibition Registration Open",
-    content:
-      "Registrations for the Annual Science Exhibition are now open. Interested students can register with their class teacher. Last date for registration is 31st July.",
-    date: new Date(2026, 6, 9),
-    author: "Science Department",
-    pinned: false,
-    category: "general",
-  },
-];
+const TAG_MAP: Record<string, Notice["category"]> = {
+  general: "general",
+  exam: "exam",
+  holiday: "holiday",
+  meeting: "meeting",
+  sports: "sports",
+};
 
 const categoryColors: Record<string, string> = {
   general: "bg-slate-100 text-slate-700 border-slate-200",
@@ -99,11 +52,15 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function NoticeBoard() {
+  const queryClient = useQueryClient();
+  const currentSession = useAppSelector((s) => s.session.currentSession);
+  const userRole = useAppSelector((s) => s.auth.user?.role ?? "");
+  const canAddNotice = userRole.toLowerCase() === "admin";
+
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
-  const [notices, setNotices] = useState<Notice[]>(sampleNotices);
   const [form, setForm] = useState({
     title: "",
     content: "",
@@ -111,20 +68,59 @@ export default function NoticeBoard() {
     category: "general" as Notice["category"],
   });
 
+  // ── Fetch notices from backend ──────────────────────────────────────
+  const {
+    data: apiNotices,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["notices"],
+    queryFn: fetchNotices,
+  });
+
+  // ── Save notice mutation ────────────────────────────────────────────
+  const { mutate: addNotice } = useMutation({
+    mutationFn: (payload: {
+      title: string;
+      description: string;
+      tag: string;
+      data: string;
+      sessionId: number;
+    }) => saveNotice(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notices"] });
+      setForm({ title: "", content: "", date: new Date(), category: "general" });
+      setShowForm(false);
+    },
+  });
+
+  // ── Map backend items to UI notices (newest first) ──────────────────
+  const notices: Notice[] = useMemo(() => {
+    if (!apiNotices) return [];
+    return apiNotices
+      .slice()
+      .reverse()
+      .map((item: NoticeItem) => ({
+        id: item.id,
+        title: item.title,
+        content: item.description,
+        date: new Date(item.data),
+        category: TAG_MAP[item.tag] ?? "general",
+      }));
+  }, [apiNotices]);
+
   const handleAddNotice = () => {
     if (!form.title.trim() || !form.content.trim()) return;
-    const newNotice: Notice = {
-      id: Date.now(),
+    if (!currentSession?.sessionId) {
+      return;
+    }
+    addNotice({
       title: form.title.trim(),
-      content: form.content.trim(),
-      date: form.date,
-      author: "Administration",
-      pinned: false,
-      category: form.category,
-    };
-    setNotices((prev) => [newNotice, ...prev]);
-    setForm({ title: "", content: "", date: new Date(), category: "general" });
-    setShowForm(false);
+      description: form.content.trim(),
+      tag: form.category,
+      data: form.date.toISOString().split("T")[0],
+      sessionId: currentSession.sessionId,
+    });
   };
 
   const filteredNotices = notices
@@ -134,10 +130,7 @@ export default function NoticeBoard() {
         (n.title.toLowerCase().includes(search.toLowerCase()) ||
           n.content.toLowerCase().includes(search.toLowerCase()))
     )
-    .sort((a, b) => {
-      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-      return b.date.getTime() - a.date.getTime();
-    });
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const formatDate = (d: Date) =>
     d.toLocaleDateString("en-IN", {
@@ -162,20 +155,22 @@ export default function NoticeBoard() {
               Stay updated with the latest announcements and notices.
             </p>
           </div>
-          <Button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
-          >
-            {showForm ? (
-              <><X className="h-4 w-4 mr-2" />Cancel</>
-            ) : (
-              <><Plus className="h-4 w-4 mr-2" />Add Notice</>
-            )}
-          </Button>
+          {canAddNotice && (
+            <Button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+            >
+              {showForm ? (
+                <><X className="h-4 w-4 mr-2" />Cancel</>
+              ) : (
+                <><Plus className="h-4 w-4 mr-2" />Add Notice</>
+              )}
+            </Button>
+          )}
         </div>
 
-        {/* Add Notice Form */}
-        {showForm && (
+        {/* Add Notice Form (admin only) */}
+        {canAddNotice && showForm && (
           <Card className="border-amber-200 shadow-sm mb-6">
             <CardHeader className="border-b border-amber-100 pb-3">
               <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
@@ -291,113 +286,104 @@ export default function NoticeBoard() {
           </div>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+          </div>
+        )}
+
+        {/* Error State */}
+        {isError && (
+          <div className="text-center py-20 text-red-400">
+            <Bell className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p className="text-lg font-medium">Failed to load notices</p>
+            <p className="text-sm mt-1">Please try again later.</p>
+          </div>
+        )}
+
         {/* Notices List */}
-        <div className="space-y-4">
-          {filteredNotices.length === 0 ? (
-            <div className="text-center py-20 text-slate-400">
-              <Bell className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-lg font-medium">No notices found</p>
-              <p className="text-sm mt-1">Try adjusting your search or filter.</p>
-            </div>
-          ) : (
-            filteredNotices.map((notice) => (
-              <Card
-                key={notice.id}
-                className={`border-slate-200 shadow-sm hover:shadow-md transition-all ${
-                  notice.pinned ? "ring-1 ring-amber-300 bg-amber-50/30" : ""
-                }`}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      {/* Header row */}
-                      <div className="flex items-center gap-2 flex-wrap mb-2">
-                        {notice.pinned && (
-                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] px-1.5 py-0">
-                            <Pin className="h-3 w-3 mr-0.5" />
-                            Pinned
+        {!isLoading && !isError && (
+          <div className="space-y-4">
+            {filteredNotices.length === 0 ? (
+              <div className="text-center py-20 text-slate-400">
+                <Bell className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="text-lg font-medium">No notices found</p>
+                <p className="text-sm mt-1">Try adjusting your search or filter.</p>
+              </div>
+            ) : (
+              filteredNotices.map((notice) => (
+                <Card
+                  key={notice.id}
+                  className="border-slate-200 shadow-sm hover:shadow-md transition-all"
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        {/* Header row */}
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-2 py-0.5 ${
+                              categoryColors[notice.category]
+                            }`}
+                          >
+                            {notice.category.charAt(0).toUpperCase() +
+                              notice.category.slice(1)}
                           </Badge>
-                        )}
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-2 py-0.5 ${
-                            categoryColors[notice.category]
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-base font-semibold text-slate-900">
+                          {notice.title}
+                        </h3>
+
+                        {/* Meta */}
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(notice.date)}
+                          </span>
+                        </div>
+
+                        {/* Content */}
+                        <p
+                          className={`text-sm text-slate-600 mt-3 ${
+                            expandedId !== notice.id ? "line-clamp-2" : ""
                           }`}
                         >
-                          {notice.category.charAt(0).toUpperCase() +
-                            notice.category.slice(1)}
-                        </Badge>
+                          {notice.content}
+                        </p>
+
+                        {/* Read more / less */}
+                        {notice.content.length > 120 && (
+                          <button
+                            onClick={() =>
+                              setExpandedId(
+                                expandedId === notice.id ? null : notice.id
+                              )
+                            }
+                            className="text-xs text-indigo-600 hover:text-indigo-700 font-medium mt-1.5 flex items-center gap-1"
+                          >
+                            {expandedId === notice.id ? (
+                              <>
+                                Show less <ChevronUp className="h-3 w-3" />
+                              </>
+                            ) : (
+                              <>
+                                Read more <ChevronDown className="h-3 w-3" />
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
-
-                      {/* Title */}
-                      <h3 className="text-base font-semibold text-slate-900">
-                        {notice.title}
-                      </h3>
-
-                      {/* Meta */}
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(notice.date)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {notice.author}
-                        </span>
-                      </div>
-
-                      {/* Content */}
-                      <p
-                        className={`text-sm text-slate-600 mt-3 ${
-                          expandedId !== notice.id ? "line-clamp-2" : ""
-                        }`}
-                      >
-                        {notice.content}
-                      </p>
-
-                      {/* Read more / less */}
-                      {notice.content.length > 120 && (
-                        <button
-                          onClick={() =>
-                            setExpandedId(
-                              expandedId === notice.id ? null : notice.id
-                            )
-                          }
-                          className="text-xs text-indigo-600 hover:text-indigo-700 font-medium mt-1.5 flex items-center gap-1"
-                        >
-                          {expandedId === notice.id ? (
-                            <>
-                              Show less <ChevronUp className="h-3 w-3" />
-                            </>
-                          ) : (
-                            <>
-                              Read more <ChevronDown className="h-3 w-3" />
-                            </>
-                          )}
-                        </button>
-                      )}
-
-                      {/* Attachments */}
-                      {notice.attachments && notice.attachments.length > 0 && (
-                        <div className="flex items-center gap-2 mt-3">
-                          <Paperclip className="h-3.5 w-3.5 text-slate-400" />
-                          {notice.attachments.map((att, i) => (
-                            <span
-                              key={i}
-                              className="text-xs text-indigo-600 hover:text-indigo-700 underline cursor-pointer"
-                            >
-                              {att}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

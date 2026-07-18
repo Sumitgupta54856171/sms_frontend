@@ -38,6 +38,7 @@ const CalendarPage = lazy(() => import("./pages/CalendarPage/CalendarPage"));
 const NoticeBoardPage = lazy(() => import("./pages/NoticeBoardPage/NoticeBoardPage"));
 const MessagesPage = lazy(() => import("./pages/MessagesPage/MessagesPage"));
 const ReportCardPage = lazy(() => import("./pages/ReportCard/ReportCardPage"));
+const GradePage = lazy(() => import("./pages/GradePage/GradePage"));
 
 function App() {
   return (
@@ -66,6 +67,7 @@ function App() {
                 <Route path="/enrollment" element={<EnrollmentPage />} />
                 <Route path="/fees/invoice-history" element={<InvoiceHistoryPage />} />
                 <Route path="/timetable/exams" element={<ExamTimetablePage />} />
+                <Route path="/grades" element={<GradePage />} />
                 <Route path="/lesson-plans" element={<TeacherPlanPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/notices" element={<NoticeBoardPage />} />

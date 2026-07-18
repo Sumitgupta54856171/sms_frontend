@@ -61,6 +61,7 @@ const pagePreloaders: Record<string, () => Promise<unknown>> = {
   "/calendar": () => import("@/pages/CalendarPage/CalendarPage"),
   "/notices": () => import("@/pages/NoticeBoardPage/NoticeBoardPage"),
   "/messages": () => import("@/pages/MessagesPage/MessagesPage"),
+  "/grades": () => import("@/pages/GradePage/GradePage"),
 };
 
 // Grouped Menu Items matching the screenshot
@@ -81,7 +82,7 @@ const menuGroups = [
     items: [
       { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
       { title: "Examinations", url: "/timetable/exams", icon: FileText },
-      { title: "Grades", url: "#", icon: LineChart },
+      { title: "Grades", url: "/grades", icon: LineChart },
       { title: "Fee Management", url: "/fees", icon: DollarSign, badge: { text: "32", style: "text-slate-700 text-xs font-semibold" } },
       { title: "Invoice History", url: "/fees/invoice-history", icon: Receipt },
       { title: "Fee Structure", url: "/fees/structure", icon: IndianRupee },
@@ -140,15 +141,18 @@ export default function SchoolSidebar() {
     "Timetable",
     "Classes & Sections",
     "Examinations",
+    "Grades",
     "Lesson Plans",
+    "Notice Board",
   ]);
 
-  // Accountant-allowed menu items — only fees, invoices, fee structure, and TC
+  // Accountant-allowed menu items
   const accountantAllowedTitles = new Set([
     "Fee Management",
     "Invoice History",
     "Fee Structure",
     "Transfer Certificate",
+    "Notice Board",
   ]);
 
   // Filter menu groups based on role

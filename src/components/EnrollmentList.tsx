@@ -43,7 +43,7 @@ import StudentAvatar from "@/components/StudentAvatar";
 export default function EnrollmentList() {
   const queryClient = useQueryClient();
   const [selectedClass, setSelectedClass] = useState<string>("");
-  const [selectedRowIds, setSelectedRowIds] = useState<Set<number>>(new Set()); // Use unique row IDs for selection
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<number>>(new Set());
   const [enrollments, setEnrollments] = useState<Record<number, EnrollmentRequest>>({});
   const [nextClass, setNextClass] = useState<string>("");
   const [bulkFees, setBulkFees] = useState<string>("");
@@ -71,8 +71,8 @@ export default function EnrollmentList() {
   const students = useMemo(() => {
     if (!data?.studentdetail) return [];
     return data.studentdetail.map((s: any, idx: number) => ({
-      id: idx + 1, // Unique row ID for UI state (checkbox, selection)
-      studentId: s.studentId ?? s.id, // API student ID for backend
+      id: idx + 1,
+      studentId: s.studentId ?? s.id,
       classNo: s.className ?? selectedClass,
       rollNo: s.rolleNo ?? "-",
       name: s.studentName ?? s["Student name"] ?? "-",
@@ -80,12 +80,30 @@ export default function EnrollmentList() {
     }));
   }, [data, selectedClass]);
 
-  // Select / Deselect All
+  // Select / Deselect All (Fixed Initialization Issue)
   const toggleAll = () => {
     if (selectedRowIds.size === students.length) {
       setSelectedRowIds(new Set());
+      setEnrollments({});
     } else {
-      setSelectedRowIds(new Set(students.map((s: any) => s.id)));
+      const allRowIds = new Set<number>(students.map((s: any) => s.id));
+      setSelectedRowIds(allRowIds);
+      
+      // Auto-initialize enrollment data for ALL students so bulk updates work perfectly
+      setEnrollments((prev) => {
+        const updated = { ...prev };
+        students.forEach((student: any) => {
+          if (!updated[student.studentId]) {
+            updated[student.studentId] = {
+              classNo: nextClass || suggestedNextClass,
+              rolNo: student.rollNo,
+              studentId: student.studentId,
+              Totalfees: Math.round(Number(bulkFees)) || 0,
+            };
+          }
+        });
+        return updated;
+      });
     }
   };
 
@@ -138,31 +156,50 @@ export default function EnrollmentList() {
     promoteMutation.mutate(entries);
   };
 
-  // Set next class for all selected
+  // Set next class for all selected (Fixed to auto-initialize if missing)
   const handleNextClassChange = (value: string) => {
     setNextClass(value);
     setEnrollments((prev) => {
       const updated = { ...prev };
       selectedRowIds.forEach((rowId) => {
         const student = students.find((s: any) => s.id === rowId);
-        if (student && updated[student.studentId]) {
-          updated[student.studentId] = { ...updated[student.studentId], classNo: value };
+        if (student) {
+          if (updated[student.studentId]) {
+            updated[student.studentId] = { ...updated[student.studentId], classNo: value };
+          } else {
+            updated[student.studentId] = {
+              classNo: value,
+              rolNo: student.rollNo,
+              studentId: student.studentId,
+              Totalfees: Math.round(Number(bulkFees)) || 0,
+            };
+          }
         }
       });
       return updated;
     });
   };
 
-  // Set bulk fees for all selected
+  // Set bulk fees for all selected (Fixed to auto-initialize if missing)
   const handleBulkFeesChange = (value: string) => {
     setBulkFees(value);
     const numVal = Math.round(Number(value)) || 0;
+    
     setEnrollments((prev) => {
       const updated = { ...prev };
       selectedRowIds.forEach((rowId) => {
         const student = students.find((s: any) => s.id === rowId);
-        if (student && updated[student.studentId]) {
-          updated[student.studentId] = { ...updated[student.studentId], Totalfees: numVal };
+        if (student) {
+          if (updated[student.studentId]) {
+            updated[student.studentId] = { ...updated[student.studentId], Totalfees: numVal };
+          } else {
+            updated[student.studentId] = {
+              classNo: nextClass || suggestedNextClass,
+              rolNo: student.rollNo,
+              studentId: student.studentId,
+              Totalfees: numVal,
+            };
+          }
         }
       });
       return updated;
@@ -194,7 +231,9 @@ export default function EnrollmentList() {
                 onValueChange={(val) => {
                   setSelectedClass(val);
                   setEnrollments({});
+                  setSelectedRowIds(new Set()); // Reset selections on class change
                   setNextClass("");
+                  setBulkFees(""); // Reset bulk fees UI
                 }}
               >
                 <SelectTrigger className="w-full">
@@ -339,7 +378,7 @@ export default function EnrollmentList() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <CardTitle className="text-xl font-bold text-slate-900 flex items-center gap-2">
                 <GraduationCap className="h-5 w-5 text-indigo-500" />
-                Students — Class {classes.find((c) => c.no === selectedClass)?.name || selectedClass}
+                Students — Class {classes.find((c) => c.name === selectedClass)?.name || selectedClass}
               </CardTitle>
               <div className="flex items-center gap-2">
                 <Badge
@@ -419,9 +458,7 @@ export default function EnrollmentList() {
                             checked={isChecked}
                             onCheckedChange={(checked) => {
                               if (checked) {
-                                // Select student by row ID
                                 setSelectedRowIds((prev) => new Set([...prev, student.id]));
-                                // Auto-init enrollment when selecting
                                 setEnrollments((prev) => {
                                   if (prev[student.studentId]) return prev;
                                   return {
@@ -435,13 +472,11 @@ export default function EnrollmentList() {
                                   };
                                 });
                               } else {
-                                // Deselect student by row ID
                                 setSelectedRowIds((prev) => {
                                   const next = new Set(prev);
                                   next.delete(student.id);
                                   return next;
                                 });
-                                // Remove enrollment data
                                 setEnrollments((prev) => {
                                   const updated = { ...prev };
                                   delete updated[student.studentId];
@@ -488,7 +523,7 @@ export default function EnrollmentList() {
                               </SelectTrigger>
                               <SelectContent>
                                 {classes.slice(currentClassIndex + 1).map((cls) => (
-                                  <SelectItem key={cls.id} value={cls.no}>
+                                  <SelectItem key={cls.id} value={cls.name}>
                                     {cls.name}
                                   </SelectItem>
                                 ))}
@@ -529,7 +564,7 @@ export default function EnrollmentList() {
                                   updateEnrollment(
                                     student.studentId,
                                     "Totalfees",
-                                      Math.round(Number(e.target.value))
+                                    Math.round(Number(e.target.value))
                                   )
                                 }
                               />
