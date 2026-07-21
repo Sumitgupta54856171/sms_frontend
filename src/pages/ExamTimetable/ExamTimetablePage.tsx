@@ -27,6 +27,7 @@ import {
 import type { ExamTimetableEntry } from "@/api/exam-timetable";
 import {
   saveTestTimetable,
+  deleteTestTimetableEntry,
   fetchTestNames,
   fetchTestTimetableByName,
 } from "@/api/test-timetable";
@@ -173,7 +174,10 @@ export default function ExamTimetablePage() {
 
   // ─── Delete mutation ─────────────────────────────────────────────────
   const deleteMutation = useMutation({
-    mutationFn: deleteExamTimetableEntry,
+    mutationFn: (id: number) =>
+      activeTab === "test"
+        ? deleteTestTimetableEntry(id)
+        : deleteExamTimetableEntry(id),
     onSuccess: () => {
       invalidateNames();
       toast.success("Entry deleted successfully");

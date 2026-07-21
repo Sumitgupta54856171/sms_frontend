@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Receipt,
 } from "lucide-react";
+import { toPng } from "html-to-image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,19 +44,6 @@ export default function InvoicePrintPage() {
     }).format(amount);
   };
 
-  const formatDate = (dateStr: string): string => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
   const formatDateTime = (dateStr: string): string => {
     try {
       const d = new Date(dateStr);
@@ -75,8 +63,24 @@ export default function InvoicePrintPage() {
     window.print();
   };
 
-  const handleDownloadPDF = () => {
-    window.print();
+  const handleDownloadPDF = async () => {
+    const invoiceElement = document.getElementById("invoice-document");
+    if (!invoiceElement) return;
+
+    try {
+      const dataUrl = await toPng(invoiceElement, {
+        quality: 1.0,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      });
+
+      const link = document.createElement("a");
+      link.download = `Invoice_${invoice.invoiceId}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Failed to download invoice:", err);
+    }
   };
 
   // Loading state
@@ -149,7 +153,7 @@ export default function InvoicePrintPage() {
             <Printer className="h-4 w-4" /> Print
           </Button>
           <Button onClick={handleDownloadPDF} className="gap-2 bg-[#0d9488] hover:bg-teal-700 text-white shadow-md">
-            <Download className="h-4 w-4" /> Download PDF
+            <Download className="h-4 w-4" /> Download Image
           </Button>
         </div>
       </div>

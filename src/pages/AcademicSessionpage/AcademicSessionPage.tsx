@@ -71,10 +71,10 @@ export default function AcademicSessionPage() {
 
         {/* Top Header / Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#6366f1] text-sm font-bold shadow-sm">
-            V
+          <div className="flex h-16 w-16 items-center justify-center rounded-4xl bg-[#6366f1] text-sm font-bold shadow-sm overflow-hidden">
+            <img src="/LOGO.jpg.jpeg" alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <span className="font-semibold text-lg tracking-tight">Veridian</span>
+          <span className="font-semibold text-lg tracking-tight">Rose Convent High School</span>
         </div>
 
         {/* Center Quote */}
@@ -86,16 +86,13 @@ export default function AcademicSessionPage() {
           <div className="flex items-center gap-4">
             <div className="h-10 w-10 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0"></div>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-slate-100">Dr. Amara Whitfield</span>
-              <span className="text-[13px] text-slate-400">Head of School, Lindenwood Academy</span>
+              <span className="text-sm font-semibold text-slate-100">Mr. Mohan Lal Sen</span>
+              <span className="text-[13px] text-slate-400">Head of School, Rose Convent High School</span>
             </div>
           </div>
         </div>
 
-        {/* Bottom Footer */}
-        <div className="relative z-10 text-[11px] font-medium tracking-[0.15em] text-slate-500 uppercase">
-          Est. Record-Keeping, Reimagined
-        </div>
+        
       </div>
 
       {/* --- RIGHT PANEL (LIGHT THEME / FORM) --- */}
@@ -109,7 +106,7 @@ export default function AcademicSessionPage() {
               <CalendarDays className="h-6 w-6 text-[#2563eb]" />
               New Academic Session
             </h1>
-            <p className="text-sm text-slate-500">Create and configure a new academic term for Lindenwood Academy.</p>
+            <p className="text-sm text-slate-500">Create and configure a new academic term for Rose Convent High School.</p>
           </div>
 
           {/* Session Form */}

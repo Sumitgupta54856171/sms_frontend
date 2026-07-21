@@ -45,3 +45,14 @@ export const fetchStudentClassAndRoll = async (studentId: number) => {
   console.log(`Class and roll for student ${studentId}:`, response.data);
   return response.data.body;
 };
+
+/** Fetch class-wise enrollment data for dashboard — uses /api/v1/dashboard/get/enrollment/class */
+export const fetchEnrollmentByClass = async () => {
+  const response = await apiClient.get("/api/v1/dashoard/get/enrollment/class", {
+    withCredentials: true,
+  });
+  console.log("Enrollment by class response:", response.data);
+  // Response shape: { headers: {}, body: ["6", "6", "9"], statusCode: "OK", statusCodeValue: 200 }
+  const raw = response.data?.body ?? response.data;
+  return Array.isArray(raw) ? raw : [];
+};

@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import {
   createInvoice,
-  type InvoiceResponse,
 } from "@/api/fee";
 
 const FEE_TYPE_OPTIONS = [
@@ -108,23 +107,23 @@ export default function Invoice({ student, onClose }: InvoiceProps) {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
+            font-size: 12px;
             width: 72mm;
             margin: 0 auto;
             padding: 4mm 3mm;
             color: #000;
-            line-height: 1.5;
+            line-height: 1.6;
           }
           .text-center { text-align: center; }
           .flex { display: flex; }
           .justify-between { justify-content: space-between; }
           .border-dashed { border-style: dashed; }
-          .border-black { border-color: #000; }
-          .border-t { border-top-width: 1px; }
-          .border-t-2 { border-top-width: 2px; }
-          .border-t-3 { border-top-width: 3px; }
-          .border-b { border-bottom-width: 1px; }
-          .border-b-2 { border-bottom-width: 2px; }
+          .border-black { border-color: #000 !important; }
+          .border-t { border-top-width: 2px; }
+          .border-t-2 { border-top-width: 3px; }
+          .border-t-3 { border-top-width: 4px; }
+          .border-b { border-bottom-width: 2px; }
+          .border-b-2 { border-bottom-width: 3px; }
           .my-1 { margin-top: 2px; margin-bottom: 2px; }
           .my-2 { margin-top: 4px; margin-bottom: 4px; }
           .my-3 { margin-top: 6px; margin-bottom: 6px; }
@@ -137,12 +136,12 @@ export default function Invoice({ student, onClose }: InvoiceProps) {
           .mt-3 { margin-top: 6px; }
           .mt-4 { margin-top: 8px; }
           .mt-6 { margin-top: 12px; }
-          .text-xs { font-size: 10px; }
-          .text-sm { font-size: 12px; }
-          .text-base { font-size: 14px; }
-          .text-lg { font-size: 16px; }
-          .font-bold { font-weight: bold; }
-          .font-normal { font-weight: normal; }
+          .text-xs { font-size: 11px; font-weight: bold; }
+          .text-sm { font-size: 13px; font-weight: bold; }
+          .text-base { font-size: 15px; font-weight: bold; }
+          .text-lg { font-size: 17px; font-weight: bold; }
+          .font-bold { font-weight: 900; }
+          .font-normal { font-weight: bold; }
           .uppercase { text-transform: uppercase; }
           .tracking-tight { letter-spacing: -0.5px; }
           .tracking-widest { letter-spacing: 2px; }
@@ -158,8 +157,8 @@ export default function Invoice({ student, onClose }: InvoiceProps) {
           .text-left { text-align: left; }
           .h-6 { height: 12px; }
           .h-8 { height: 16px; }
-          .text-gray-600 { color: #666; }
-          .text-gray-400 { color: #999; }
+          .text-gray-600 { color: #000 !important; }
+          .text-gray-400 { color: #000 !important; }
           .text-\\[10px\\] { font-size: 9px; }
           .w-full { width: 100%; }
           .inline-block { display: inline-block; }
@@ -223,7 +222,7 @@ export default function Invoice({ student, onClose }: InvoiceProps) {
               <div className="text-center mb-3">
                 <div className="text-lg font-bold uppercase tracking-wide leading-tight">Rose Convent High School</div>
                 <div className="text-xs mt-1">Satna (M.P) - 485001</div>
-                <div className="text-xs text-gray-600">Affiliated to M.P. Board</div>
+                <div className="text-xs">Affiliated to M.P. Board</div>
               </div>
 
               <div className="border-t-2 border-dashed border-black my-2" />
@@ -235,27 +234,27 @@ export default function Invoice({ student, onClose }: InvoiceProps) {
               <table>
                 <tbody>
                   <tr>
-                    <td className="text-xs text-gray-600" width="40%">Invoice No</td>
+                    <td className="text-xs" width="40%">Invoice No</td>
                     <td className="text-xs font-bold text-right" width="60%">{invoice.invoice_id}</td>
                   </tr>
                   <tr>
-                    <td className="text-xs text-gray-600">Date</td>
+                    <td className="text-xs">Date</td>
                     <td className="text-xs font-bold text-right">{formatDate(invoice.createdAt)}</td>
                   </tr>
                   <tr>
-                    <td className="text-xs text-gray-600">Student Name</td>
+                    <td className="text-xs">Student Name</td>
                     <td className="text-xs font-bold text-right uppercase">{student.name}</td>
                   </tr>
                   <tr>
-                    <td className="text-xs text-gray-600">Class</td>
+                    <td className="text-xs">Class</td>
                     <td className="text-xs font-bold text-right">{invoice.enrollementSession.class_no}</td>
                   </tr>
                   <tr>
-                    <td className="text-xs text-gray-600">Roll No</td>
+                    <td className="text-xs">Roll No</td>
                     <td className="text-xs font-bold text-right">{invoice.enrollementSession.roll_no}</td>
                   </tr>
                   <tr>
-                    <td className="text-xs text-gray-600">Scholar No</td>
+                    <td className="text-xs">Scholar No</td>
                     <td className="text-xs font-bold text-right">{invoice.scholar_no}</td>
                   </tr>
                 </tbody>
@@ -289,7 +288,7 @@ export default function Invoice({ student, onClose }: InvoiceProps) {
 
               <div className="border-t-2 border-dashed border-black my-2" />
 
-              <div className="text-xs text-center text-gray-600 mt-2 mb-2">
+              <div className="text-xs text-center mt-2 mb-2">
                 Rupees {formatCurrency(invoice.amount)} Only
               </div>
 
@@ -297,8 +296,8 @@ export default function Invoice({ student, onClose }: InvoiceProps) {
 
               <div className="text-center mt-3">
                 <div className="text-sm font-bold tracking-widest">*** THANK YOU ***</div>
-                <div className="text-xs text-gray-400 mt-2">Computer Generated Receipt</div>
-                <div className="text-xs text-gray-400">No signature required.</div>
+                <div className="text-xs mt-2">Computer Generated Receipt</div>
+                <div className="text-xs">No signature required.</div>
               </div>
 
               <div className="h-8" />

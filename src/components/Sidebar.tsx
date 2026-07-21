@@ -94,10 +94,8 @@ const menuGroups = [
     label: "SERVICES",
     items: [
       { title: "Calendar", url: "/calendar", icon: Calendar },
-      { title: "Notice Board", url: "/notices", icon: FileText },
-      { title: "Library", url: "#", icon: Library },
-      { title: "Transport", url: "#", icon: Bus },
-      { title: "Hostel", url: "#", icon: BedDouble },
+      { title: "Notice Board", url: "/notices", icon: FileText }
+      
     ]
   },
   {
@@ -127,6 +125,8 @@ export default function SchoolSidebar() {
   const roleFromCookie = (getCookie("role") || "").replace(/^ROLE_/i, "");
   const isTeacher = roleFromCookie.toLowerCase() === "teacher";
   const isAccountant = roleFromCookie.toLowerCase() === "accountant";
+  const rawRole = (user?.role || roleFromCookie).replace(/^ROLE_/i, "");
+  const isSuperAdmin = rawRole.toLowerCase() === "super_admin";
 
   // Ensure teacher's class is cached in localStorage (runs on every protected route)
   useEffect(() => {
@@ -211,8 +211,8 @@ export default function SchoolSidebar() {
                 <span className="text-[11px] text-slate-500">v3.2.0 </span>
               </div>
             </div>
-            {/* Session Switcher — for admin and accountant roles, not teachers */}
-            {!isTeacher && <SessionSwitcher />}
+            {/* Session Switcher — only for super_admin */}
+            {isSuperAdmin && <SessionSwitcher />}
           </SidebarHeader>
 
           {/* 2. Main Content (Links) */}
@@ -306,7 +306,7 @@ export default function SchoolSidebar() {
             <div className="flex-1 font-semibold text-slate-800 text-sm">
               Dashboard / Students
             </div>
-            {!isAccountant && (
+            {isSuperAdmin && (
               <span className="bg-[#0d9488] hover:bg-teal-700 text-white h-10 shadow-sm whitespace-nowrap rounded-xl justify-center content-center text-center ">
                 <Link className="text-white h-4 w-4 mr-1.5 p-4" to="/session">New Session</Link>
               </span>

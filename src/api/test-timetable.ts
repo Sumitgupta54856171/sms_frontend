@@ -33,6 +33,14 @@ export const fetchTestTimetableByName = async (
   return response.data;
 };
 
+// ─── Delete a test timetable entry ────────────────────────────────────
+export const deleteTestTimetableEntry = async (entryId: number): Promise<any> => {
+  const response = await apiClient.delete(`/api/v1/timetable/testtime/${entryId}`, {
+    withCredentials: true,
+  });
+  return response.data;
+};
+
 // ─── Save test timetable entries ──────────────────────────────────────
 // Teacher is auto-filled by the backend based on JWT token.
 // Backend expects a JSON array directly.

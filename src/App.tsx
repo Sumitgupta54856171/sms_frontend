@@ -39,6 +39,7 @@ const NoticeBoardPage = lazy(() => import("./pages/NoticeBoardPage/NoticeBoardPa
 const MessagesPage = lazy(() => import("./pages/MessagesPage/MessagesPage"));
 const ReportCardPage = lazy(() => import("./pages/ReportCard/ReportCardPage"));
 const GradePage = lazy(() => import("./pages/GradePage/GradePage"));
+const DashboardPage = lazy(() => import("./pages/Dashboardpage/Dashboard"));
 
 function App() {
   return (
@@ -51,7 +52,7 @@ function App() {
 
             <Route element={<ProtectedRoute />}>
               <Route element={<SchoolSidebar />}>
-                <Route path="/" element={<div>Home</div>} />
+                <Route path="/" element={<DashboardPage />} />
                 <Route path="/class" element={<ClassPage />} />
                 <Route path="/class/:classNo/students" element={<ClassStudentListPage />} />
                 <Route path="/academic" element={<AcademicSessionPage />} />

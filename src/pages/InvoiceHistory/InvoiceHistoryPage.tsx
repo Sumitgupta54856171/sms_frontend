@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search,
@@ -14,6 +13,7 @@ import {
   Download,
 } from "lucide-react";
 import { format } from "date-fns";
+import { jsPDF } from "jspdf";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -88,7 +88,6 @@ const getPaymentMethodColor = (method: string) => {
 };
 
 export default function InvoiceHistoryPage() {
-  const navigate = useNavigate();
   const today = new Date();
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
@@ -114,7 +113,7 @@ export default function InvoiceHistoryPage() {
   const totalSessionPaidAmount = historyData?.totalsessionpaidamount ?? 0;
   const totalInvoicesAmount = historyData?.totalInvoicesAmount ?? 0;
 
-  const filteredInvoices = invoices.filter((inv: InvoiceHistoryItem) => {
+  const filteredInvoices = [...invoices].reverse().filter((inv: InvoiceHistoryItem) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -140,6 +139,116 @@ export default function InvoiceHistoryPage() {
     end.setMonth(end.getMonth() + 1);
     setStartDate(format(start, "yyyy-MM-dd"));
     setEndDate(format(end, "yyyy-MM-dd"));
+  };
+
+  const handleDownloadPDF = (inv: InvoiceHistoryItem) => {
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: [80, 150],
+    });
+
+    // Colors — pure black for thermal printer visibility
+    const black = [0, 0, 0] as [number, number, number];
+    const darkBg = [30, 30, 30] as [number, number, number];
+
+    // Header background (dark)
+    doc.setFillColor(darkBg[0], darkBg[1], darkBg[2]);
+    doc.rect(0, 0, 80, 15, "F");
+
+    // School name in header
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("ROSE CONVENT", 40, 6, { align: "center" });
+    doc.setFontSize(7);
+    doc.text("HIGH SCHOOL", 40, 10, { align: "center" });
+
+    // School info
+    doc.setTextColor(black[0], black[1], black[2]);
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "normal");
+    doc.text("Delaura, Satna (M.P.)", 40, 20, { align: "center" });
+    doc.text("+91 9406780812", 40, 24, { align: "center" });
+
+    // Divider line
+    doc.setDrawColor(black[0], black[1], black[2]);
+    doc.setLineWidth(0.5);
+    doc.line(5, 27, 75, 27);
+
+    // Receipt title with dark background
+    doc.setFillColor(darkBg[0], darkBg[1], darkBg[2]);
+    doc.rect(5, 29, 70, 6, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text("FEE RECEIPT", 40, 33, { align: "center" });
+
+    // Invoice details
+    doc.setTextColor(black[0], black[1], black[2]);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    
+    let yPos = 42;
+    const lineHeight = 5;
+
+    doc.text("Invoice No:", 5, yPos);
+    doc.setFont("helvetica", "bold");
+    doc.text(`#${inv.invoiceId}`, 75, yPos, { align: "right" });
+    
+    yPos += lineHeight;
+    doc.setFont("helvetica", "normal");
+    doc.text("Date:", 5, yPos);
+    doc.setFont("helvetica", "bold");
+    doc.text(formatDate(inv.invoiceDate), 75, yPos, { align: "right" });
+
+    yPos += lineHeight;
+    doc.setFont("helvetica", "normal");
+    doc.text("Student:", 5, yPos);
+    doc.setFont("helvetica", "bold");
+    const studentName = inv.studentName.length > 20 ? inv.studentName.substring(0, 20) + "..." : inv.studentName;
+    doc.text(studentName, 75, yPos, { align: "right" });
+
+    yPos += lineHeight;
+    doc.setFont("helvetica", "normal");
+    doc.text("Payment Method:", 5, yPos);
+    doc.setFont("helvetica", "bold");
+    doc.text(inv.paymentMethod.toUpperCase(), 75, yPos, { align: "right" });
+
+    // Divider
+    yPos += 3;
+    doc.setDrawColor(black[0], black[1], black[2]);
+    doc.setLineWidth(0.5);
+    doc.line(5, yPos, 75, yPos);
+
+    // Amount section with dark background
+    yPos += 5;
+    doc.setFillColor(darkBg[0], darkBg[1], darkBg[2]);
+    doc.rect(5, yPos, 70, 8, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text("TOTAL AMOUNT", 10, yPos + 5);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(formatCurrency(inv.amount), 75, yPos + 5, { align: "right" });
+
+    // Footer
+    yPos += 15;
+    doc.setTextColor(black[0], black[1], black[2]);
+    doc.setFontSize(6);
+    doc.setFont("helvetica", "bold");
+    doc.text("*** THANK YOU ***", 40, yPos, { align: "center" });
+    doc.text("Computer Generated Receipt", 40, yPos + 4, { align: "center" });
+    doc.text("No signature required", 40, yPos + 8, { align: "center" });
+
+    // Bottom decorative line
+    doc.setDrawColor(black[0], black[1], black[2]);
+    doc.setLineWidth(0.8);
+    doc.line(5, 140, 75, 140);
+
+    // Save PDF
+    doc.save(`Invoice_${inv.invoiceId}.pdf`);
   };
 
   return (
@@ -441,22 +550,24 @@ export default function InvoiceHistoryPage() {
                                       .uppercase { text-transform: uppercase; }
                                       .tracking-widest { letter-spacing: 2px; }
                                       .leading-tight { line-height: 1.2; }
+                                      .header-bar { background-color: #000; color: #fff; padding: 6px 0; }
+                                      .amount-bar { background-color: #000; color: #fff; padding: 4px 0; }
                                     </style>
                                     </head><body>
-                                    <div class="text-center mb-4">
+                                    <div class="text-center mb-4 header-bar">
                                       <h1 class="font-bold text-sm uppercase">Rose Convent High School</h1>
                                       <p class="text-xs">Delaura, Satna (M.P.)</p>
                                       <p class="text-xs">+91 9406780812</p>
                                     </div>
                                     <div class="border-t-2 border-dashed border-black my-2"></div>
-                                    <div class="text-center font-bold uppercase text-xs tracking-widest">Fee Receipt</div>
+                                    <div class="text-center font-bold uppercase text-xs tracking-widest" style="background-color:#000;color:#fff;padding:2px 0;">Fee Receipt</div>
                                     <div class="border-t-2 border-dashed border-black my-2"></div>
                                     <div class="flex justify-between text-xs mb-1.5"><span>Invoice No:</span><span class="font-bold">#${inv.invoiceId}</span></div>
                                     <div class="flex justify-between text-xs mb-1.5"><span>Date:</span><span>${formatDate(inv.invoiceDate)}</span></div>
                                     <div class="flex justify-between text-xs mb-1.5"><span>Student:</span><span>${inv.studentName}</span></div>
                                     <div class="flex justify-between text-xs mb-1.5"><span>Payment:</span><span>${inv.paymentMethod}</span></div>
                                     <div class="border-t-2 border-dashed border-black my-2"></div>
-                                    <div class="flex justify-between text-xs font-bold mb-2"><span>Amount</span><span>${formatCurrency(inv.amount)}</span></div>
+                                    <div class="flex justify-between text-xs font-bold mb-2 amount-bar"><span style="padding-left:4px;">Amount</span><span style="padding-right:4px;">${formatCurrency(inv.amount)}</span></div>
                                     <div class="border-t-2 border-dashed border-black my-2"></div>
                                     <div class="text-center mt-6"><p class="text-sm font-bold">*** THANK YOU ***</p><p class="mt-2 text-xs">Computer Generated Receipt</p></div>
                                     <script>window.onload=function(){window.print();window.close()}<\\/script>
@@ -470,11 +581,11 @@ export default function InvoiceHistoryPage() {
                                 Print
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => navigate(`/invoice/${inv.invoiceId}`)}
+                                onClick={() => handleDownloadPDF(inv)}
                                 className="gap-2 cursor-pointer"
                               >
                                 <Download className="h-4 w-4" />
-                                Download
+                                Download PDF
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

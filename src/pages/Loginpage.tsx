@@ -61,7 +61,7 @@ export default function LoginPage() {
       
       {/* --- LEFT PANEL (DARK THEME) --- */}
       <div 
-        className="hidden lg:flex w-1/2 bg-[#09090b] relative flex-col justify-between p-12 text-white overflow-hidden"
+        className="hidden lg:flex w-1/2 bg-[#090b0a] relative flex-col justify-between p-12 text-white overflow-hidden"
       >
         {/* Dotted Grid Background */}
         <div 
@@ -74,10 +74,10 @@ export default function LoginPage() {
 
         {/* Top Header / Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#6366f1] text-sm font-bold shadow-sm">
-            V
+          <div className="flex h-16 w-16 items-center justify-center rounded-4xl bg-[#6366f1] text-sm font-bold shadow-sm overflow-hidden">
+            <img src="/LOGO.jpg.jpeg" alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <span className="font-semibold text-lg tracking-tight">Veridian</span>
+          <span className="font-semibold text-lg tracking-tight">Rose Convent High School</span>
         </div>
 
         {/* Center Quote */}
@@ -89,16 +89,13 @@ export default function LoginPage() {
           <div className="flex items-center gap-4">
             <div className="h-10 w-10 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0"></div>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-slate-100">Dr. Amara Whitfield</span>
-              <span className="text-[13px] text-slate-400">Head of School, Lindenwood Academy</span>
+              <span className="text-sm font-semibold text-slate-100">Mr. Mohan Lal Sen</span>
+              <span className="text-[13px] text-slate-400">Head of School, Rose Convent High School</span>
             </div>
           </div>
         </div>
 
-        {/* Bottom Footer */}
-        <div className="relative z-10 text-[11px] font-medium tracking-[0.15em] text-slate-500 uppercase">
-          Est. Record-Keeping, Reimagined
-        </div>
+        
       </div>
 
       {/* --- RIGHT PANEL (LIGHT THEME / FORM) --- */}
@@ -109,7 +106,7 @@ export default function LoginPage() {
           {/* Header */}
           <div className="space-y-2 text-left">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back</h1>
-            <p className="text-sm text-slate-500">Sign in to the Lindenwood Academy workspace.</p>
+            <p className="text-sm text-slate-500">Sign in to the Rose Convent High School workspace.</p>
           </div>
 
           {/* Login Form */}
@@ -141,14 +138,10 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center space-x-2">
-                <Checkbox id="remember" className="border-slate-300 data-[state=checked]:bg-[#2563eb] data-[state=checked]:border-[#2563eb]" />
-                <Label htmlFor="remember" className="text-sm font-normal text-slate-600 cursor-pointer">
-                  Remember this device
-                </Label>
+               
+               
               </div>
-              <a href="#" className="text-sm font-medium text-[#2563eb] hover:underline">
-                Forgot password?
-              </a>
+              
             </div>
 
             <Button type="submit" className="w-full h-11 bg-[#111827] hover:bg-black text-white mt-2 gap-2 text-sm font-medium transition-colors shadow-sm" disabled={isPending}>
@@ -158,9 +151,7 @@ export default function LoginPage() {
           </form>
 
           {/* Footer Text */}
-          <p className="text-center text-[13px] text-slate-400 pt-4">
-            Prototype build — any credentials will sign you in.
-          </p>
+          
 
         </div>
       </div>

@@ -421,3 +421,36 @@ export const applyDiscount = async (studentId: number, discountAmount: number): 
     throw new Error("Failed to apply discount");
   }
 };
+
+// ─── Fee Dashboard Stats ──────────────────────────────────────────────
+export interface FeeDashboardStats {
+  totalFees: number;
+  totalCollection: number;
+  todayCollection: number;
+  dueFees: number;
+}
+
+/** Fetch fee dashboard stats — total collection, today's collection, and due fees */
+export const fetchFeeDashboardStats = async (): Promise<FeeDashboardStats> => {
+  try {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const sessionStart = `${now.getFullYear()}-04-01`;
+
+    // Fetch today's collection — totalamount is the sum for the date range
+    const todayResponse = await fetchInvoiceHistory(today, today);
+    const todayCollection = todayResponse.totalamount ?? 0;
+
+    // Fetch session-wide collection
+    const sessionResponse = await fetchInvoiceHistory(sessionStart, today);
+    const totalFees = sessionResponse.totalamount ?? 0;
+    const totalCollection = sessionResponse.totalsessionpaidamount ?? 0;
+
+    // Due fees = total fees - total paid
+    const dueFees = Math.max(0, totalFees - totalCollection);
+
+    return { totalFees, totalCollection, todayCollection, dueFees };
+  } catch {
+    return { totalFees: 0, totalCollection: 0, todayCollection: 0, dueFees: 0 };
+  }
+};

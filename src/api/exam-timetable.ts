@@ -80,7 +80,7 @@ export const bulkSaveExamTimetableEntries = async (
 
 // ─── Delete an exam timetable entry ────────────────────────────────────
 export const deleteExamTimetableEntry = async (entryId: number): Promise<any> => {
-  const response = await apiClient.delete(`/api/v1/exam-timetable/entry/${entryId}`, {
+  const response = await apiClient.delete(`/api/v1/timetable/examtime/${entryId}`, {
     withCredentials: true,
   });
   return response.data;
