@@ -37,6 +37,8 @@ const TeacherPlanPage = lazy(() => import("./pages/TeacherPlan/TeacherPlanPage")
 const CalendarPage = lazy(() => import("./pages/CalendarPage/CalendarPage"));
 const NoticeBoardPage = lazy(() => import("./pages/NoticeBoardPage/NoticeBoardPage"));
 const MessagesPage = lazy(() => import("./pages/MessagesPage/MessagesPage"));
+const GmailPage = lazy(() => import("./pages/GmailPage/GmailPage"));
+const SmsAlertPage = lazy(() => import("./pages/SmsAlertPage/SmsAlertPage"));
 const ReportCardPage = lazy(() => import("./pages/ReportCard/ReportCardPage"));
 const GradePage = lazy(() => import("./pages/GradePage/GradePage"));
 const DashboardPage = lazy(() => import("./pages/Dashboardpage/Dashboard"));
@@ -73,6 +75,8 @@ function App() {
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/notices" element={<NoticeBoardPage />} />
                 <Route path="/messages" element={<MessagesPage />} />
+                <Route path="/gmail" element={<GmailPage />} />
+                <Route path="/sms-alert" element={<SmsAlertPage />} />
               </Route>
               <Route path="/student/profile/:studentId" element={<StudentProfilePage />} />
               <Route path="/student/bank-detail/:studentId" element={<BankDetailPage />} />

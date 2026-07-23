@@ -18,6 +18,8 @@ import {
   MessageSquare,
   LogOut,
   ArrowUpDown,
+  Mail,
+  Smartphone,
 
 } from "lucide-react";
 
@@ -62,6 +64,8 @@ const pagePreloaders: Record<string, () => Promise<unknown>> = {
   "/notices": () => import("@/pages/NoticeBoardPage/NoticeBoardPage"),
   "/messages": () => import("@/pages/MessagesPage/MessagesPage"),
   "/grades": () => import("@/pages/GradePage/GradePage"),
+  "/gmail": () => import("@/pages/GmailPage/GmailPage"),
+  "/sms-alert": () => import("@/pages/SmsAlertPage/SmsAlertPage"),
 };
 
 // Grouped Menu Items matching the screenshot
@@ -102,6 +106,8 @@ const menuGroups = [
     label: "COMMUNICATION",
     items: [
       { title: "Messages", url: "/messages", icon: MessageSquare },
+      { title: "Gmail", url: "/gmail", icon: Mail },
+      { title: "SMS Alert", url: "/sms-alert", icon: Smartphone },
     ]
   }
 ];

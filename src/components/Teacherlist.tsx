@@ -90,7 +90,7 @@ export default function TeacherManagement() {
             Export
           </Button>
           <Button
-            className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-sm"
+            className="bg-[#0d9488]  hover:bg-[#1d4ed8] text-white shadow-sm"
             onClick={() => {
               dispatch(setSelectedTeacher(null));
               dispatch(openModal("teacherForm"));

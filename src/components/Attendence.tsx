@@ -181,10 +181,12 @@ export default function Attendance() {
       // For admins, filter the full student list by selected class
       classStudents = studentList.filter((s: StudentResponse) => {
         const classInfo = s.classInfo ?? "";
+        // Normalize: strip "Grade " prefix for comparison
+        const normalizedClassInfo = classInfo.replace(/^Grade\s+/i, "");
         if (["Nursery", "LKG", "UKG"].includes(selectedClass)) {
-          return classInfo === selectedClass;
+          return normalizedClassInfo === selectedClass;
         }
-        const classNum = classInfo.replace(/\D/g, "");
+        const classNum = normalizedClassInfo.replace(/\D/g, "");
         const selectedNum = selectedClass.replace(/\D/g, "");
         return classNum && selectedNum && classNum === selectedNum;
       });

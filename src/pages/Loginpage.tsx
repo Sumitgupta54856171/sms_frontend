@@ -61,7 +61,7 @@ export default function LoginPage() {
       
       {/* --- LEFT PANEL (DARK THEME) --- */}
       <div 
-        className="hidden lg:flex w-1/2 bg-[#090b0a] relative flex-col justify-between p-12 text-white overflow-hidden"
+        className="hidden lg:flex w-1/2 bg-[#0d9488]  relative flex-col justify-between p-12 text-white overflow-hidden"
       >
         {/* Dotted Grid Background */}
         <div 
@@ -144,7 +144,7 @@ export default function LoginPage() {
               
             </div>
 
-            <Button type="submit" className="w-full h-11 bg-[#111827] hover:bg-black text-white mt-2 gap-2 text-sm font-medium transition-colors shadow-sm" disabled={isPending}>
+            <Button type="submit" className="w-full h-11 bg-[#0d9488]  hover:bg-black text-white mt-2 gap-2 text-sm font-medium transition-colors shadow-sm" disabled={isPending}>
               {isPending ? "Signing in..." : "Sign in"} <ArrowRight className="h-4 w-4" />
             </Button>
 

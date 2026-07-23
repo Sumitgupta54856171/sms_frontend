@@ -114,6 +114,7 @@ export default function StudentTable() {
           <Table>
             <TableHeader className="bg-white">
               <TableRow className="border-b border-slate-200 hover:bg-transparent">
+                <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">Photo</TableHead>
                 <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">STUDENT</TableHead>
                 <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">SCHOLAR NO</TableHead>
                 <TableHead className="text-xs font-bold text-slate-500 uppercase tracking-wider py-4">FATHER'S NAME</TableHead>
@@ -151,17 +152,23 @@ export default function StudentTable() {
                       key={student.StudentId}
                       className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                     >
-                      {/* Student Cell */}
-                      <TableCell className="py-2">
+                          <TableCell className="py-2">
                         <div className="flex items-center gap-3 py-2">
                           <StudentAvatar
                             studentId={student.studentId}
-                            studentName={student.StudentName}
+                            studentName={student.studentName}
                             className="h-10 w-10"
                           />
+                          
+                        </div>
+                      </TableCell>
+                      {/* Student Cell */}
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-3 py-2">
+                          
                           <div className="flex flex-col">
                             <span className="font-semibold text-slate-900 text-[14px]">
-                              {student.StudentName}
+                              {student.studentName}
                             </span>
                           </div>
                         </div>

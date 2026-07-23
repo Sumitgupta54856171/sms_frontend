@@ -138,6 +138,8 @@ export interface StudentListItem {
   faterhName: string;
   motherName: string;
   status: string;
+  className?: string;
+  class_no?: string;
 }
 
 // ─── Fetch student list (new API) ──────────────────────────────────────
@@ -226,6 +228,7 @@ export const updateStudentDetail = async (data: Partial<StudentDetail> & { id: n
 
 // ─── Update bank detail ────────────────────────────────────────────────
 export const updateBankDetail = async (data: {
+  bankDetailId: number;
   studentId: number;
   bankName: string;
   accountNumber: string;
@@ -233,7 +236,7 @@ export const updateBankDetail = async (data: {
   AccountHolderName: string;
   branchName: string;
 }) => {
-  const response = await apiClient.put("/update/student/bank-detail", data, {
+  const response = await apiClient.put("/api/v1/students/update/student/bank-detail", data, {
     withCredentials: true,
   });
   return response.data;
@@ -293,20 +296,21 @@ export const getPhotoBlobUrl = async (filePath: string): Promise<string> => {
 // ─── Save student bank details ─────────────────────────────────────────
 export interface BankDetailsPayload {
   studentId: number;
-  accountHolder: string;
+  AccountHolderName: string;
   bankName: string;
-  accountNo: string;
+  accountNumber: string;
   ifscCode: string;
-  branch: string;
+  branchName: string;
 }
 
 export interface BankDetailsResponse {
+  bankDetailId?: number;
   studentId: number;
-  accountHolder: string;
+  AccountHolderName: string;
   bankName: string;
-  accountNo: string;
+  accountNumber: string;
   ifscCode: string;
-  branch: string;
+  branchName: string;
 }
 
 export const saveBankDetails = async (data: BankDetailsPayload) => {
@@ -321,5 +325,6 @@ export const fetchBankDetails = async (studentId: number): Promise<BankDetailsRe
     withCredentials: true,
   });
   console.log("Fetched bank details:", response.data);
-  return response.data?.data ?? response.data;
+  // All fields are at the top level of response.data
+  return response.data;
 };
