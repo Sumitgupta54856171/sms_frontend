@@ -82,36 +82,37 @@ function StatCard({
   loading?: boolean;
 }) {
   return (
-    <Card className="border-0 shadow-lg shadow-slate-200/50 bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group">
-      <CardContent className="p-5">
+    <Card className="relative border border-slate-200/60 shadow-sm bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-1 group">
+      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r opacity-80" style={{ backgroundImage: `linear-gradient(to right, ${color}, ${color}40)` }} />
+      <CardContent className="p-5 pt-6">
         {loading ? (
           <div className="space-y-3">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-4 w-24 rounded-lg" />
+            <Skeleton className="h-8 w-16 rounded-lg" />
           </div>
         ) : (
           <div className="flex items-start justify-between">
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{title}</p>
-              <p className="text-3xl font-bold text-slate-900">{value}</p>
+              <p className="text-3xl font-bold text-slate-800 tracking-tight">{value}</p>
               {subtitle && (
-                <p className="text-xs text-slate-400">{subtitle}</p>
+                <p className="text-xs text-slate-400 font-medium">{subtitle}</p>
               )}
               {trend && trendLabel && (
                 <div className="flex items-center gap-1 text-xs pt-1">
                   {trend === "up" ? (
-                    <TrendingUp className="h-3 w-3 text-green-500" />
+                    <TrendingUp className="h-3 w-3 text-emerald-500" />
                   ) : (
                     <TrendingDown className="h-3 w-3 text-rose-500" />
                   )}
-                  <span className={trend === "up" ? "text-green-600 font-medium" : "text-rose-600 font-medium"}>
+                  <span className={trend === "up" ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
                     {trendLabel}
                   </span>
                 </div>
               )}
             </div>
             <div
-              className="p-3 rounded-2xl shadow-sm group-hover:scale-110 transition-transform duration-300"
+              className="p-3 rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300 ring-1 ring-black/5"
               style={{ backgroundColor: `${color}15` }}
             >
               <Icon className="h-6 w-6" style={{ color }} />
@@ -315,19 +316,23 @@ export default function Dashboard() {
 
   // ── Render ───────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-teal-50/20 to-[#0d9488]/5 p-4 md:p-6 lg:p-8 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30 p-4 md:p-6 lg:p-8 font-sans">
       <div className="mx-auto max-w-7xl">
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-linear-to-br from-[#0d9488] to-teal-600 text-white rounded-2xl shadow-lg shadow-[#0d9488]/30">
-              <School className="h-7 w-7" />
+            <div className="relative">
+              <div className="absolute inset-0 bg-[#0d9488] blur-2xl opacity-20" />
+              <div className="relative p-3 bg-gradient-to-br from-[#0d9488] to-teal-600 text-white rounded-2xl shadow-lg shadow-[#0d9488]/20">
+                <School className="h-7 w-7" />
+              </div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-linear-to-r from-[#0d9488] to-teal-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
                 Dashboard
               </h1>
-              <p className="text-sm text-slate-500 mt-0.5">
+              <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 {currentSession
                   ? `${currentSession.sessionName} · ${format(new Date(), "MMMM yyyy")}`
                   : "School Management System"}
@@ -337,7 +342,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <Badge
               variant="outline"
-              className="px-4 py-1.5 text-sm capitalize bg-white/50 backdrop-blur-sm border-slate-200"
+              className="px-4 py-1.5 text-sm capitalize bg-white/80 backdrop-blur-sm border-slate-200 text-slate-600 shadow-sm"
             >
               <Sparkles className="h-3.5 w-3.5 mr-1.5 text-[#0d9488]" />
               {userRole.replace("_", " ")} Access
@@ -350,8 +355,10 @@ export default function Dashboard() {
         ════════════════════════════════════════════════════════════ */}
         <section className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="h-4 w-4 text-[#0d9488]" />
-            <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Key Performance Indicators</h2>
+            <div className="p-1.5 rounded-lg bg-[#0d9488]/10">
+              <BarChart3 className="h-4 w-4 text-[#0d9488]" />
+            </div>
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Key Performance Indicators</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {/* Students — admin sees all, teacher sees their class */}
@@ -471,16 +478,20 @@ export default function Dashboard() {
         ════════════════════════════════════════════════════════════ */}
         <section className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="h-4 w-4 text-[#0d9488]" />
-            <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Analytics & Insights</h2>
+            <div className="p-1.5 rounded-lg bg-[#0d9488]/10">
+              <BarChart3 className="h-4 w-4 text-[#0d9488]" />
+            </div>
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Analytics & Insights</h2>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Enrollment Bar Chart — admin only */}
             {isAdmin && enrollmentChartData.length > 0 && (
-              <Card className="lg:col-span-2 border-0 shadow-lg shadow-slate-200/50 bg-white rounded-2xl overflow-hidden">
-                <CardHeader className="border-b border-slate-100 pb-4">
-                  <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-[#0d9488]" />
+              <Card className="lg:col-span-2 border border-slate-200/60 shadow-sm bg-white rounded-2xl overflow-hidden">
+                <CardHeader className="border-b border-slate-100 pb-4 bg-gradient-to-r from-slate-50/50 to-transparent">
+                  <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-[#0d9488]/10">
+                      <BookOpen className="h-4 w-4 text-[#0d9488]" />
+                    </div>
                     Class-wise Enrollment
                   </CardTitle>
                 </CardHeader>
@@ -528,10 +539,12 @@ export default function Dashboard() {
 
             {/* Weekly Attendance Trend */}
             {(isAdmin || isTeacher) && weeklyAttendanceData.length > 0 && (
-              <Card className="lg:col-span-2 border-0 shadow-lg shadow-slate-200/50 bg-white rounded-2xl overflow-hidden">
-                <CardHeader className="border-b border-slate-100 pb-4">
-                  <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                    <ClipboardCheck className="h-4 w-4 text-[#0d9488]" />
+              <Card className="lg:col-span-2 border border-slate-200/60 shadow-sm bg-white rounded-2xl overflow-hidden">
+                <CardHeader className="border-b border-slate-100 pb-4 bg-gradient-to-r from-slate-50/50 to-transparent">
+                  <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-[#0d9488]/10">
+                      <ClipboardCheck className="h-4 w-4 text-[#0d9488]" />
+                    </div>
                     Weekly Attendance Trend
                   </CardTitle>
                 </CardHeader>
@@ -591,10 +604,12 @@ export default function Dashboard() {
 
             {/* Gender Pie Chart */}
             {genderData.some((d) => d.value > 0) && (
-              <Card className="border-0 shadow-lg shadow-slate-200/50 bg-white rounded-2xl overflow-hidden">
-                <CardHeader className="border-b border-slate-100 pb-4">
-                  <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                    <Users className="h-4 w-4 text-[#0d9488]" />
+              <Card className="border border-slate-200/60 shadow-sm bg-white rounded-2xl overflow-hidden">
+                <CardHeader className="border-b border-slate-100 pb-4 bg-gradient-to-r from-slate-50/50 to-transparent">
+                  <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-[#0d9488]/10">
+                      <Users className="h-4 w-4 text-[#0d9488]" />
+                    </div>
                     {isAdmin ? "Student Gender Ratio" : "Class Gender Ratio"}
                   </CardTitle>
                 </CardHeader>
@@ -646,9 +661,9 @@ export default function Dashboard() {
                   <div className="flex justify-center gap-6 mt-2 text-sm">
                     {genderData.map((d) => (
                       <div key={d.name} className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }} />
-                        <span className="text-slate-600">
-                          {d.name}: <strong>{d.value}</strong>
+                        <div className="w-3 h-3 rounded-full ring-2 ring-white shadow-sm" style={{ backgroundColor: d.color }} />
+                        <span className="text-slate-600 font-medium">
+                          {d.name}: <strong className="text-slate-800">{d.value}</strong>
                         </span>
                       </div>
                     ))}
@@ -664,18 +679,22 @@ export default function Dashboard() {
         ════════════════════════════════════════════════════════════ */}
         <section className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="h-4 w-4 text-[#0d9488]" />
-            <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Recent Activity</h2>
+            <div className="p-1.5 rounded-lg bg-[#0d9488]/10">
+              <Sparkles className="h-4 w-4 text-[#0d9488]" />
+            </div>
+            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Recent Activity</h2>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Upcoming Events */}
-            <Card className="border-0 shadow-lg shadow-slate-200/50 bg-white rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-slate-100 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-[#0d9488]" />
+            <Card className="border border-slate-200/60 shadow-sm bg-white rounded-2xl overflow-hidden">
+              <CardHeader className="border-b border-slate-100 pb-4 flex flex-row items-center justify-between bg-gradient-to-r from-slate-50/50 to-transparent">
+                <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-[#0d9488]/10">
+                    <Calendar className="h-4 w-4 text-[#0d9488]" />
+                  </div>
                   Upcoming Events
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] bg-[#0d9488]/5 text-[#0d9488] border-[#0d9488]/20">
+                <Badge variant="outline" className="text-[10px] bg-[#0d9488]/5 text-[#0d9488] border-[#0d9488]/20 font-semibold">
                   Next 7 days
                 </Badge>
               </CardHeader>
@@ -693,17 +712,17 @@ export default function Dashboard() {
                     <p className="text-xs mt-1">Check back later for new events.</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {upcomingEvents.map((event) => (
                       <div
                         key={event.eventid}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-all hover:translate-x-1"
+                        className="flex items-center gap-4 p-3 rounded-xl bg-slate-50/50 hover:bg-slate-100/80 transition-all border border-slate-100 hover:border-slate-200"
                       >
                         <div
-                          className="w-11 h-11 rounded-xl flex flex-col items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
+                          className="w-12 h-12 rounded-xl flex flex-col items-center justify-center text-white text-xs font-bold shrink-0 shadow-md ring-2 ring-white"
                           style={{ backgroundColor: event.color || COLORS.teal }}
                         >
-                          <span className="text-[10px] opacity-80 leading-none">
+                          <span className="text-[10px] opacity-90 leading-none uppercase">
                             {format(new Date(event.eventdate), "MMM")}
                           </span>
                           <span className="text-sm leading-none mt-0.5">
@@ -711,12 +730,12 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-800 truncate">
+                          <p className="text-sm font-bold text-slate-800 truncate">
                             {event.eventname}
                           </p>
                           <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                             <Calendar className="h-3 w-3" />
-                            {format(new Date(event.eventdate), "EEEE, MMM dd, yyyy")}
+                            {format(new Date(event.eventdate), "EEEE, MMM dd")}
                             {event.venue ? ` · ${event.venue}` : ""}
                           </p>
                         </div>
@@ -728,13 +747,15 @@ export default function Dashboard() {
             </Card>
 
             {/* Recent Notices */}
-            <Card className="border-0 shadow-lg shadow-slate-200/50 bg-white rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-slate-100 pb-4 flex flex-row items-center justify-between">
-                <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
-                  <Megaphone className="h-4 w-4 text-amber-600" />
+            <Card className="border border-slate-200/60 shadow-sm bg-white rounded-2xl overflow-hidden">
+              <CardHeader className="border-b border-slate-100 pb-4 flex flex-row items-center justify-between bg-gradient-to-r from-slate-50/50 to-transparent">
+                <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-100">
+                    <Megaphone className="h-4 w-4 text-amber-600" />
+                  </div>
                   Recent Notices
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-600 border-amber-200">
+                <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-600 border-amber-200 font-semibold">
                   Latest
                 </Badge>
               </CardHeader>
@@ -752,29 +773,29 @@ export default function Dashboard() {
                     <p className="text-xs mt-1">New announcements will appear here.</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {recentNotices.map((notice) => (
                       <div
                         key={notice.id}
-                        className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-all hover:translate-x-1"
+                        className="p-3 rounded-xl bg-slate-50/50 hover:bg-slate-100/80 transition-all border border-slate-100 hover:border-slate-200"
                       >
                         <div className="flex items-center gap-2 mb-1.5">
                           <Badge
                             variant="outline"
-                            className="text-[10px] px-2 py-0.5 capitalize font-medium"
+                            className="text-[10px] px-2 py-0.5 capitalize font-bold bg-amber-50 text-amber-700 border-amber-200"
                           >
                             {notice.tag}
                           </Badge>
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1 font-medium">
                             <Calendar className="h-3 w-3" />
                             {format(new Date(notice.data), "MMM dd, yyyy")}
                           </span>
                         </div>
-                        <p className="text-sm font-semibold text-slate-800 truncate">
+                        <p className="text-sm font-bold text-slate-800 truncate">
                           {notice.title}
                         </p>
                         {notice.description && (
-                          <p className="text-xs text-slate-600 line-clamp-2 mt-0.5 leading-relaxed">
+                          <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
                             {notice.description}
                           </p>
                         )}
@@ -793,52 +814,54 @@ export default function Dashboard() {
         {isAdmin && (
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <BarChart3 className="h-4 w-4 text-[#0d9488]" />
-              <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Quick Overview</h2>
+              <div className="p-1.5 rounded-lg bg-[#0d9488]/10">
+                <BarChart3 className="h-4 w-4 text-[#0d9488]" />
+              </div>
+              <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Quick Overview</h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-              <Card className="border-0 shadow bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
+              <Card className="border border-slate-200/60 shadow-sm bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
                 <CardContent className="p-4 text-center">
                   <p className="text-2xl font-bold text-[#0d9488]">{activeStudents}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Active Students</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Active Students</p>
                   <div className="mt-2 w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-[#0d9488]" style={{ width: `${totalStudents > 0 ? (activeStudents / totalStudents) * 100 : 0}%` }} />
+                    <div className="h-full rounded-full bg-gradient-to-r from-[#0d9488] to-teal-400" style={{ width: `${totalStudents > 0 ? (activeStudents / totalStudents) * 100 : 0}%` }} />
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
+              <Card className="border border-slate-200/60 shadow-sm bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
                 <CardContent className="p-4 text-center">
                   <p className="text-2xl font-bold text-[#3b82f6]">{activeTeachers}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Active Teachers</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Active Teachers</p>
                   <div className="mt-2 w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-[#3b82f6]" style={{ width: `${totalTeachers > 0 ? (activeTeachers / totalTeachers) * 100 : 0}%` }} />
+                    <div className="h-full rounded-full bg-gradient-to-r from-[#3b82f6] to-blue-400" style={{ width: `${totalTeachers > 0 ? (activeTeachers / totalTeachers) * 100 : 0}%` }} />
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
+              <Card className="border border-slate-200/60 shadow-sm bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
                 <CardContent className="p-4 text-center">
                   <p className="text-2xl font-bold text-[#f59e0b]">{studentsByClass.length}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Total Classes</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Total Classes</p>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
+              <Card className="border border-slate-200/60 shadow-sm bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
                 <CardContent className="p-4 text-center">
                   <p className="text-2xl font-bold text-[#8b5cf6]">
                     {totalStudents > 0 ? ((activeStudents / totalStudents) * 100).toFixed(0) : 0}%
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">Retention</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Retention</p>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
+              <Card className="border border-slate-200/60 shadow-sm bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
                 <CardContent className="p-4 text-center">
                   <p className="text-2xl font-bold text-[#f97316]">{alumniStudents}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Alumni</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Alumni</p>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
+              <Card className="border border-slate-200/60 shadow-sm bg-white rounded-xl hover:shadow-md transition-all hover:-translate-y-0.5">
                 <CardContent className="p-4 text-center">
                   <p className="text-2xl font-bold text-[#0d9488]">{totalEnrollments}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">This Session</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">This Session</p>
                 </CardContent>
               </Card>
             </div>
