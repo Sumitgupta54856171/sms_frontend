@@ -127,7 +127,7 @@ export default function IdCardPrintPage() {
               ID Card Generator
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Select up to <strong>10 students</strong> — cards arranged on A4 landscape page (85mm × 54mm each).
+              Select up to <strong>10 students</strong> — cards arranged on A4 landscape page (55mm × 85mm each).
             </p>
           </div>
 
@@ -278,10 +278,10 @@ export default function IdCardPrintPage() {
                     className="id-card-a4-page"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(5, 54mm)",
+                      gridTemplateColumns: "repeat(5, 55mm)",
                       gridTemplateRows: "repeat(2, 85mm)",
-                      gap: "3mm 4mm",
-                      padding: "8mm 6mm",
+                      gap: "2mm 3mm",
+                      padding: "5mm 5mm",
                       justifyContent: "center",
                       alignContent: "center",
                       width: "297mm",
@@ -303,7 +303,7 @@ export default function IdCardPrintPage() {
                 </div>
 
                 <p className="text-xs text-slate-400 text-center">
-                  A4 Landscape · 5 columns × 2 rows · Card size: 54mm × 85mm
+                  A4 Landscape · 5 columns × 2 rows · Card size: 55mm × 85mm
                 </p>
               </div>
             )}
