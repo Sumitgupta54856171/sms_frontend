@@ -21,6 +21,7 @@ import {
   Mail,
   Smartphone,
   Plus,
+  LayoutTemplate,
 } from "lucide-react";
 
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
@@ -67,6 +68,8 @@ const pagePreloaders: Record<string, () => Promise<unknown>> = {
   "/grades": () => import("@/pages/GradePage/GradePage"),
   "/gmail": () => import("@/pages/GmailPage/GmailPage"),
   "/sms-alert": () => import("@/pages/SmsAlertPage/SmsAlertPage"),
+  "/id-card-print": () => import("@/pages/IdCardPrintPage/IdCardPrintPage"),
+  "/id-card-template": () => import("@/pages/IdCardTemplate/IdCardTemplate"),
 };
 
 // Grouped Menu Items matching the screenshot
@@ -93,6 +96,8 @@ const menuGroups = [
       { title: "Fee Structure", url: "/fees/structure", icon: IndianRupee },
       { title: "Transfer Certificate", url: "/tc", icon: FileText },
       { title: "Enrollment", url: "/enrollment", icon: ArrowUpDown },
+      { title: "ID Card Print", url: "/id-card-print", icon: FileText },
+      { title: "ID Card Template", url: "/id-card-template", icon: LayoutTemplate },
     ]
   },
   {
@@ -158,6 +163,8 @@ export default function SchoolSidebar() {
     "Lesson Plans",
     "Notice Board",
     "Calendar",
+    "ID Card Print",
+    "ID Card Template",
   ]);
 
   // Accountant-allowed menu items
@@ -168,6 +175,8 @@ export default function SchoolSidebar() {
     "Transfer Certificate",
     "Notice Board",
     "Calendar",
+    "ID Card Print",
+    "ID Card Template",
   ]);
 
   // Filter menu groups based on role
