@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Building2, CreditCard, Hash, Landmark, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { saveBankDetails, fetchBankDetails, updateBankDetail } from "@/api/student";
+import { saveBankDetails, fetchBankDetails } from "@/api/student";
 
 interface BankDetailProps {
   studentId?: number;
@@ -19,10 +19,8 @@ export default function BankDetail({ studentId }: BankDetailProps) {
     ifscCode: "",
     branch: "",
   });
-  const [bankDetailId, setBankDetailId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasBankDetails, setHasBankDetails] = useState(false);
 
   useEffect(() => {
     if (!studentId) return;
@@ -30,11 +28,11 @@ export default function BankDetail({ studentId }: BankDetailProps) {
     fetchBankDetails(studentId)
       .then((data) => {
         console.log(data)
-        if (data && data.bankName) {
-          setHasBankDetails(true);
-          setBankDetailId(data.bankDetailId ?? null);
+        if (data) {
+         
+          console.log("check the data",data)
           setBankDetails({
-            accountHolder: data.AccountHolderName || "",
+            accountHolder: data.accountHolderName,
             bankName: data.bankName || "",
             accountNo: data.accountNumber || "",
             ifscCode: data.ifscCode || "",
@@ -61,29 +59,8 @@ export default function BankDetail({ studentId }: BankDetailProps) {
     }
     setIsSaving(true);
     try {
-      if (hasBankDetails && bankDetailId) {
-        await updateBankDetail({
-          bankDetailId,
-          studentId,
-          bankName: bankDetails.bankName,
-          accountNumber: bankDetails.accountNo,
-          ifscCode: bankDetails.ifscCode,
-          AccountHolderName: bankDetails.accountHolder,
-          branchName: bankDetails.branch,
-        });
-        toast.success("Bank details updated successfully");
-      } else {
-        await saveBankDetails({
-          studentId,
-          AccountHolderName: bankDetails.accountHolder,
-          bankName: bankDetails.bankName,
-          accountNumber: bankDetails.accountNo,
-          ifscCode: bankDetails.ifscCode,
-          branchName: bankDetails.branch,
-        });
-        setHasBankDetails(true);
-        toast.success("Bank details saved successfully");
-      }
+      await saveBankDetails({ studentId, ...bankDetails });
+      toast.success("Bank details saved successfully");
     } catch {
       toast.error("Failed to save bank details");
     } finally {
@@ -123,7 +100,7 @@ export default function BankDetail({ studentId }: BankDetailProps) {
             const Icon = field.icon;
             return (
               <div key={field.label}>
-                <Label className="mb-1.5 text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                <Label className="mb-1.5 block text-sm font-medium text-slate-700 flex items-center gap-1.5">
                   <Icon className="h-3.5 w-3.5 text-slate-400" />
                   {field.label}
                 </Label>
