@@ -26,17 +26,15 @@ export default function BankDetail({ studentId }: BankDetailProps) {
     if (!studentId) return;
     setIsLoading(true);
     fetchBankDetails(studentId)
-      .then((data) => {
-        console.log(data)
+      .then((data: any) => {
         if (data) {
-         
-          console.log("check the data",data)
+          // Handle both camelCase and PascalCase keys from backend response
           setBankDetails({
-            accountHolder: data.accountHolderName,
-            bankName: data.bankName || "",
-            accountNo: data.accountNumber || "",
-            ifscCode: data.ifscCode || "",
-            branch: data.branchName || "",
+            accountHolder: data.accountHolderName || data.AccountHolderName || "",
+            bankName: data.bankName || data.BankName || "",
+            accountNo: data.accountNumber || data.AccountNumber || "",
+            ifscCode: data.ifscCode || data.IfscCode || data.IFSCCode || "",
+            branch: data.branchName || data.BranchName || "",
           });
         }
       })
@@ -59,7 +57,17 @@ export default function BankDetail({ studentId }: BankDetailProps) {
     }
     setIsSaving(true);
     try {
-      await saveBankDetails({ studentId, ...bankDetails });
+      // Construct payload matching the exact backend entity field names
+      const payload = {
+        studentId,
+        bankName: bankDetails.bankName,
+        accountNumber: bankDetails.accountNo,
+        ifscCode: bankDetails.ifscCode,
+        AccountHolderName: bankDetails.accountHolder,
+        branchName: bankDetails.branch,
+      };
+      
+      await saveBankDetails(payload);
       toast.success("Bank details saved successfully");
     } catch {
       toast.error("Failed to save bank details");

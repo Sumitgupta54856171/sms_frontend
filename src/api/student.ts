@@ -61,7 +61,7 @@ export interface StudentResponse {
   roll?: string;
   parent?: string;
   status: string;
-  // Full nested data for profile
+  // Full nested data for profile view
   enrollment?: StudentEnrollment[];
   studentRaw?: StudentEnrollment['student'];
   [key: string]: any;
@@ -295,20 +295,23 @@ export const getPhotoBlobUrl = async (filePath: string): Promise<string> => {
 // ─── Save student bank details ─────────────────────────────────────────
 export interface BankDetailsPayload {
   studentId: number;
-  accountHolder: string;
-  bankName: string;
-  accountNo: string;
-  ifscCode: string;
-  branch: string;
-}
-
-export interface BankDetailsResponse {
-  studentId: number;
-  accountHolderName: string;
   bankName: string;
   accountNumber: string;
   ifscCode: string;
+  AccountHolderName: string;
   branchName: string;
+}
+
+export interface BankDetailsResponse {
+  studentId?: number;
+  accountHolderName?: string;
+  AccountHolderName?: string;
+  bankName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  branchName?: string;
+  bankDetailId?: number;
+  student?: any;
 }
 
 export const saveBankDetails = async (data: BankDetailsPayload) => {
