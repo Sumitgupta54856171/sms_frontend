@@ -11,6 +11,8 @@ import {
   X,
   ChevronDownIcon,
   Loader2,
+  MapPin,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,25 +114,31 @@ export default function CalendarView() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-teal-50/30 to-[#0d9488]/10 p-6 md:p-8 font-sans">
-      <div className="mx-auto max-w-full">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30 p-4 md:p-6 lg:p-8 font-sans">
+      <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold bg-linear-to-r from-[#0d9488] to-teal-600 bg-clip-text text-transparent flex items-center gap-3">
-              <span className="p-2.5 bg-linear-to-br from-[#0d9488] to-teal-600 text-white rounded-2xl shadow-lg shadow-[#0d9488]/30">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-[#0d9488] blur-2xl opacity-20 animate-pulse" />
+              <div className="relative p-3 bg-gradient-to-br from-[#0d9488] to-teal-600 text-white rounded-2xl shadow-lg shadow-[#0d9488]/20">
                 <CalendarIcon className="h-7 w-7" />
-              </span>
-              Academic Calendar
-            </h1>
-            <p className="text-sm text-slate-600 mt-2 ml-14">
-              View and manage school events, exams, and holidays.
-            </p>
+              </div>
+            </div>
+            <div>
+              <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
+                Academic Calendar
+              </h1>
+              <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Manage school events, exams, and holidays
+              </p>
+            </div>
           </div>
           {canAddEvent && (
             <Button
               onClick={() => setShowAddModal(true)}
-              className="bg-linear-to-r from-[#0d9488] to-teal-600 hover:from-teal-700 hover:to-teal-700 text-white shadow-lg shadow-[#0d9488]/30 rounded-xl px-5 py-2.5 font-medium transition-all hover:scale-105"
+              className="bg-gradient-to-r from-[#0d9488] to-teal-600 hover:from-teal-700 hover:to-teal-700 text-white shadow-lg shadow-[#0d9488]/30 rounded-xl px-5 py-2.5 font-medium transition-all hover:scale-105 hover:shadow-xl hover:shadow-[#0d9488]/40"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Event
@@ -159,8 +167,16 @@ export default function CalendarView() {
           <div className="grid grid-cols-1 gap-6">
             <div className="w-full">
               <Card className="border-0 shadow-xl shadow-slate-200/50 bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
-                <CardContent className="p-8">
+                <CardContent className="p-6 md:p-8">
                   <style>{`
+                    @keyframes modalFadeIn {
+                      from { opacity: 0; transform: scale(0.95) translateY(10px); }
+                      to { opacity: 1; transform: scale(1) translateY(0); }
+                    }
+                    @keyframes backdropFadeIn {
+                      from { opacity: 0; }
+                      to { opacity: 1; }
+                    }
                     .react-calendar {
                       width: 100%;
                       border: none;
@@ -171,6 +187,10 @@ export default function CalendarView() {
                       display: flex;
                       align-items: center;
                       margin-bottom: 2rem;
+                      background: linear-gradient(135deg, rgba(13, 148, 136, 0.04) 0%, rgba(20, 184, 166, 0.02) 100%);
+                      padding: 12px;
+                      border-radius: 16px;
+                      border: 1px solid rgba(13, 148, 136, 0.1);
                     }
                     .react-calendar__navigation button {
                       min-width: 44px;
@@ -180,12 +200,14 @@ export default function CalendarView() {
                       color: #1e293b;
                       border-radius: 12px;
                       padding: 10px 14px;
-                      transition: all 0.2s ease;
+                      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     }
                     .react-calendar__navigation button:enabled:hover,
                     .react-calendar__navigation button:enabled:focus {
-                      background: rgba(13, 148, 136, 0.1);
+                      background: white;
+                      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
                       transform: translateY(-1px);
+                      color: #0d9488;
                     }
                     .react-calendar__navigation button[disabled] {
                       opacity: 0.3;
@@ -195,8 +217,8 @@ export default function CalendarView() {
                       text-align: center !important;
                       font-size: 1.25rem !important;
                       font-weight: 800 !important;
-                      color: #0d9488 !important;
-                      -webkit-text-fill-color: #0d9488 !important;
+                      color: #0f766e !important;
+                      -webkit-text-fill-color: #0f766e !important;
                       pointer-events: none;
                     }
                     .react-calendar__navigation__prev-button,
@@ -208,54 +230,63 @@ export default function CalendarView() {
                       text-transform: uppercase;
                       font-weight: 700;
                       font-size: 0.75rem;
-                      color: #64748b;
-                      padding: 0.75rem 0;
+                      color: #94a3b8;
+                      padding: 0.5rem 0;
                       letter-spacing: 0.05em;
                     }
                     .react-calendar__month-view__weekdays__weekday {
-                      padding: 0.75rem 0;
+                      padding: 0.5rem 0;
                     }
                     .react-calendar__month-view__weekdays__weekday abbr {
                       text-decoration: none;
                       cursor: default;
                     }
+                    .react-calendar__month-view__days {
+                      border-collapse: separate;
+                      border-spacing: 8px;
+                    }
                     .react-calendar__tile {
-                      text-align: center;
-                      padding: 14px 8px;
-                      background: none;
-                      border-radius: 12px;
-                      font-size: 0.95rem;
-                      font-weight: 500;
+                      text-align: left;
+                      padding: 12px;
+                      background: white;
+                      border-radius: 16px;
+                      font-size: 0.9rem;
+                      font-weight: 600;
                       color: #334155;
-                      transition: all 0.2s ease;
+                      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                       position: relative;
-                      margin: 2px;
-                      min-height: 100px;
+                      min-height: 110px;
                       vertical-align: top;
+                      border: 1px solid rgba(226, 232, 240, 0.8);
+                      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
                     }
                     .react-calendar__tile:enabled:hover,
                     .react-calendar__tile:enabled:focus {
-                      background: rgba(13, 148, 136, 0.08);
+                      background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 100%);
                       color: #0d9488;
-                      transform: translateY(-2px);
-                      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.15);
+                      transform: translateY(-4px) scale(1.02);
+                      box-shadow: 0 10px 15px -3px rgba(13, 148, 136, 0.1), 0 4px 6px -2px rgba(13, 148, 136, 0.05);
+                      border-color: rgba(13, 148, 136, 0.3);
+                      z-index: 10;
                     }
                     .react-calendar__tile--now {
-                      background: rgba(245, 158, 11, 0.15) !important;
+                      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
                       color: #d97706 !important;
                       font-weight: 700 !important;
-                      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2);
+                      box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.1), 0 2px 4px -1px rgba(217, 119, 6, 0.06);
+                      border-color: rgba(217, 119, 6, 0.2) !important;
                     }
                     .react-calendar__tile--now:enabled:hover,
                     .react-calendar__tile--now:enabled:focus {
-                      background: rgba(245, 158, 11, 0.25) !important;
+                      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
                     }
                     .react-calendar__tile--active {
                       background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%) !important;
                       color: white !important;
                       font-weight: 700 !important;
-                      box-shadow: 0 8px 20px rgba(13, 148, 136, 0.4);
-                      transform: translateY(-2px);
+                      box-shadow: 0 10px 15px -3px rgba(13, 148, 136, 0.3), 0 4px 6px -2px rgba(13, 148, 136, 0.15);
+                      transform: translateY(-4px) scale(1.02);
+                      border-color: transparent !important;
                     }
                     .react-calendar__tile--active:enabled:hover,
                     .react-calendar__tile--active:enabled:focus {
@@ -265,28 +296,13 @@ export default function CalendarView() {
                       background: rgba(13, 148, 136, 0.08);
                     }
                     .react-calendar__month-view__days__day--weekend {
-                      color: #ef4444;
+                      color: #f43f5e;
                     }
                     .react-calendar__month-view__days__day--neighboringMonth {
                       color: #cbd5e1;
+                      background: #f8fafc;
+                      border-color: rgba(226, 232, 240, 0.4);
                     }
-                    .event-dot {
-                      display: flex;
-                      justify-content: center;
-                      gap: 4px;
-                      margin-top: 6px;
-                    }
-                    .event-dot span {
-                      width: 7px;
-                      height: 7px;
-                      border-radius: 50%;
-                      display: inline-block;
-                      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                    }
-                    .event-dot span.blue { background: #3b82f6; }
-                    .event-dot span.green { background: #10b981; }
-                    .event-dot span.red { background: #ef4444; }
-                    .event-dot span.purple { background: #0d9488; }
                   `}</style>
 
                 <Calendar
@@ -302,22 +318,24 @@ export default function CalendarView() {
                     if (dayEvents.length === 0) return null;
                     
                     return (
-                      <div className="mt-1 space-y-0.5">
+                      <div className="mt-1 space-y-1">
                         {dayEvents.slice(0, 3).map((ev) => (
                           <div
                             key={ev.id}
-                            className="text-[9px] px-1 py-0.5 rounded truncate font-medium"
+                            className="text-[9px] px-1.5 py-0.5 rounded-md truncate font-semibold shadow-sm flex items-center gap-1"
                             style={{
-                              backgroundColor: ev.color || "#3b82f6",
-                              color: "white",
+                              backgroundColor: `${ev.color || "#3b82f6"}20`,
+                              color: ev.color || "#3b82f6",
+                              border: `1px solid ${ev.color || "#3b82f6"}30`,
                             }}
                             title={ev.title}
                           >
+                            <span className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: ev.color || "#3b82f6" }} />
                             {ev.title}
                           </div>
                         ))}
                         {dayEvents.length > 3 && (
-                          <div className="text-[9px] text-slate-500 font-medium px-1">
+                          <div className="text-[9px] text-slate-500 font-bold px-1.5">
                             +{dayEvents.length - 3} more
                           </div>
                         )}
@@ -333,17 +351,21 @@ export default function CalendarView() {
 
         {/* Add Event Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <Card className="w-full max-w-md mx-4 border-0 shadow-2xl rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-slate-100 flex flex-row items-center justify-between bg-linear-to-r from-teal-50 to-teal-50/50">
-                <CardTitle className="text-lg font-bold bg-linear-to-r from-[#0d9488] to-teal-600 bg-clip-text text-transparent">
-                  Add Event
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ animation: 'backdropFadeIn 0.2s ease-out' }}>
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowAddModal(false)} />
+            <Card className="relative w-full max-w-md border-0 shadow-2xl rounded-2xl overflow-hidden" style={{ animation: 'modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+              <CardHeader className="border-b border-slate-100 flex flex-row items-center justify-between bg-gradient-to-r from-teal-50 to-white">
+                <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-[#0d9488]/10">
+                    <Sparkles className="h-4 w-4 text-[#0d9488]" />
+                  </div>
+                  Add New Event
                 </CardTitle>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setShowAddModal(false)}
-                  className="h-8 w-8 rounded-full hover:bg-white/50"
+                  className="h-8 w-8 rounded-full hover:bg-slate-100 text-slate-500"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -359,7 +381,7 @@ export default function CalendarView() {
                     placeholder="Enter event name"
                     value={form.title}
                     onChange={(e) => handleFormChange("title", e.target.value)}
-                    className="rounded-xl border-slate-200 focus:border-[#0d9488] focus:ring-[#0d9488]/20 h-11"
+                    className="rounded-xl border-slate-200 focus:border-[#0d9488] focus:ring-[#0d9488]/20 h-11 transition-all"
                   />
                 </div>
 
@@ -373,7 +395,7 @@ export default function CalendarView() {
                       <Button
                         variant="outline"
                         id="event-date"
-                        className="w-full justify-between font-normal rounded-xl border-slate-200 h-11"
+                        className="w-full justify-between font-normal rounded-xl border-slate-200 h-11 transition-all hover:bg-slate-50"
                       >
                         {form.date ? format(form.date, "PPP") : "Select date"}
                         <ChevronDownIcon className="h-4 w-4 opacity-50" />
@@ -398,13 +420,16 @@ export default function CalendarView() {
                   <Label htmlFor="event-venue" className="text-sm font-semibold text-slate-700">
                     Event Venue
                   </Label>
-                  <Input
-                    id="event-venue"
-                    placeholder="Enter venue (e.g., Conference Room)"
-                    value={form.venue}
-                    onChange={(e) => handleFormChange("venue", e.target.value)}
-                    className="rounded-xl border-slate-200 focus:border-[#0d9488] focus:ring-[#0d9488]/20 h-11"
-                  />
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      id="event-venue"
+                      placeholder="Enter venue (e.g., Conference Room)"
+                      value={form.venue}
+                      onChange={(e) => handleFormChange("venue", e.target.value)}
+                      className="pl-9 rounded-xl border-slate-200 focus:border-[#0d9488] focus:ring-[#0d9488]/20 h-11 transition-all"
+                    />
+                  </div>
                 </div>
 
                 {/* Event Color */}
@@ -413,19 +438,22 @@ export default function CalendarView() {
                     Event Color
                   </Label>
                   <div className="flex items-center gap-3">
-                    <input
-                      type="color"
-                      id="event-color"
-                      value={form.color}
-                      onChange={(e) => handleFormChange("color", e.target.value)}
-                      className="w-12 h-11 rounded-xl border border-slate-200 cursor-pointer"
-                    />
+                    <div className="relative">
+                      <input
+                        type="color"
+                        id="event-color"
+                        value={form.color}
+                        onChange={(e) => handleFormChange("color", e.target.value)}
+                        className="w-12 h-11 rounded-xl border border-slate-200 cursor-pointer appearance-none bg-transparent"
+                      />
+                      <div className="absolute inset-0 rounded-xl pointer-events-none border border-slate-200" />
+                    </div>
                     <Input
                       type="text"
                       value={form.color}
                       onChange={(e) => handleFormChange("color", e.target.value)}
                       placeholder="#3b82f6"
-                      className="flex-1 rounded-xl border-slate-200 focus:border-[#0d9488] focus:ring-[#0d9488]/20 h-11"
+                      className="flex-1 rounded-xl border-slate-200 focus:border-[#0d9488] focus:ring-[#0d9488]/20 h-11 transition-all"
                     />
                   </div>
                 </div>
@@ -435,14 +463,14 @@ export default function CalendarView() {
                   <Button
                     variant="outline"
                     onClick={() => setShowAddModal(false)}
-                    className="flex-1 rounded-xl h-11 border-slate-200 text-slate-600 hover:bg-slate-50"
+                    className="flex-1 rounded-xl h-11 border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleAddEvent}
                     disabled={!form.title || !form.date}
-                    className="flex-1 rounded-xl h-11 bg-linear-to-r from-[#0d9488] to-teal-600 hover:from-teal-700 hover:to-teal-700 text-white shadow-lg shadow-[#0d9488]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 rounded-xl h-11 bg-gradient-to-r from-[#0d9488] to-teal-600 hover:from-teal-700 hover:to-teal-700 text-white shadow-lg shadow-[#0d9488]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-xl hover:shadow-[#0d9488]/30"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Event
