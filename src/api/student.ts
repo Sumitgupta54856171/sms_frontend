@@ -228,7 +228,6 @@ export const updateStudentDetail = async (data: Partial<StudentDetail> & { id: n
 
 // ─── Update bank detail ────────────────────────────────────────────────
 export const updateBankDetail = async (data: {
-  bankDetailId: number;
   studentId: number;
   bankName: string;
   accountNumber: string;
@@ -296,17 +295,16 @@ export const getPhotoBlobUrl = async (filePath: string): Promise<string> => {
 // ─── Save student bank details ─────────────────────────────────────────
 export interface BankDetailsPayload {
   studentId: number;
-  AccountHolderName: string;
+  accountHolder: string;
   bankName: string;
-  accountNumber: string;
+  accountNo: string;
   ifscCode: string;
-  branchName: string;
+  branch: string;
 }
 
 export interface BankDetailsResponse {
-  bankDetailId?: number;
   studentId: number;
-  AccountHolderName: string;
+  accountHolderName: string;
   bankName: string;
   accountNumber: string;
   ifscCode: string;
@@ -325,6 +323,5 @@ export const fetchBankDetails = async (studentId: number): Promise<BankDetailsRe
     withCredentials: true,
   });
   console.log("Fetched bank details:", response.data);
-  // All fields are at the top level of response.data
-  return response.data;
+  return response.data?.data ?? response.data ;
 };
