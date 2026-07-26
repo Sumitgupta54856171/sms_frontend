@@ -74,6 +74,9 @@ const STATUS_OPTIONS = [
   { value: "holiday", label: "Holiday", color: "bg-slate-100 text-slate-700 border-slate-200" },
 ];
 
+const LATE_THRESHOLD = "10:00";
+const HALF_DAY_CHECKOUT_THRESHOLD = "14:40";
+
 function getMonthName(monthIndex: number): string {
   return new Date(2024, monthIndex, 1).toLocaleString("default", { month: "long" });
 }
@@ -100,20 +103,29 @@ function calculateWorkHours(checkIn: string, checkOut: string): number {
   return Math.round((diff / 60) * 100) / 100;
 }
 
-function determineStatus(times: string[]): PayrollAttendanceRecord["status"] {
-  if (times.length === 0) return "absent";
-  if (times.length === 1) return "half_day";
-  return "present";
-}
-
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
 }
 
-function isCheckInLate(checkIn?: string, threshold?: string): boolean {
-  if (!checkIn || !threshold) return false;
-  return timeToMinutes(checkIn) > timeToMinutes(threshold);
+function isCheckInLate(checkIn?: string): boolean {
+  if (!checkIn) return false;
+  return timeToMinutes(checkIn) >= timeToMinutes(LATE_THRESHOLD);
+}
+
+function isEarlyCheckout(checkOut?: string): boolean {
+  if (!checkOut) return true;
+  return timeToMinutes(checkOut) <= timeToMinutes(HALF_DAY_CHECKOUT_THRESHOLD);
+}
+
+function determineStatus(times: string[]): PayrollAttendanceRecord["status"] {
+  if (times.length === 0) return "absent";
+  if (times.length === 1) return "half_day";
+  const checkIn = times[0];
+  const checkOut = times[times.length - 1];
+  // Late check-in or early checkout = half day
+  if (isCheckInLate(checkIn) || isEarlyCheckout(checkOut)) return "half_day";
+  return "present";
 }
 
 /**
@@ -264,7 +276,6 @@ export default function PayrollView() {
   const [editRecord, setEditRecord] = useState<PayrollAttendanceRecord | null>(null);
   const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [lateThreshold, setLateThreshold] = useState("09:45");
 
   const daysInMonth = getDaysInMonth(year, month);
   const monthName = getMonthName(month);
@@ -273,16 +284,6 @@ export default function PayrollView() {
     loadData();
     loadTeachers();
   }, [month, year]);
-
-  useEffect(() => {
-    // Recompute late flags whenever threshold changes
-    setRecords((prev) =>
-      prev.map((r) => ({
-        ...r,
-        isLate: isCheckInLate(r.checkIn, lateThreshold),
-      }))
-    );
-  }, [lateThreshold]);
 
   const loadData = async () => {
     setLoading(true);
@@ -294,7 +295,7 @@ export default function PayrollView() {
       setRecords(
         recs.map((r) => ({
           ...r,
-          isLate: isCheckInLate(r.checkIn, lateThreshold),
+          isLate: isCheckInLate(r.checkIn),
         }))
       );
       setMappings(maps);
@@ -360,7 +361,7 @@ export default function PayrollView() {
           checkOut: row.checkOut,
           status: row.status,
           workHours: row.workHours,
-          isLate: isCheckInLate(row.checkIn, lateThreshold),
+          isLate: isCheckInLate(row.checkIn),
           teacherId: mapping?.teacherId ?? null,
           staffId: mapping?.staffId ?? null,
           employeeName: row.employeeName,
@@ -425,7 +426,7 @@ export default function PayrollView() {
     if (!editRecord) return;
     const updatedRecord = {
       ...editRecord,
-      isLate: isCheckInLate(editRecord.checkIn, lateThreshold),
+      isLate: isCheckInLate(editRecord.checkIn),
     };
     const updated = records.map((r) =>
       r.machineId === updatedRecord.machineId && r.date === updatedRecord.date ? updatedRecord : r
@@ -728,14 +729,10 @@ export default function PayrollView() {
               </div>
 
               <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm text-slate-600 whitespace-nowrap">Late after</Label>
-                  <Input
-                    type="time"
-                    value={lateThreshold}
-                    onChange={(e) => setLateThreshold(e.target.value)}
-                    className="w-[110px]"
-                  />
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <span className="whitespace-nowrap">Late ≥ 10:00</span>
+                  <span className="text-slate-300">|</span>
+                  <span className="whitespace-nowrap">Half ≤ 14:40</span>
                 </div>
                 <div className="relative flex-1 lg:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -819,7 +816,7 @@ export default function PayrollView() {
                 Monthly Attendance
               </CardTitle>
               <CardDescription>
-                Click any cell to edit attendance. Red cells indicate missing punches. Late check-ins are highlighted in amber.
+                Click any cell to edit. Red = absent, amber = half day, blue dot = late check-in.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
@@ -874,11 +871,12 @@ export default function PayrollView() {
                         {Array.from({ length: daysInMonth }, (_, day) => {
                           const record = getRecordForDay(machineId, day + 1);
                           const isMissing = !record || record.status === "absent";
+                          const isHalf = record?.status === "half_day";
                           return (
                             <td
                               key={day}
                               className={`border-b border-r border-slate-200 p-1 text-center cursor-pointer transition-colors hover:bg-slate-100 ${
-                                isMissing ? "bg-red-50/50" : "bg-white"
+                                isMissing ? "bg-red-50/50" : isHalf ? "bg-amber-50/50" : "bg-white"
                               }`}
                               onClick={() =>
                                 record
@@ -1210,10 +1208,16 @@ export default function PayrollView() {
                   placeholder="Optional note"
                 />
               </div>
-              {editRecord.checkIn && isCheckInLate(editRecord.checkIn, lateThreshold) && (
+              {editRecord.checkIn && isCheckInLate(editRecord.checkIn) && (
                 <div className="flex items-center gap-2 text-amber-700 text-sm bg-amber-50 p-2 rounded-lg">
                   <AlertTriangle className="h-4 w-4" />
-                  Check-in is late (after {lateThreshold})
+                  Check-in is late (≥ 10:00)
+                </div>
+              )}
+              {editRecord.checkOut && isEarlyCheckout(editRecord.checkOut) && (
+                <div className="flex items-center gap-2 text-amber-700 text-sm bg-amber-50 p-2 rounded-lg">
+                  <AlertTriangle className="h-4 w-4" />
+                  Early checkout (≤ 14:40) — half day
                 </div>
               )}
             </div>
