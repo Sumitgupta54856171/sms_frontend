@@ -14,7 +14,6 @@ import {
   AlertCircle,
   Loader2,
   Printer,
-  Download,
   ChevronLeft,
   FileText,
 } from "lucide-react";
@@ -23,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -40,7 +39,6 @@ import {
   deleteHomework,
   type HomeworkItem,
   type HomeworkType,
-  type QuizQuestion,
 } from "@/api/homework";
 
 type ViewMode = "list" | "quiz" | "pdf";
@@ -57,115 +55,6 @@ function isAllowedFile(file: File): boolean {
   const name = file.name.toLowerCase();
   const ext = name.slice(name.lastIndexOf("."));
   return ALLOWED_TYPES.includes(file.type) || ALLOWED_EXTENSIONS.includes(ext);
-}
-
-function parseCSV(text: string): string[][] {
-  const rows: string[][] = [];
-  let current = "";
-  let inQuotes = false;
-  const row: string[] = [];
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const next = text[i + 1];
-
-    if (inQuotes) {
-      if (char === '"' && next === '"') {
-        current += '"';
-        i++;
-      } else if (char === '"') {
-        inQuotes = false;
-      } else {
-        current += char;
-      }
-    } else {
-      if (char === '"') {
-        inQuotes = true;
-      } else if (char === ',') {
-        row.push(current.trim());
-        current = "";
-      } else if (char === '\n' || char === '\r') {
-        if (current !== "" || row.length > 0) {
-          row.push(current.trim());
-          rows.push([...row]);
-          row.length = 0;
-          current = "";
-        }
-      } else {
-        current += char;
-      }
-    }
-  }
-
-  if (current !== "" || row.length > 0) {
-    row.push(current.trim());
-    rows.push([...row]);
-  }
-
-  return rows.filter((r) => r.some((c) => c !== ""));
-}
-
-async function parseExcel(file: File): Promise<string[][]> {
-  try {
-    const XLSX = await import("xlsx");
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-    return (json as string[][]).filter((r) => r.some((c) => c !== undefined && c !== null && String(c).trim() !== ""));
-  } catch {
-    throw new Error("Excel parsing requires the 'xlsx' package. Please install it or use CSV format.");
-  }
-}
-
-async function parseFile(file: File): Promise<string[][]> {
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".csv")) {
-    const text = await file.text();
-    return parseCSV(text);
-  }
-  return parseExcel(file);
-}
-
-function normalizeHeader(header: string): string {
-  return header.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function parseQuizQuestions(rows: string[][]): QuizQuestion[] {
-  if (rows.length < 2) return [];
-  const headers = rows[0].map(normalizeHeader);
-  const questionIdx = headers.findIndex((h) => h.includes("question"));
-  const correctIdx = headers.findIndex((h) => h.includes("correct") || h.includes("answer"));
-  const optionIndices = headers
-    .map((h, i) => ({ h, i }))
-    .filter(({ h }) => h.includes("option") || h.includes("choice") || h.includes("opt"))
-    .map(({ i }) => i)
-    .slice(0, 4);
-
-  const fallbackOptions = [1, 2, 3, 4].map((n) =>
-    headers.findIndex((h) => h.includes(`option${n}`) || h.includes(`opt${n}`) || h.includes(`choice${n}`))
-  );
-
-  const finalOptionIndices =
-    optionIndices.length >= 2 ? optionIndices : fallbackOptions.filter((i) => i !== -1);
-
-  return rows.slice(1).map((row, idx) => {
-    const question = row[questionIdx >= 0 ? questionIdx : 0] ?? "";
-    const options = finalOptionIndices
-      .map((i) => (i >= 0 ? row[i] : ""))
-      .filter((o) => o !== "");
-    const correctAnswer = correctIdx >= 0 ? row[correctIdx] : "";
-    return {
-      id: idx + 1,
-      question,
-      options,
-      correctAnswer,
-    };
-  });
-}
-
-function parsePdfContent(rows: string[][]): string[][] {
-  return rows;
 }
 
 export default function HomeworkView() {
@@ -191,9 +80,6 @@ export default function HomeworkView() {
     dueDate: "",
   });
   const [file, setFile] = useState<File | null>(null);
-  const [parsedRows, setParsedRows] = useState<string[][]>([]);
-  const [parsedQuestions, setParsedQuestions] = useState<QuizQuestion[]>([]);
-  const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -212,51 +98,17 @@ export default function HomeworkView() {
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
 
     if (!isAllowedFile(selected)) {
       toast.error("Only CSV or Excel files are allowed");
       setFile(null);
-      setParsedRows([]);
-      setParsedQuestions([]);
       return;
     }
 
     setFile(selected);
-    setParsing(true);
-    try {
-      const rows = await parseFile(selected);
-      setParsedRows(rows);
-      if (form.type === "quiz") {
-        const questions = parseQuizQuestions(rows);
-        setParsedQuestions(questions);
-        toast.success(`Parsed ${questions.length} quiz questions`);
-      } else {
-        setParsedQuestions([]);
-        toast.success(`Parsed ${rows.length - 1} content rows`);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to parse file";
-      toast.error(message);
-      setFile(null);
-      setParsedRows([]);
-      setParsedQuestions([]);
-    } finally {
-      setParsing(false);
-    }
-  };
-
-  const handleTypeChange = (type: HomeworkType) => {
-    setForm((f) => ({ ...f, type }));
-    if (parsedRows.length > 0) {
-      if (type === "quiz") {
-        setParsedQuestions(parseQuizQuestions(parsedRows));
-      } else {
-        setParsedQuestions([]);
-      }
-    }
   };
 
   const handleSave = async () => {
@@ -265,8 +117,8 @@ export default function HomeworkView() {
       return;
     }
 
-    if (form.type === "quiz" && parsedQuestions.length === 0) {
-      toast.error("Please upload a valid quiz file");
+    if (!file) {
+      toast.error("Please upload a CSV or Excel file");
       return;
     }
 
@@ -274,9 +126,7 @@ export default function HomeworkView() {
     try {
       await saveHomework({
         ...form,
-        file: file ?? undefined,
-        questions: form.type === "quiz" ? parsedQuestions : undefined,
-        contentRows: form.type === "pdf" ? parsedRows : undefined,
+        file,
       });
       toast.success("Homework added successfully");
       resetForm();
@@ -299,8 +149,6 @@ export default function HomeworkView() {
       dueDate: "",
     });
     setFile(null);
-    setParsedRows([]);
-    setParsedQuestions([]);
   };
 
   const handleDelete = async (id: number) => {
@@ -352,7 +200,7 @@ export default function HomeworkView() {
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-sm p-6 sm:p-8 mb-8">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-violet-100/50 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-linear-to-br from-violet-100/50 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
           <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-50 text-violet-700 text-xs font-semibold mb-3 border border-violet-100">
@@ -396,7 +244,7 @@ export default function HomeworkView() {
                 Add New Homework
               </CardTitle>
               <CardDescription>
-                Upload a CSV or Excel file. For quizzes, include question, options, and correct answer columns.
+                Upload a CSV or Excel file. The backend will parse and store quiz questions or PDF content.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6">
@@ -413,7 +261,7 @@ export default function HomeworkView() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="hw-type">Type</Label>
-                    <Select value={form.type} onValueChange={(v) => handleTypeChange(v as HomeworkType)}>
+                    <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v as HomeworkType }))}>
                       <SelectTrigger id="hw-type">
                         <SelectValue />
                       </SelectTrigger>
@@ -468,7 +316,7 @@ export default function HomeworkView() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="hw-file">Upload File (CSV or Excel only)</Label>
+                  <Label htmlFor="hw-file">Upload File (CSV or Excel only) <span className="text-red-500">*</span></Label>
                   <div className="flex items-center gap-3">
                     <Input
                       id="hw-file"
@@ -477,7 +325,6 @@ export default function HomeworkView() {
                       onChange={handleFileChange}
                       className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
                     />
-                    {parsing && <Loader2 className="h-5 w-5 animate-spin text-violet-600" />}
                   </div>
                   {file && (
                     <p className="text-xs text-slate-500 flex items-center gap-1">
@@ -486,33 +333,6 @@ export default function HomeworkView() {
                     </p>
                   )}
                 </div>
-
-                {form.type === "quiz" && parsedQuestions.length > 0 && (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm font-medium text-slate-700 mb-2">
-                      Preview: {parsedQuestions.length} questions parsed
-                    </p>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {parsedQuestions.slice(0, 3).map((q) => (
-                        <div key={q.id} className="text-xs text-slate-600 bg-white p-2 rounded border border-slate-100">
-                          <p className="font-medium">{q.question}</p>
-                          <p className="text-slate-400 mt-1">{q.options.join(" | ")}</p>
-                        </div>
-                      ))}
-                      {parsedQuestions.length > 3 && (
-                        <p className="text-xs text-slate-400">+ {parsedQuestions.length - 3} more</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {form.type === "pdf" && parsedRows.length > 0 && (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm font-medium text-slate-700">
-                      Preview: {parsedRows.length - 1} content rows parsed
-                    </p>
-                  </div>
-                )}
 
                 <Separator />
 
@@ -529,7 +349,7 @@ export default function HomeworkView() {
                   </Button>
                   <Button
                     onClick={handleSave}
-                    disabled={saving || parsing}
+                    disabled={saving}
                     className="bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
                   >
                     {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}

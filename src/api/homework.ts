@@ -18,6 +18,7 @@ export interface HomeworkItem {
   subject: string;
   dueDate: string;
   fileName?: string;
+  fileUrl?: string;
   questions?: QuizQuestion[];
   contentRows?: string[][];
   createdBy: string;
@@ -32,8 +33,6 @@ export interface HomeworkPayload {
   subject: string;
   dueDate: string;
   file?: File;
-  questions?: QuizQuestion[];
-  contentRows?: string[][];
 }
 
 const HOMEWORK_KEY = "homework_items";
@@ -63,12 +62,6 @@ export const saveHomework = async (payload: HomeworkPayload): Promise<HomeworkIt
     if (payload.file) {
       formData.append("file", payload.file);
     }
-    if (payload.questions) {
-      formData.append("questions", JSON.stringify(payload.questions));
-    }
-    if (payload.contentRows) {
-      formData.append("contentRows", JSON.stringify(payload.contentRows));
-    }
 
     const response = await apiClient.post("/api/v1/homework/save", formData, {
       withCredentials: true,
@@ -93,8 +86,8 @@ export const saveHomework = async (payload: HomeworkPayload): Promise<HomeworkIt
       subject: payload.subject,
       dueDate: payload.dueDate,
       fileName: payload.file?.name,
-      questions: payload.questions,
-      contentRows: payload.contentRows,
+      questions: undefined,
+      contentRows: undefined,
       createdBy: "Local Admin",
       createdAt: new Date().toISOString(),
     };
