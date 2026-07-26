@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
   FileText,
-  Download,
   Calendar,
   Users,
   GraduationCap,
@@ -23,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -32,6 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppSelector } from "@/store/hooks";
+import { fetchReportData, type ReportType } from "@/api/reports";
+import { toast } from "sonner";
 
 type ReportFormat = "pdf" | "excel" | "sql";
 
@@ -45,7 +45,7 @@ type ReportCategory =
   | "notices"
   | "events";
 
-interface ReportType {
+interface ReportTypeMeta {
   id: ReportCategory;
   title: string;
   description: string;
@@ -60,7 +60,7 @@ interface Column {
   label: string;
 }
 
-const reportTypes: ReportType[] = [
+const reportTypes: ReportTypeMeta[] = [
   {
     id: "session",
     title: "Session Report",
@@ -135,135 +135,17 @@ const reportTypes: ReportType[] = [
   },
 ];
 
-const today = new Date().toISOString().split("T")[0];
-
-function generateReportData(type: ReportCategory): { columns: Column[]; rows: Record<string, string | number>[] } {
-  switch (type) {
-    case "session":
-      return {
-        columns: [
-          { key: "sessionId", label: "Session ID" },
-          { key: "sessionName", label: "Session Name" },
-          { key: "startDate", label: "Start Date" },
-          { key: "endDate", label: "End Date" },
-          { key: "status", label: "Status" },
-        ],
-        rows: [
-          { sessionId: 1, sessionName: "2024-2025", startDate: "2024-04-01", endDate: "2025-03-31", status: "Active" },
-          { sessionId: 2, sessionName: "2023-2024", startDate: "2023-04-01", endDate: "2024-03-31", status: "Completed" },
-        ],
-      };
-    case "attendance":
-      return {
-        columns: [
-          { key: "date", label: "Date" },
-          { key: "studentId", label: "Student ID" },
-          { key: "studentName", label: "Student Name" },
-          { key: "grade", label: "Grade" },
-          { key: "status", label: "Status" },
-        ],
-        rows: [
-          { date: today, studentId: 101, studentName: "Aarav Sharma", grade: "5-A", status: "Present" },
-          { date: today, studentId: 102, studentName: "Vivaan Gupta", grade: "5-A", status: "Present" },
-          { date: today, studentId: 103, studentName: "Diya Patel", grade: "5-B", status: "Absent" },
-          { date: today, studentId: 104, studentName: "Ishaan Kumar", grade: "6-A", status: "Present" },
-        ],
-      };
-    case "fees":
-      return {
-        columns: [
-          { key: "invoiceId", label: "Invoice ID" },
-          { key: "studentName", label: "Student Name" },
-          { key: "class", label: "Class" },
-          { key: "amount", label: "Amount (₹)" },
-          { key: "paymentType", label: "Payment Type" },
-          { key: "method", label: "Method" },
-          { key: "status", label: "Status" },
-        ],
-        rows: [
-          { invoiceId: "INV-001", studentName: "Aarav Sharma", class: "5-A", amount: 12500, paymentType: "Tuition", method: "UPI", status: "Paid" },
-          { invoiceId: "INV-002", studentName: "Vivaan Gupta", class: "5-A", amount: 12500, paymentType: "Tuition", method: "Cash", status: "Paid" },
-          { invoiceId: "INV-003", studentName: "Diya Patel", class: "5-B", amount: 8000, paymentType: "Transport", method: "Bank Transfer", status: "Pending" },
-        ],
-      };
-    case "students":
-      return {
-        columns: [
-          { key: "studentId", label: "Student ID" },
-          { key: "name", label: "Name" },
-          { key: "grade", label: "Grade" },
-          { key: "rollNo", label: "Roll No" },
-          { key: "scholarNo", label: "Scholar No" },
-          { key: "parentPhone", label: "Parent Phone" },
-        ],
-        rows: [
-          { studentId: 101, name: "Aarav Sharma", grade: "5-A", rollNo: "12", scholarNo: "SCH-2024-101", parentPhone: "9876543210" },
-          { studentId: 102, name: "Vivaan Gupta", grade: "5-A", rollNo: "13", scholarNo: "SCH-2024-102", parentPhone: "9876543211" },
-          { studentId: 103, name: "Diya Patel", grade: "5-B", rollNo: "05", scholarNo: "SCH-2024-103", parentPhone: "9876543212" },
-        ],
-      };
-    case "teachers":
-      return {
-        columns: [
-          { key: "teacherId", label: "Teacher ID" },
-          { key: "name", label: "Name" },
-          { key: "email", label: "Email" },
-          { key: "subject", label: "Subject" },
-          { key: "phone", label: "Phone" },
-          { key: "status", label: "Status" },
-        ],
-        rows: [
-          { teacherId: "TCH-01", name: "Rahul Verma", email: "rahul@school.edu", subject: "Mathematics", phone: "9123456789", status: "Active" },
-          { teacherId: "TCH-02", name: "Priya Nair", email: "priya@school.edu", subject: "Science", phone: "9123456790", status: "Active" },
-        ],
-      };
-    case "exams":
-      return {
-        columns: [
-          { key: "examId", label: "Exam ID" },
-          { key: "name", label: "Exam Name" },
-          { key: "subject", label: "Subject" },
-          { key: "date", label: "Date" },
-          { key: "grade", label: "Grade" },
-          { key: "maxMarks", label: "Max Marks" },
-        ],
-        rows: [
-          { examId: 1, name: "Unit Test 1", subject: "Mathematics", date: "2024-09-10", grade: "5-A", maxMarks: 50 },
-          { examId: 2, name: "Unit Test 1", subject: "Science", date: "2024-09-12", grade: "5-A", maxMarks: 50 },
-        ],
-      };
-    case "notices":
-      return {
-        columns: [
-          { key: "id", label: "Notice ID" },
-          { key: "title", label: "Title" },
-          { key: "tag", label: "Category" },
-          { key: "date", label: "Date" },
-          { key: "description", label: "Description" },
-        ],
-        rows: [
-          { id: 1, title: "Annual Sports Day", tag: "sports", date: "2024-09-15", description: "Annual sports day for grades 1-10." },
-          { id: 2, title: "Mid-term Exam Schedule", tag: "exam", date: "2024-09-20", description: "Mid-term exams begin from 20th Sept." },
-        ],
-      };
-    case "events":
-      return {
-        columns: [
-          { key: "id", label: "Event ID" },
-          { key: "name", label: "Event Name" },
-          { key: "date", label: "Date" },
-          { key: "venue", label: "Venue" },
-          { key: "color", label: "Color" },
-        ],
-        rows: [
-          { id: 1, name: "Independence Day Celebration", date: "2024-08-15", venue: "School Ground", color: "#f97316" },
-          { id: 2, name: "Teacher's Day", date: "2024-09-05", venue: "Auditorium", color: "#8b5cf6" },
-        ],
-      };
-    default:
-      return { columns: [], rows: [] };
-  }
-}
+const filterConfig: Record<string, { label: string; color: string }> = {
+  all: { label: "All Reports", color: "bg-slate-900" },
+  session: { label: "Session", color: "bg-blue-600" },
+  attendance: { label: "Attendance", color: "bg-emerald-600" },
+  fees: { label: "Fees", color: "bg-amber-600" },
+  students: { label: "Students", color: "bg-violet-600" },
+  teachers: { label: "Teachers", color: "bg-rose-600" },
+  exams: { label: "Exams", color: "bg-indigo-600" },
+  notices: { label: "Notices", color: "bg-cyan-600" },
+  events: { label: "Events", color: "bg-fuchsia-600" },
+};
 
 function sanitizeSqlValue(value: unknown): string {
   if (value === null || value === undefined) return "NULL";
@@ -382,26 +264,33 @@ export default function ReportsView() {
     );
   }, [filteredReports, search]);
 
-  const handleDownload = async (report: ReportType, format: ReportFormat) => {
+  const handleDownload = async (report: ReportTypeMeta, format: ReportFormat) => {
     setDownloading(format);
-    const { columns, rows } = generateReportData(report.id);
-    const tableName = `${report.id}_report`;
-    const safeDate = new Date().toISOString().split("T")[0];
-    const filenameBase = `${report.title.replace(/\s+/g, "_")}_${safeDate}`;
+    try {
+      const { columns, rows } = await fetchReportData(report.id as ReportType);
+      const tableName = `${report.id}_report`;
+      const safeDate = new Date().toISOString().split("T")[0];
+      const filenameBase = `${report.title.replace(/\s+/g, "_")}_${safeDate}`;
 
-    // Simulate a brief processing delay for better UX
-    await new Promise((res) => setTimeout(res, 600));
+      if (rows.length === 0) {
+        toast.info(`No data available for ${report.title}.`);
+      }
 
-    if (format === "excel") {
-      downloadExcel(columns, rows, `${filenameBase}.csv`);
-    } else if (format === "sql") {
-      downloadSQL(tableName, columns, rows, `${filenameBase}.sql`);
-    } else if (format === "pdf") {
-      downloadPDF(report.title, columns, rows, `${filenameBase}.pdf`);
+      if (format === "excel") {
+        downloadExcel(columns, rows, `${filenameBase}.csv`);
+      } else if (format === "sql") {
+        downloadSQL(tableName, columns, rows, `${filenameBase}.sql`);
+      } else if (format === "pdf") {
+        downloadPDF(report.title, columns, rows, `${filenameBase}.pdf`);
+      }
+
+      setLastDownload({ title: report.title, format });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to download report";
+      toast.error(message);
+    } finally {
+      setDownloading(null);
     }
-
-    setLastDownload({ title: report.title, format });
-    setDownloading(null);
   };
 
   return (
@@ -590,12 +479,12 @@ function DownloadButton({
   downloading,
   onDownload,
 }: {
-  report: ReportType;
+  report: ReportTypeMeta;
   format: ReportFormat;
   icon: React.ElementType;
   label: string;
   downloading: ReportFormat | null;
-  onDownload: (report: ReportType, format: ReportFormat) => void;
+  onDownload: (report: ReportTypeMeta, format: ReportFormat) => void;
 }) {
   const isBusy = downloading === format;
   return (
