@@ -9,6 +9,7 @@ export interface PayrollAttendanceRecord {
   checkOut?: string;
   status: "present" | "absent" | "half_day" | "leave" | "holiday";
   workHours?: number;
+  isLate?: boolean;
   teacherId?: number | null;
   staffId?: number | null;
   remarks?: string;
@@ -20,6 +21,7 @@ export interface StaffMapping {
   staffId?: number | null;
   name: string;
   department?: string;
+  monthlySalary?: number;
 }
 
 export interface PayrollUploadPayload {

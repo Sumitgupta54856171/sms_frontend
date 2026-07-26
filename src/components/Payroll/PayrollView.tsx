@@ -15,6 +15,8 @@ import {
   Download,
   UserPlus,
   Trash2,
+  IndianRupee,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -102,6 +104,16 @@ function determineStatus(times: string[]): PayrollAttendanceRecord["status"] {
   if (times.length === 0) return "absent";
   if (times.length === 1) return "half_day";
   return "present";
+}
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function isCheckInLate(checkIn?: string, threshold?: string): boolean {
+  if (!checkIn || !threshold) return false;
+  return timeToMinutes(checkIn) > timeToMinutes(threshold);
 }
 
 /**
@@ -252,6 +264,7 @@ export default function PayrollView() {
   const [editRecord, setEditRecord] = useState<PayrollAttendanceRecord | null>(null);
   const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [lateThreshold, setLateThreshold] = useState("09:45");
 
   const daysInMonth = getDaysInMonth(year, month);
   const monthName = getMonthName(month);
@@ -261,6 +274,16 @@ export default function PayrollView() {
     loadTeachers();
   }, [month, year]);
 
+  useEffect(() => {
+    // Recompute late flags whenever threshold changes
+    setRecords((prev) =>
+      prev.map((r) => ({
+        ...r,
+        isLate: isCheckInLate(r.checkIn, lateThreshold),
+      }))
+    );
+  }, [lateThreshold]);
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -268,7 +291,12 @@ export default function PayrollView() {
         fetchPayrollRecords(String(month + 1).padStart(2, "0"), year),
         fetchStaffMappings(),
       ]);
-      setRecords(recs);
+      setRecords(
+        recs.map((r) => ({
+          ...r,
+          isLate: isCheckInLate(r.checkIn, lateThreshold),
+        }))
+      );
       setMappings(maps);
     } catch {
       toast.error("Failed to load payroll data");
@@ -316,6 +344,7 @@ export default function PayrollView() {
             name: row.employeeName || `Employee ${row.machineId}`,
             teacherId: null,
             staffId: null,
+            monthlySalary: 0,
           });
           existingMachineIds.add(row.machineId);
         }
@@ -331,6 +360,7 @@ export default function PayrollView() {
           checkOut: row.checkOut,
           status: row.status,
           workHours: row.workHours,
+          isLate: isCheckInLate(row.checkIn, lateThreshold),
           teacherId: mapping?.teacherId ?? null,
           staffId: mapping?.staffId ?? null,
           employeeName: row.employeeName,
@@ -369,9 +399,11 @@ export default function PayrollView() {
     return Array.from(map.values());
   };
 
-  const handleSaveMapping = async (machineId: string, teacherId: number | null) => {
+  const handleSaveMapping = async (machineId: string, teacherId: number | null, monthlySalary?: number) => {
     const updated = mappings.map((m) =>
-      m.machineId === machineId ? { ...m, teacherId, staffId: teacherId ? null : m.staffId } : m
+      m.machineId === machineId
+        ? { ...m, teacherId, staffId: teacherId ? null : m.staffId, monthlySalary }
+        : m
     );
     await saveStaffMappings(updated);
     setMappings(updated);
@@ -381,7 +413,7 @@ export default function PayrollView() {
     );
     await savePayrollRecords(updatedRecords);
     setRecords(updatedRecords);
-    toast.success("Mapping saved");
+    toast.success("Mapping & salary saved");
   };
 
   const handleEditRecord = (record: PayrollAttendanceRecord) => {
@@ -391,8 +423,12 @@ export default function PayrollView() {
 
   const handleSaveEdit = async () => {
     if (!editRecord) return;
+    const updatedRecord = {
+      ...editRecord,
+      isLate: isCheckInLate(editRecord.checkIn, lateThreshold),
+    };
     const updated = records.map((r) =>
-      r.machineId === editRecord.machineId && r.date === editRecord.date ? editRecord : r
+      r.machineId === updatedRecord.machineId && r.date === updatedRecord.date ? updatedRecord : r
     );
     await savePayrollRecords(updated);
     setRecords(updated);
@@ -458,6 +494,47 @@ export default function PayrollView() {
     return teacher?.fullName || "—";
   };
 
+  const salarySummary = useMemo(() => {
+    return filteredMachineIds.map((machineId) => {
+      const mapping = getMapping(machineId);
+      const monthlySalary = mapping?.monthlySalary ?? 0;
+      const dailySalary = monthlySalary > 0 ? monthlySalary / daysInMonth : 0;
+
+      const employeeRecords = records.filter((r) => r.machineId === machineId);
+      const present = employeeRecords.filter((r) => r.status === "present").length;
+      const absent = employeeRecords.filter((r) => r.status === "absent").length;
+      const halfDay = employeeRecords.filter((r) => r.status === "half_day").length;
+      const late = employeeRecords.filter((r) => r.isLate).length;
+
+      // 3 late days = 1 day salary cut
+      const lateCutDays = Math.floor(late / 3);
+      const lateCutAmount = lateCutDays * dailySalary;
+
+      const absentCutAmount = absent * dailySalary;
+      const halfDayCutAmount = halfDay * (dailySalary / 2);
+
+      const totalCut = lateCutAmount + absentCutAmount + halfDayCutAmount;
+      const netSalary = Math.max(0, monthlySalary - totalCut);
+
+      return {
+        machineId,
+        name: mapping?.name || `Employee ${machineId}`,
+        monthlySalary,
+        dailySalary,
+        present,
+        absent,
+        halfDay,
+        late,
+        lateCutDays,
+        lateCutAmount,
+        absentCutAmount,
+        halfDayCutAmount,
+        totalCut,
+        netSalary,
+      };
+    });
+  }, [filteredMachineIds, records, mappings, daysInMonth]);
+
   const downloadTemplate = () => {
     const lines = [
       "Attendance Record Report,,,,,,,,,,,,,,,,,,,,",
@@ -484,7 +561,17 @@ export default function PayrollView() {
   };
 
   const exportToExcel = () => {
-    const headers = ["Machine ID", "Name", "Date", "Check In", "Check Out", "Status", "Work Hours", "Teacher"];
+    const headers = [
+      "Machine ID",
+      "Name",
+      "Date",
+      "Check In",
+      "Check Out",
+      "Status",
+      "Late",
+      "Work Hours",
+      "Teacher",
+    ];
     const rows = records.map((r) => {
       const mapping = getMapping(r.machineId);
       return [
@@ -494,6 +581,7 @@ export default function PayrollView() {
         r.checkIn || "",
         r.checkOut || "",
         r.status,
+        r.isLate ? "Yes" : "No",
         r.workHours || "",
         getTeacherName(r.teacherId),
       ];
@@ -504,6 +592,39 @@ export default function PayrollView() {
         .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
         .join("\n");
     downloadFile(csv, `payroll_${year}_${month + 1}.csv`, "text/csv");
+  };
+
+  const exportSalarySheet = () => {
+    const headers = [
+      "Machine ID",
+      "Name",
+      "Monthly Salary",
+      "Present Days",
+      "Absent Days",
+      "Half Days",
+      "Late Days",
+      "Late Cut Days",
+      "Total Cut",
+      "Net Salary",
+    ];
+    const rows = salarySummary.map((s) => [
+      s.machineId,
+      s.name,
+      s.monthlySalary,
+      s.present,
+      s.absent,
+      s.halfDay,
+      s.late,
+      s.lateCutDays,
+      s.totalCut.toFixed(2),
+      s.netSalary.toFixed(2),
+    ]);
+    const csv =
+      "\uFEFF" +
+      [headers, ...rows]
+        .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+    downloadFile(csv, `salary_${year}_${month + 1}.csv`, "text/csv");
   };
 
   return (
@@ -522,7 +643,7 @@ export default function PayrollView() {
                 Payroll & Attendance
               </h1>
               <p className="text-base text-slate-500 mt-2 leading-relaxed">
-                Upload Zkteco reports, map machine IDs to staff, track attendance, and edit missing punches.
+                Upload Zkteco reports, map machine IDs to staff, track attendance, and manage salaries with late deductions.
               </p>
             </div>
             <div className="flex gap-2">
@@ -607,6 +728,15 @@ export default function PayrollView() {
               </div>
 
               <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm text-slate-600 whitespace-nowrap">Late after</Label>
+                  <Input
+                    type="time"
+                    value={lateThreshold}
+                    onChange={(e) => setLateThreshold(e.target.value)}
+                    className="w-[110px]"
+                  />
+                </div>
                 <div className="relative flex-1 lg:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
@@ -664,9 +794,9 @@ export default function PayrollView() {
           </Card>
           <Card className="border-slate-200 shadow-sm">
             <CardContent className="p-4">
-              <p className="text-xs text-slate-500">Half Days</p>
+              <p className="text-xs text-slate-500">Late Days</p>
               <p className="text-2xl font-bold text-amber-600">
-                {records.filter((r) => r.status === "half_day").length}
+                {records.filter((r) => r.isLate).length}
               </p>
             </CardContent>
           </Card>
@@ -682,14 +812,14 @@ export default function PayrollView() {
 
         {/* Attendance Grid */}
         {!loading && (
-          <Card className="border-slate-200 shadow-sm overflow-hidden">
+          <Card className="border-slate-200 shadow-sm overflow-hidden mb-6">
             <CardHeader className="bg-slate-50/80 border-b border-slate-100">
               <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-emerald-600" />
                 Monthly Attendance
               </CardTitle>
               <CardDescription>
-                Click any cell to edit attendance. Red cells indicate missing punches.
+                Click any cell to edit attendance. Red cells indicate missing punches. Late check-ins are highlighted in amber.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
@@ -762,13 +892,24 @@ export default function PayrollView() {
                             >
                               {record ? (
                                 <div className="flex flex-col items-center gap-0.5">
-                                  {record.status === "present" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
-                                  {record.status === "absent" && <AlertCircle className="h-3.5 w-3.5 text-red-500" />}
-                                  {record.status === "half_day" && <Clock className="h-3.5 w-3.5 text-amber-500" />}
-                                  {record.status === "leave" && <Clock className="h-3.5 w-3.5 text-blue-500" />}
-                                  {record.status === "holiday" && <Clock className="h-3.5 w-3.5 text-slate-400" />}
+                                  {record.status === "present" && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
+                                  {record.status === "absent" && <AlertCircle className="h-3 w-3 text-red-500" />}
+                                  {record.status === "half_day" && <Clock className="h-3 w-3 text-amber-500" />}
+                                  {record.status === "leave" && <Clock className="h-3 w-3 text-blue-500" />}
+                                  {record.status === "holiday" && <Clock className="h-3 w-3 text-slate-400" />}
                                   {record.checkIn && (
-                                    <span className="text-[10px] text-slate-500">{record.checkIn}</span>
+                                    <span
+                                      className={`text-[9px] leading-tight ${
+                                        record.isLate ? "text-amber-700 font-semibold" : "text-slate-500"
+                                      }`}
+                                    >
+                                      {record.checkIn}
+                                    </span>
+                                  )}
+                                  {record.checkOut && (
+                                    <span className="text-[9px] leading-tight text-slate-400">
+                                      {record.checkOut}
+                                    </span>
                                   )}
                                 </div>
                               ) : (
@@ -799,6 +940,96 @@ export default function PayrollView() {
           </Card>
         )}
 
+        {/* Salary Summary */}
+        {!loading && filteredMachineIds.length > 0 && (
+          <Card className="border-slate-200 shadow-sm overflow-hidden">
+            <CardHeader className="bg-slate-50/80 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <IndianRupee className="h-5 w-5 text-emerald-600" />
+                  Salary Summary
+                </CardTitle>
+                <CardDescription>
+                  3 late days = 1 day salary deduction. Absent and half-day cuts are applied automatically.
+                </CardDescription>
+              </div>
+              <Button variant="outline" onClick={exportSalarySheet} className="border-slate-200">
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export Salary Sheet
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              <table className="w-full text-sm border-collapse min-w-[900px]">
+                <thead>
+                  <tr className="bg-slate-50">
+                    <th className="border-b border-r border-slate-200 p-3 text-left font-semibold text-slate-700">
+                      Employee
+                    </th>
+                    <th className="border-b border-r border-slate-200 p-3 text-right font-semibold text-slate-700">
+                      Monthly Salary
+                    </th>
+                    <th className="border-b border-r border-slate-200 p-3 text-center font-semibold text-slate-700">
+                      Present
+                    </th>
+                    <th className="border-b border-r border-slate-200 p-3 text-center font-semibold text-slate-700">
+                      Absent
+                    </th>
+                    <th className="border-b border-r border-slate-200 p-3 text-center font-semibold text-slate-700">
+                      Half Day
+                    </th>
+                    <th className="border-b border-r border-slate-200 p-3 text-center font-semibold text-slate-700">
+                      Late
+                    </th>
+                    <th className="border-b border-r border-slate-200 p-3 text-center font-semibold text-slate-700">
+                      Late Cut Days
+                    </th>
+                    <th className="border-b border-r border-slate-200 p-3 text-right font-semibold text-slate-700">
+                      Total Cut
+                    </th>
+                    <th className="border-b border-slate-200 p-3 text-right font-semibold text-slate-700">
+                      Net Salary
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salarySummary.map((summary) => (
+                    <tr key={summary.machineId} className="hover:bg-slate-50/50">
+                      <td className="border-b border-r border-slate-200 p-3">
+                        <p className="font-medium text-slate-900">{summary.name}</p>
+                        <p className="text-xs text-slate-500">ID: {summary.machineId}</p>
+                      </td>
+                      <td className="border-b border-r border-slate-200 p-3 text-right">
+                        ₹{summary.monthlySalary.toLocaleString("en-IN")}
+                      </td>
+                      <td className="border-b border-r border-slate-200 p-3 text-center text-emerald-600 font-medium">
+                        {summary.present}
+                      </td>
+                      <td className="border-b border-r border-slate-200 p-3 text-center text-red-600 font-medium">
+                        {summary.absent}
+                      </td>
+                      <td className="border-b border-r border-slate-200 p-3 text-center text-amber-600 font-medium">
+                        {summary.halfDay}
+                      </td>
+                      <td className="border-b border-r border-slate-200 p-3 text-center text-amber-600 font-medium">
+                        {summary.late}
+                      </td>
+                      <td className="border-b border-r border-slate-200 p-3 text-center text-red-600 font-medium">
+                        {summary.lateCutDays}
+                      </td>
+                      <td className="border-b border-r border-slate-200 p-3 text-right text-red-600 font-medium">
+                        ₹{summary.totalCut.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="border-b border-slate-200 p-3 text-right text-emerald-700 font-bold">
+                        ₹{summary.netSalary.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Empty state */}
         {!loading && filteredMachineIds.length === 0 && (
           <div className="text-center py-16 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm mt-6">
@@ -822,41 +1053,63 @@ export default function PayrollView() {
               Map Machine IDs to Staff
             </DialogTitle>
             <DialogDescription>
-              Connect each biometric machine ID to a teacher or staff member.
+              Connect each biometric machine ID to a teacher/staff member and set their monthly salary.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[400px] overflow-y-auto space-y-3 mt-4">
             {mappings.map((mapping) => (
               <div
                 key={mapping.machineId}
-                className={`flex items-center gap-3 p-3 rounded-lg border ${
+                className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 rounded-lg border ${
                   selectedMachineId === mapping.machineId
                     ? "border-emerald-300 bg-emerald-50/30"
                     : "border-slate-200"
                 }`}
               >
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-medium text-slate-900">{mapping.name}</p>
                   <p className="text-xs text-slate-500">Machine ID: {mapping.machineId}</p>
                 </div>
-                <Select
-                  value={mapping.teacherId ? String(mapping.teacherId) : "unmapped"}
-                  onValueChange={(v) =>
-                    handleSaveMapping(mapping.machineId, v === "unmapped" ? null : Number(v))
-                  }
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select teacher" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unmapped">— Unmapped —</SelectItem>
-                    {teachers.map((t) => (
-                      <SelectItem key={t.id} value={String(t.id)}>
-                        {t.fullName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Select
+                    value={mapping.teacherId ? String(mapping.teacherId) : "unmapped"}
+                    onValueChange={(v) =>
+                      handleSaveMapping(
+                        mapping.machineId,
+                        v === "unmapped" ? null : Number(v),
+                        mapping.monthlySalary
+                      )
+                    }
+                  >
+                    <SelectTrigger className="w-full sm:w-[180px]">
+                      <SelectValue placeholder="Select teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unmapped">— Unmapped —</SelectItem>
+                      {teachers.map((t) => (
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.fullName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="relative w-full sm:w-[140px]">
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      type="number"
+                      placeholder="Salary"
+                      value={mapping.monthlySalary ?? ""}
+                      onChange={(e) =>
+                        handleSaveMapping(
+                          mapping.machineId,
+                          mapping.teacherId ?? null,
+                          Number(e.target.value)
+                        )
+                      }
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
               </div>
             ))}
             {mappings.length === 0 && (
@@ -957,6 +1210,12 @@ export default function PayrollView() {
                   placeholder="Optional note"
                 />
               </div>
+              {editRecord.checkIn && isCheckInLate(editRecord.checkIn, lateThreshold) && (
+                <div className="flex items-center gap-2 text-amber-700 text-sm bg-amber-50 p-2 rounded-lg">
+                  <AlertTriangle className="h-4 w-4" />
+                  Check-in is late (after {lateThreshold})
+                </div>
+              )}
             </div>
           )}
           <DialogFooter className="gap-2">
