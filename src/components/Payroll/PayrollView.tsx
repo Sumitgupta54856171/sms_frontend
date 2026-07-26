@@ -54,7 +54,7 @@ interface ParsedRow {
   date: string;
   checkIn?: string;
   checkOut?: string;
-  status?: string;
+  status: PayrollAttendanceRecord["status"];
   workHours?: number;
 }
 
@@ -84,156 +84,158 @@ function formatDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function normalizeHeader(header: string): string {
-  return String(header).toLowerCase().replace(/[^a-z0-9]/g, "");
+function extractTimes(cell: string): string[] {
+  if (!cell || cell.trim() === "") return [];
+  const matches = cell.match(/(\d{2}:\d{2})/g);
+  return matches ? matches : [];
 }
 
-function detectColumnIndex(headers: string[], possibleNames: string[]): number {
-  const normalizedHeaders = headers.map(normalizeHeader);
-  for (const name of possibleNames) {
-    const idx = normalizedHeaders.indexOf(normalizeHeader(name));
-    if (idx !== -1) return idx;
-  }
-  return -1;
+function calculateWorkHours(checkIn: string, checkOut: string): number {
+  const [inH, inM] = checkIn.split(":").map(Number);
+  const [outH, outM] = checkOut.split(":").map(Number);
+  let diff = outH * 60 + outM - (inH * 60 + inM);
+  if (diff < 0) diff += 24 * 60;
+  return Math.round((diff / 60) * 100) / 100;
+}
+
+function determineStatus(times: string[]): PayrollAttendanceRecord["status"] {
+  if (times.length === 0) return "absent";
+  if (times.length === 1) return "half_day";
+  return "present";
 }
 
 /**
- * Parse a Zkteco Standard Report (schedule summary format).
+ * Parse a Zkteco "Attendance Record Report" (CSV or XLS/XLSX).
  *
- * File structure:
- *   Row 0: Title ("Schedule Information Report")
- *   Row 1: "Stat.Date: YYYY-MM-DD ~ YYYY-MM-DD" + special shift legend
- *   Row 2: Headers (ID, Name, Department, 1.0, 2.0, ... day columns)
- *   Row 3: Day-of-week row
- *   Row 4+: Employee data — each row has ID, Name, Dept, then attendance codes per day
- *
- * Attendance codes:
- *   1.0 or 1  = Present
- *   25.0 or 25 = Leave
- *   26.0 or 26 = Absent/Out
- *   empty/null = Holiday
+ * Expected layout:
+ *   - One row contains "Att. Time" and the date range "YYYY-MM-DD ~ YYYY-MM-DD".
+ *   - Next row has day numbers 1..N.
+ *   - Then repeating employee blocks of TWO rows:
+ *       Header: ID:,,{machineId},,,,,,Name:,,,,,,,,,,Dept.:,,Company
+ *       Data:   time punches for day 1..N (each cell may contain concatenated HH:MM values)
  */
-async function parseXlsFile(file: File): Promise<ParsedRow[]> {
-  try {
+async function parseZktecoReport(file: File): Promise<ParsedRow[]> {
+  let rawRows: string[][] = [];
+
+  const fileName = file.name.toLowerCase();
+  if (fileName.endsWith(".csv")) {
+    const text = await file.text();
+    rawRows = text
+      .split(/\r?\n/)
+      .map((line) => line.split(",").map((c) => c.trim()));
+  } else if (fileName.endsWith(".xls") || fileName.endsWith(".xlsx")) {
     const XLSX = await import("xlsx");
     const data = await file.arrayBuffer();
     const workbook = XLSX.read(data, { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as string[][];
-
-    const rows = json.filter((r) => r.some((c) => c !== undefined && c !== null && String(c).trim() !== ""));
-    if (rows.length < 3) return [];
-
-    // ── Extract date range from row 1 ──────────────────────────────
-    // Row 1 looks like: "Stat.Date: 2026-07-01 ~ 2026-07-10"
-    const dateRangeRow = String(rows[1]?.[1] ?? "");
-    const dateMatch = dateRangeRow.match(/(\d{4})-(\d{2})-(\d{2})\s*~\s*(\d{4})-(\d{2})-(\d{2})/);
-    let startYear = 2026, startMonth = 7, startDay = 1;
-    if (dateMatch) {
-      startYear = parseInt(dateMatch[1]);
-      startMonth = parseInt(dateMatch[2]);
-      startDay = parseInt(dateMatch[3]);
-    }
-
-    // ── Find header row (contains "ID", "Name", "Department") ─────
-    let headerRowIndex = -1;
-    for (let i = 0; i < Math.min(rows.length, 10); i++) {
-      const rowText = rows[i].join(" ").toLowerCase();
-      if (rowText.includes("id") && rowText.includes("name") && rowText.includes("dep")) {
-        headerRowIndex = i;
-        break;
-      }
-    }
-    if (headerRowIndex === -1) {
-      // Fallback: assume row 2 is the header
-      headerRowIndex = 2;
-    }
-
-    const headers = rows[headerRowIndex].map((h) => String(h ?? ""));
-    const idIdx = detectColumnIndex(headers, ["id", "ac-no", "acno", "userid", "user id", "code"]);
-    const nameIdx = detectColumnIndex(headers, ["name", "empname", "employee name", "username"]);
-
-    // Day columns start after Department — find them by looking for numeric headers (1.0, 2.0, ...)
-    let firstDayCol = -1;
-    let dayCount = 0;
-    for (let c = 0; c < headers.length; c++) {
-      const h = headers[c].trim();
-      if (h && !isNaN(Number(h)) && Number(h) >= 1 && Number(h) <= 31) {
-        if (firstDayCol === -1) firstDayCol = c;
-        dayCount++;
-      }
-    }
-    if (firstDayCol === -1) {
-      // Fallback: day columns start after Department (index 3)
-      firstDayCol = 3;
-      dayCount = headers.length - firstDayCol;
-    }
-
-    const parsed: ParsedRow[] = [];
-
-    for (let i = headerRowIndex + 1; i < rows.length; i++) {
-      const row = rows[i];
-      const machineId = idIdx >= 0 ? String(row[idIdx] ?? "").trim() : "";
-      const name = nameIdx >= 0 ? String(row[nameIdx] ?? "").trim() : "";
-
-      if (!machineId && !name) continue;
-
-      // Parse each day column
-      for (let d = 0; d < dayCount; d++) {
-        const colIdx = firstDayCol + d;
-        if (colIdx >= row.length) continue;
-
-        const rawCode = String(row[colIdx] ?? "").trim();
-        // Calculate the actual date (handle month rollover)
-        let dateObj = new Date(startYear, startMonth - 1, startDay + d);
-        const dateKey = formatDateKey(dateObj);
-
-        // Map attendance code to status
-        let status: PayrollAttendanceRecord["status"] = "present";
-        let isPresent = true;
-
-        if (rawCode === "" || rawCode === "0" || rawCode === "0.0") {
-          status = "holiday";
-          isPresent = false;
-        } else {
-          const code = parseFloat(rawCode);
-          if (code === 25) {
-            status = "leave";
-            isPresent = false;
-          } else if (code === 26) {
-            status = "absent";
-            isPresent = false;
-          } else if (code === 1 || code === 0) {
-            status = code === 0 ? "holiday" : "present";
-            isPresent = code !== 0;
-          } else {
-            // Any other code = present by default
-            status = "present";
-          }
-        }
-
-        parsed.push({
-          machineId,
-          employeeName: name || `Employee ${machineId}`,
-          date: dateKey,
-          status: isPresent ? "present" : status,
-          checkIn: isPresent ? "09:00" : undefined,
-          checkOut: isPresent ? "17:00" : undefined,
-          workHours: isPresent ? 8 : 0,
-        });
-      }
-    }
-
-    return parsed;
-  } catch (error) {
-    throw new Error("Failed to parse XLS file. Make sure 'xlsx' package is installed.");
+    rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as string[][];
+    rawRows = rawRows.map((r) => r.map((c) => (c === undefined || c === null ? "" : String(c).trim())));
+  } else {
+    throw new Error("Unsupported file type. Please upload .csv, .xls or .xlsx");
   }
-}
 
-function calculateStatus(checkIn?: string, checkOut?: string): PayrollAttendanceRecord["status"] {
-  if (!checkIn && !checkOut) return "absent";
-  if (checkIn && !checkOut) return "half_day";
-  return "present";
+  const rows = rawRows.filter((r) => r.some((c) => c !== ""));
+
+  // ── Find the date range row ─────────────────────────────────────────
+  let startDate: Date | null = null;
+  let dateRangeRowIndex = -1;
+
+  for (let i = 0; i < rows.length; i++) {
+    const rowText = rows[i].join(" ");
+    const match = rowText.match(/(\d{4})-(\d{2})-(\d{2})\s*~\s*(\d{4})-(\d{2})-(\d{2})/);
+    if (match && rowText.includes("Att. Time")) {
+      startDate = new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+      dateRangeRowIndex = i;
+      break;
+    }
+  }
+
+  if (!startDate) {
+    throw new Error("Could not find 'Att. Time' date range in the uploaded file.");
+  }
+
+  // ── Find the day-numbers row ────────────────────────────────────────
+  let dayCount = 0;
+  let dayNumbersRowIndex = -1;
+
+  for (let i = dateRangeRowIndex + 1; i < Math.min(rows.length, dateRangeRowIndex + 5); i++) {
+    const row = rows[i];
+    if (row[0] === "1" && row[1] === "2" && row[2] === "3") {
+      dayNumbersRowIndex = i;
+      for (let c = 0; c < row.length; c++) {
+        if (row[c] && !isNaN(Number(row[c]))) dayCount++;
+        else if (dayCount > 0) break;
+      }
+      break;
+    }
+  }
+
+  if (dayCount === 0) dayCount = 10; // sensible fallback
+
+  // ── Iterate employee blocks ─────────────────────────────────────────
+  const parsed: ParsedRow[] = [];
+
+  for (let i = dayNumbersRowIndex + 1; i < rows.length; i++) {
+    const headerRow = rows[i];
+
+    // Locate "ID:" marker and the machine id two cells after it
+    const idMarkerIndex = headerRow.findIndex((c) => c === "ID:");
+    if (idMarkerIndex === -1 || idMarkerIndex + 2 >= headerRow.length) continue;
+
+    const machineId = headerRow[idMarkerIndex + 2];
+    if (!machineId) continue;
+
+    // Name is two cells after "Name:" marker if present
+    const nameMarkerIndex = headerRow.findIndex((c) => c === "Name:");
+    const employeeName =
+      nameMarkerIndex !== -1 && nameMarkerIndex + 2 < headerRow.length
+        ? headerRow[nameMarkerIndex + 2]
+        : "";
+
+    // The next row is the data row
+    const dataRow = rows[i + 1];
+    if (!dataRow) continue;
+
+    for (let d = 0; d < dayCount; d++) {
+      const cell = dataRow[d] || "";
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + d);
+      const dateKey = formatDateKey(date);
+
+      const times = extractTimes(cell);
+      const status = determineStatus(times);
+
+      let checkIn: string | undefined;
+      let checkOut: string | undefined;
+      let workHours: number | undefined;
+
+      if (times.length === 1) {
+        checkIn = times[0];
+      } else if (times.length >= 2) {
+        checkIn = times[0];
+        checkOut = times[times.length - 1];
+        workHours = calculateWorkHours(checkIn, checkOut);
+      }
+
+      parsed.push({
+        machineId,
+        employeeName: employeeName || `Employee ${machineId}`,
+        date: dateKey,
+        checkIn,
+        checkOut,
+        status,
+        workHours,
+      });
+    }
+
+    i++; // skip the data row we just consumed
+  }
+
+  if (parsed.length === 0) {
+    throw new Error("No employee attendance blocks found in the file.");
+  }
+
+  return parsed;
 }
 
 export default function PayrollView() {
@@ -294,18 +296,15 @@ export default function PayrollView() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith(".xls") && !file.name.toLowerCase().endsWith(".xlsx")) {
-      toast.error("Please upload an XLS or XLSX file");
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".xls") && !name.endsWith(".xlsx") && !name.endsWith(".csv")) {
+      toast.error("Please upload a Zkteco .csv, .xls or .xlsx report");
       return;
     }
 
     setParsing(true);
     try {
-      const parsed = await parseXlsFile(file);
-      if (parsed.length === 0) {
-        toast.error("No valid attendance records found in file");
-        return;
-      }
+      const parsed = await parseZktecoReport(file);
 
       // Auto-create mappings for unknown machine IDs
       const existingMachineIds = new Set(mappings.map((m) => m.machineId));
@@ -321,7 +320,8 @@ export default function PayrollView() {
           existingMachineIds.add(row.machineId);
         }
 
-        const mapping = mappings.find((m) => m.machineId === row.machineId) ||
+        const mapping =
+          mappings.find((m) => m.machineId === row.machineId) ||
           newMappings.find((m) => m.machineId === row.machineId);
 
         return {
@@ -329,7 +329,7 @@ export default function PayrollView() {
           date: row.date,
           checkIn: row.checkIn,
           checkOut: row.checkOut,
-          status: (row.status || calculateStatus(row.checkIn, row.checkOut)) as PayrollAttendanceRecord["status"],
+          status: row.status,
           workHours: row.workHours,
           teacherId: mapping?.teacherId ?? null,
           staffId: mapping?.staffId ?? null,
@@ -376,7 +376,6 @@ export default function PayrollView() {
     await saveStaffMappings(updated);
     setMappings(updated);
 
-    // Update all records for this machine
     const updatedRecords = records.map((r) =>
       r.machineId === machineId ? { ...r, teacherId } : r
     );
@@ -436,7 +435,11 @@ export default function PayrollView() {
       const mapping = mappings.find((m) => m.machineId === id);
       const name = mapping?.name?.toLowerCase() || "";
       const teacher = teachers.find((t) => t.id === mapping?.teacherId);
-      return id.toLowerCase().includes(q) || name.includes(q) || teacher?.fullName.toLowerCase().includes(q);
+      return (
+        id.toLowerCase().includes(q) ||
+        name.includes(q) ||
+        teacher?.fullName.toLowerCase().includes(q)
+      );
     });
   }, [uniqueMachineIds, search, mappings, teachers]);
 
@@ -456,8 +459,15 @@ export default function PayrollView() {
   };
 
   const downloadTemplate = () => {
-    const headers = ["AC-No.", "Name", "Date", "Time", "Status"];
-    const csv = "\uFEFF" + headers.join(",") + "\n";
+    const lines = [
+      "Attendance Record Report,,,,,,,,,,,,,,,,,,,,",
+      ",,,,,,,,,,,,,,,,,,,,",
+      "Att. Time,,2026-07-01 ~ 2026-07-10,,,,,,,Tabulation,,2026-07-10,,,,,,,,,",
+      "1,2,3,4,5,6,7,8,9,10,,,,,,,,,,,",
+      "ID:,,1,,,,,,Name:,,John Doe,,,,,,,,,Dept.:,,Company",
+      "09:5515:03,09:4615:00,11:0215:01,,,09:41,09:4315:01,09:4914:59,,09:43,,,,,,,,,,,",
+    ];
+    const csv = "\uFEFF" + lines.join("\n");
     downloadFile(csv, "zkteco_template.csv", "text/csv");
   };
 
@@ -488,7 +498,11 @@ export default function PayrollView() {
         getTeacherName(r.teacherId),
       ];
     });
-    const csv = "\uFEFF" + [headers, ...rows].map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv =
+      "\uFEFF" +
+      [headers, ...rows]
+        .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
     downloadFile(csv, `payroll_${year}_${month + 1}.csv`, "text/csv");
   };
 
@@ -508,7 +522,7 @@ export default function PayrollView() {
                 Payroll & Attendance
               </h1>
               <p className="text-base text-slate-500 mt-2 leading-relaxed">
-                Upload Zkteco XLS reports, map machine IDs to staff, track attendance, and edit missing punches.
+                Upload Zkteco reports, map machine IDs to staff, track attendance, and edit missing punches.
               </p>
             </div>
             <div className="flex gap-2">
@@ -605,7 +619,7 @@ export default function PayrollView() {
                 <div>
                   <Input
                     type="file"
-                    accept=".xls,.xlsx"
+                    accept=".csv,.xls,.xlsx"
                     onChange={handleFileUpload}
                     disabled={parsing}
                     className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
@@ -675,7 +689,7 @@ export default function PayrollView() {
                 Monthly Attendance
               </CardTitle>
               <CardDescription>
-                Click on any cell to edit attendance. Red cells indicate missing punches.
+                Click any cell to edit attendance. Red cells indicate missing punches.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
@@ -706,14 +720,22 @@ export default function PayrollView() {
                       <tr key={machineId} className="hover:bg-slate-50/50">
                         <td className="sticky left-0 bg-white border-b border-r border-slate-200 p-3 z-10">
                           <div>
-                            <p className="font-medium text-slate-900">{mapping?.name || `Employee ${machineId}`}</p>
+                            <p className="font-medium text-slate-900">
+                              {mapping?.name || `Employee ${machineId}`}
+                            </p>
                             <p className="text-xs text-slate-500">ID: {machineId}</p>
                             {mapping?.teacherId ? (
-                              <Badge variant="outline" className="mt-1 bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                              <Badge
+                                variant="outline"
+                                className="mt-1 bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]"
+                              >
                                 {teacherName}
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="mt-1 bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
+                              <Badge
+                                variant="outline"
+                                className="mt-1 bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
+                              >
                                 Unmapped
                               </Badge>
                             )}
@@ -731,7 +753,10 @@ export default function PayrollView() {
                               onClick={() =>
                                 record
                                   ? handleEditRecord(record)
-                                  : handleAddMissingRecord(machineId, formatDateKey(new Date(year, month, day + 1)))
+                                  : handleAddMissingRecord(
+                                      machineId,
+                                      formatDateKey(new Date(year, month, day + 1))
+                                    )
                               }
                               title={record ? `${record.checkIn || ""} - ${record.checkOut || ""}` : "Add attendance"}
                             >
@@ -782,7 +807,7 @@ export default function PayrollView() {
             </div>
             <p className="text-lg font-semibold text-slate-900">No attendance data</p>
             <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
-              Upload a Zkteco XLS file to import attendance records for {monthName} {year}.
+              Upload a Zkteco report to import attendance records for {monthName} {year}.
             </p>
           </div>
         )}
@@ -805,7 +830,9 @@ export default function PayrollView() {
               <div
                 key={mapping.machineId}
                 className={`flex items-center gap-3 p-3 rounded-lg border ${
-                  selectedMachineId === mapping.machineId ? "border-emerald-300 bg-emerald-50/30" : "border-slate-200"
+                  selectedMachineId === mapping.machineId
+                    ? "border-emerald-300 bg-emerald-50/30"
+                    : "border-slate-200"
                 }`}
               >
                 <div className="flex-1">
@@ -814,7 +841,9 @@ export default function PayrollView() {
                 </div>
                 <Select
                   value={mapping.teacherId ? String(mapping.teacherId) : "unmapped"}
-                  onValueChange={(v) => handleSaveMapping(mapping.machineId, v === "unmapped" ? null : Number(v))}
+                  onValueChange={(v) =>
+                    handleSaveMapping(mapping.machineId, v === "unmapped" ? null : Number(v))
+                  }
                 >
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="Select teacher" />
@@ -832,12 +861,15 @@ export default function PayrollView() {
             ))}
             {mappings.length === 0 && (
               <p className="text-center text-sm text-slate-500 py-8">
-                No machine IDs found. Upload an XLS file first.
+                No machine IDs found. Upload a Zkteco report first.
               </p>
             )}
           </div>
           <DialogFooter>
-            <Button onClick={() => setIsMappingDialogOpen(false)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button
+              onClick={() => setIsMappingDialogOpen(false)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
               Done
             </Button>
           </DialogFooter>
@@ -890,7 +922,9 @@ export default function PayrollView() {
                 <Label>Status</Label>
                 <Select
                   value={editRecord.status}
-                  onValueChange={(v) => setEditRecord({ ...editRecord, status: v as PayrollAttendanceRecord["status"] })}
+                  onValueChange={(v) =>
+                    setEditRecord({ ...editRecord, status: v as PayrollAttendanceRecord["status"] })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -910,7 +944,9 @@ export default function PayrollView() {
                   type="number"
                   step="0.5"
                   value={editRecord.workHours || ""}
-                  onChange={(e) => setEditRecord({ ...editRecord, workHours: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setEditRecord({ ...editRecord, workHours: Number(e.target.value) })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -937,7 +973,10 @@ export default function PayrollView() {
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button
+              onClick={handleSaveEdit}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
               <Save className="h-4 w-4 mr-2" />
               Save
             </Button>
