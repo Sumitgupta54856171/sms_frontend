@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Upload,
-  Users,
   Calendar,
   Clock,
   AlertCircle,
   CheckCircle2,
-  X,
   Save,
   Edit2,
   Search,
@@ -14,7 +12,6 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
-  Printer,
   Download,
   UserPlus,
   Trash2,
@@ -39,8 +36,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
-import { useAppSelector } from "@/store/hooks";
 import { toast } from "sonner";
 import {
   fetchPayrollRecords,
@@ -89,20 +84,6 @@ function formatDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function parseTime(value: unknown): string | undefined {
-  if (value === null || value === undefined || value === "") return undefined;
-  const str = String(value).trim();
-  if (!str) return undefined;
-  // Handle Excel time serial numbers
-  if (!isNaN(Number(str)) && str.includes(".")) {
-    const totalMinutes = Math.round(Number(str) * 24 * 60);
-    const hours = Math.floor(totalMinutes / 60) % 24;
-    const minutes = totalMinutes % 60;
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-  }
-  return str;
-}
-
 function normalizeHeader(header: string): string {
   return String(header).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -116,6 +97,22 @@ function detectColumnIndex(headers: string[], possibleNames: string[]): number {
   return -1;
 }
 
+/**
+ * Parse a Zkteco Standard Report (schedule summary format).
+ *
+ * File structure:
+ *   Row 0: Title ("Schedule Information Report")
+ *   Row 1: "Stat.Date: YYYY-MM-DD ~ YYYY-MM-DD" + special shift legend
+ *   Row 2: Headers (ID, Name, Department, 1.0, 2.0, ... day columns)
+ *   Row 3: Day-of-week row
+ *   Row 4+: Employee data — each row has ID, Name, Dept, then attendance codes per day
+ *
+ * Attendance codes:
+ *   1.0 or 1  = Present
+ *   25.0 or 25 = Leave
+ *   26.0 or 26 = Absent/Out
+ *   empty/null = Holiday
+ */
 async function parseXlsFile(file: File): Promise<ParsedRow[]> {
   try {
     const XLSX = await import("xlsx");
@@ -125,108 +122,107 @@ async function parseXlsFile(file: File): Promise<ParsedRow[]> {
     const json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as string[][];
 
     const rows = json.filter((r) => r.some((c) => c !== undefined && c !== null && String(c).trim() !== ""));
-    if (rows.length < 2) return [];
+    if (rows.length < 3) return [];
 
-    // Try to find header row
-    let headerRowIndex = 0;
+    // ── Extract date range from row 1 ──────────────────────────────
+    // Row 1 looks like: "Stat.Date: 2026-07-01 ~ 2026-07-10"
+    const dateRangeRow = String(rows[1]?.[1] ?? "");
+    const dateMatch = dateRangeRow.match(/(\d{4})-(\d{2})-(\d{2})\s*~\s*(\d{4})-(\d{2})-(\d{2})/);
+    let startYear = 2026, startMonth = 7, startDay = 1;
+    if (dateMatch) {
+      startYear = parseInt(dateMatch[1]);
+      startMonth = parseInt(dateMatch[2]);
+      startDay = parseInt(dateMatch[3]);
+    }
+
+    // ── Find header row (contains "ID", "Name", "Department") ─────
+    let headerRowIndex = -1;
     for (let i = 0; i < Math.min(rows.length, 10); i++) {
       const rowText = rows[i].join(" ").toLowerCase();
-      if (
-        rowText.includes("ac-no") ||
-        rowText.includes("userid") ||
-        rowText.includes("name") ||
-        rowText.includes("date") ||
-        rowText.includes("time") ||
-        rowText.includes("status")
-      ) {
+      if (rowText.includes("id") && rowText.includes("name") && rowText.includes("dep")) {
         headerRowIndex = i;
         break;
       }
     }
+    if (headerRowIndex === -1) {
+      // Fallback: assume row 2 is the header
+      headerRowIndex = 2;
+    }
 
     const headers = rows[headerRowIndex].map((h) => String(h ?? ""));
-    const machineIdIdx = detectColumnIndex(headers, ["ac-no", "acno", "userid", "user id", "id", "empid", "employeeid", "employee id", "code"]);
+    const idIdx = detectColumnIndex(headers, ["id", "ac-no", "acno", "userid", "user id", "code"]);
     const nameIdx = detectColumnIndex(headers, ["name", "empname", "employee name", "username"]);
-    const dateIdx = detectColumnIndex(headers, ["date", "attdate", "attendance date"]);
-    const timeIdx = detectColumnIndex(headers, ["time", "clocktime", "punchtime"]);
-    const statusIdx = detectColumnIndex(headers, ["status", "attstatus", "state"]);
-    const checkInIdx = detectColumnIndex(headers, ["clockin", "checkin", "in time", "intime", "first clock"]);
-    const checkOutIdx = detectColumnIndex(headers, ["clockout", "checkout", "out time", "outtime", "last clock"]);
-    const workHoursIdx = detectColumnIndex(headers, ["worktime", "work hours", "workhours", "hours worked"]);
+
+    // Day columns start after Department — find them by looking for numeric headers (1.0, 2.0, ...)
+    let firstDayCol = -1;
+    let dayCount = 0;
+    for (let c = 0; c < headers.length; c++) {
+      const h = headers[c].trim();
+      if (h && !isNaN(Number(h)) && Number(h) >= 1 && Number(h) <= 31) {
+        if (firstDayCol === -1) firstDayCol = c;
+        dayCount++;
+      }
+    }
+    if (firstDayCol === -1) {
+      // Fallback: day columns start after Department (index 3)
+      firstDayCol = 3;
+      dayCount = headers.length - firstDayCol;
+    }
 
     const parsed: ParsedRow[] = [];
-    const groupedByDate: Record<string, ParsedRow[]> = {};
 
     for (let i = headerRowIndex + 1; i < rows.length; i++) {
       const row = rows[i];
-      const machineId = machineIdIdx >= 0 ? String(row[machineIdIdx] ?? "").trim() : "";
+      const machineId = idIdx >= 0 ? String(row[idIdx] ?? "").trim() : "";
       const name = nameIdx >= 0 ? String(row[nameIdx] ?? "").trim() : "";
-      const dateRaw = dateIdx >= 0 ? String(row[dateIdx] ?? "").trim() : "";
-      const timeRaw = timeIdx >= 0 ? String(row[timeIdx] ?? "").trim() : "";
 
       if (!machineId && !name) continue;
 
-      let date = dateRaw;
-      if (!date && timeRaw) {
-        const parts = timeRaw.split(" ");
-        if (parts.length >= 2) date = parts[0];
-      }
+      // Parse each day column
+      for (let d = 0; d < dayCount; d++) {
+        const colIdx = firstDayCol + d;
+        if (colIdx >= row.length) continue;
 
-      if (!date) continue;
+        const rawCode = String(row[colIdx] ?? "").trim();
+        // Calculate the actual date (handle month rollover)
+        let dateObj = new Date(startYear, startMonth - 1, startDay + d);
+        const dateKey = formatDateKey(dateObj);
 
-      // Normalize date to YYYY-MM-DD
-      let normalizedDate = date;
-      if (date.includes("/")) {
-        const [d, m, y] = date.split("/");
-        normalizedDate = `${y.length === 2 ? "20" + y : y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-      } else if (date.includes("-")) {
-        const parts = date.split("-");
-        if (parts[0].length === 4) {
-          normalizedDate = date;
+        // Map attendance code to status
+        let status: PayrollAttendanceRecord["status"] = "present";
+        let isPresent = true;
+
+        if (rawCode === "" || rawCode === "0" || rawCode === "0.0") {
+          status = "holiday";
+          isPresent = false;
         } else {
-          const [d, m, y] = parts;
-          normalizedDate = `${y.length === 2 ? "20" + y : y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+          const code = parseFloat(rawCode);
+          if (code === 25) {
+            status = "leave";
+            isPresent = false;
+          } else if (code === 26) {
+            status = "absent";
+            isPresent = false;
+          } else if (code === 1 || code === 0) {
+            status = code === 0 ? "holiday" : "present";
+            isPresent = code !== 0;
+          } else {
+            // Any other code = present by default
+            status = "present";
+          }
         }
+
+        parsed.push({
+          machineId,
+          employeeName: name || `Employee ${machineId}`,
+          date: dateKey,
+          status: isPresent ? "present" : status,
+          checkIn: isPresent ? "09:00" : undefined,
+          checkOut: isPresent ? "17:00" : undefined,
+          workHours: isPresent ? 8 : 0,
+        });
       }
-
-      const key = `${machineId}_${normalizedDate}`;
-      if (!groupedByDate[key]) groupedByDate[key] = [];
-
-      const checkIn = checkInIdx >= 0 ? parseTime(row[checkInIdx]) : undefined;
-      const checkOut = checkOutIdx >= 0 ? parseTime(row[checkOutIdx]) : undefined;
-      const time = parseTime(timeRaw);
-      const status = statusIdx >= 0 ? String(row[statusIdx] ?? "").trim() : undefined;
-      const workHours = workHoursIdx >= 0 ? Number(row[workHoursIdx]) || undefined : undefined;
-
-      groupedByDate[key].push({
-        machineId,
-        employeeName: name,
-        date: normalizedDate,
-        checkIn: checkIn || time,
-        checkOut,
-        status,
-        workHours,
-      });
     }
-
-    // Group multiple punches per day: first = checkIn, last = checkOut
-    Object.values(groupedByDate).forEach((punches) => {
-      const sorted = punches
-        .filter((p) => p.checkIn || p.checkOut)
-        .sort((a, b) => (a.checkIn || "").localeCompare(b.checkIn || ""));
-      const first = sorted[0];
-      const last = sorted[sorted.length - 1];
-
-      parsed.push({
-        machineId: first.machineId,
-        employeeName: first.employeeName,
-        date: first.date,
-        checkIn: first.checkIn,
-        checkOut: last?.checkOut || (sorted.length > 1 ? last?.checkIn : undefined),
-        status: first.status,
-        workHours: first.workHours,
-      });
-    });
 
     return parsed;
   } catch (error) {
@@ -241,11 +237,6 @@ function calculateStatus(checkIn?: string, checkOut?: string): PayrollAttendance
 }
 
 export default function PayrollView() {
-  const user = useAppSelector((s) => s.auth.user);
-  const userRole = user?.role ?? "";
-  const normalizedRole = userRole.replace(/^ROLE_/i, "").toLowerCase();
-  const isAdmin = ["admin", "super_admin"].includes(normalizedRole);
-
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -338,7 +329,7 @@ export default function PayrollView() {
           date: row.date,
           checkIn: row.checkIn,
           checkOut: row.checkOut,
-          status: calculateStatus(row.checkIn, row.checkOut),
+          status: (row.status || calculateStatus(row.checkIn, row.checkOut)) as PayrollAttendanceRecord["status"],
           workHours: row.workHours,
           teacherId: mapping?.teacherId ?? null,
           staffId: mapping?.staffId ?? null,
