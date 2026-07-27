@@ -105,6 +105,28 @@ interface CardData {
   result: string;
 }
 
+interface StudentDetail {
+  enrollmentId?: number;
+  class_no?: string;
+  roll_no?: string;
+  studentId?: number;
+  student?: {
+    id?: number;
+    name?: string;
+    email?: string;
+    scholar_no?: string;
+    sssmid?: string;
+    aadhaar?: string;
+    gender?: string;
+    category?: string;
+    dob?: string;
+    phone?: string;
+    father_name?: string;
+    mother_name?: string;
+    status?: string;
+  };
+}
+
 export default function ProgressCardView() {
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedType, setSelectedType] = useState<"test" | "exam" | "">("");
@@ -113,7 +135,6 @@ export default function ProgressCardView() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Fetch exam & test names
   const [examNames, setExamNames] = useState<string[]>([]);
   const [testNames, setTestNames] = useState<string[]>([]);
 
@@ -144,13 +165,18 @@ export default function ProgressCardView() {
     try {
       const normalizedClassName = normalizeClass(selectedClass);
 
-      // Step 1: Fetch students
+      // Step 1: Fetch students by class
       const studentsRes = await fetchStudentsByClass(normalizedClassName);
-      const studentList = studentsRes?.studentdetail ?? [];
-      console.log("Students:", studentList);
+      const studentList: StudentDetail[] = studentsRes?.studentdetail ?? [];
+      console.log("Students by class:", studentList);
 
-      // Step 2: Fetch marks in one API call
-      // GET /api/v1/grade/get/mark/{classNo}/{testname}/{checkmark}
+      if (studentList.length === 0) {
+        toast.info("No students found for this class");
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Fetch marks for the selected assessment
       const marksRes = await apiClient.get(
         `/api/v1/grade/get/mark/${encodeURIComponent(normalizedClassName)}/${encodeURIComponent(selectedAssessment)}/${selectedType}`,
         { withCredentials: true }
@@ -165,29 +191,32 @@ export default function ProgressCardView() {
         return;
       }
 
-      // Step 3: Build student map from studentdetail
-      const studentMap = new Map<number, any>();
-      studentList.forEach((s: any) => {
-        const sid = s.studentId ?? s.id ?? s.student?.id;
+      // Step 3: Build student map keyed by student id
+      const studentMap = new Map<number, StudentDetail>();
+      studentList.forEach((s) => {
+        const sid = s.student?.id ?? s.studentId ?? s.enrollmentId;
         if (sid) studentMap.set(sid, s);
       });
 
-      // Step 4: Build cards
+      // Step 4: Build progress cards
       const cardMap = new Map<number, CardData>();
       allMarks.forEach((m: any) => {
         const sid = m.studentId;
         if (!sid) return;
+
+        const raw = studentMap.get(sid) ?? {};
+        const studentObj = raw.student ?? {};
+
         if (!cardMap.has(sid)) {
-          const raw = studentMap.get(sid) ?? {};
           cardMap.set(sid, {
             studentId: sid,
-            name: raw.studentName ?? raw.name ?? m.studentName ?? "—",
-            rollNo: raw.rolleNo ?? raw.roll_no ?? raw.rollNo ?? "—",
-            scholarNo: raw.scholarNo ?? raw.scholar_no ?? "—",
-            fatherName: raw.fatherName ?? raw.father_name ?? "—",
-            motherName: raw.motherName ?? raw.mother_name ?? "—",
-            gender: raw.gender ?? "",
-            dob: raw.dob ?? "",
+            name: studentObj.name ?? m.studentName ?? "—",
+            rollNo: raw.roll_no ?? "—",
+            scholarNo: studentObj.scholar_no ?? "—",
+            fatherName: studentObj.father_name ?? "—",
+            motherName: studentObj.mother_name ?? "—",
+            gender: studentObj.gender ?? "",
+            dob: studentObj.dob ?? "",
             className: selectedClass,
             subjects: [],
             totalObtained: 0,
@@ -197,11 +226,13 @@ export default function ProgressCardView() {
             result: "Fail",
           });
         }
+
         const card = cardMap.get(sid)!;
         const obtained = typeof m.mark === "number" ? m.mark : Number(m.mark) || 0;
         const maxMarks = m.maxMarks ?? 100;
         const pct = maxMarks > 0 ? (obtained / maxMarks) * 100 : 0;
         const grade = getGrade(pct);
+
         card.subjects.push({
           subject: m.subject ?? "—",
           maxMarks,
