@@ -47,20 +47,26 @@ function getPercentage(part: number, total: number): string {
   return ((part / total) * 100).toFixed(1);
 }
 
-/** Count unique working dates (excluding holidays) from a set of records. */
-function getWorkingDays(records: AttendanceRecordWithGender[]): number {
-  const dates = new Set(
-    records.filter((r) => r.status !== "holiday").map((r) => r.attendanceDate)
-  );
-  return dates.size;
+/** Count total days between two date strings (inclusive). */
+function getDaysInRange(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = end.getTime() - start.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 }
 
-/** Count total holiday dates from a set of records. */
-function getHolidayDays(records: AttendanceRecordWithGender[]): number {
-  const dates = new Set(
+/** Get unique holiday dates from a set of records. */
+function getHolidayDates(records: AttendanceRecordWithGender[]): Set<string> {
+  return new Set(
     records.filter((r) => r.status === "holiday").map((r) => r.attendanceDate)
   );
-  return dates.size;
+}
+
+/** Working days = days in range minus holidays. */
+function getWorkingDaysInRange(startDate: string, endDate: string, records: AttendanceRecordWithGender[]): number {
+  const totalDays = getDaysInRange(startDate, endDate);
+  const holidays = getHolidayDates(records).size;
+  return Math.max(0, totalDays - holidays);
 }
 
 interface ClassSummary {
@@ -104,6 +110,12 @@ export default function AttendanceSummary() {
     staleTime: 30_000,
   });
 
+  // ─── Global working days for the selected range ────────────────────────
+  const globalWorkingDays = useMemo(
+    () => getWorkingDaysInRange(formattedStart, formattedEnd, records),
+    [formattedStart, formattedEnd, records]
+  );
+
   // ─── Group records by class ──────────────────────────────────────────
   const classSummaries = useMemo(() => {
     const grouped: Record<string, AttendanceRecordWithGender[]> = {};
@@ -117,12 +129,11 @@ export default function AttendanceSummary() {
       .map(([className, classRecords]) => {
         const boys = classRecords.filter((s) => s.gender?.toLowerCase() === "male");
         const girls = classRecords.filter((s) => s.gender?.toLowerCase() === "female");
-        const workingDays = getWorkingDays(classRecords);
-        const holidayDays = getHolidayDays(classRecords);
-        return { className, students: classRecords, boys, girls, workingDays, holidayDays };
+        const holidayDays = getHolidayDates(classRecords).size;
+        return { className, students: classRecords, boys, girls, workingDays: globalWorkingDays, holidayDays };
       })
       .sort((a, b) => a.className.localeCompare(b.className));
-  }, [records]);
+  }, [records, globalWorkingDays]);
 
   // ─── Per-student summary for a class ─────────────────────────────────
   const getStudentSummaries = (classData: ClassSummary): StudentSummary[] => {
@@ -137,7 +148,7 @@ export default function AttendanceSummary() {
           present: 0,
           absent: 0,
           holiday: 0,
-          workingDays: 0,
+          workingDays: classData.workingDays,
           percentage: "0.0",
         });
       }
@@ -149,7 +160,6 @@ export default function AttendanceSummary() {
 
     const result = Array.from(studentMap.values());
     result.forEach((s) => {
-      s.workingDays = s.present + s.absent;
       s.percentage = getPercentage(s.present, s.workingDays);
     });
 
@@ -520,7 +530,7 @@ export default function AttendanceSummary() {
                             <p className="text-2xl font-bold text-pink-700">{girlsStats.percentage}%</p>
                             <Progress value={parseFloat(girlsStats.percentage)} className="h-2 mt-2 bg-pink-100" />
                             <p className="text-xs text-pink-600 mt-2">
-                              {girlsStats.totalPresent} present / {girlsStats.totalWorkingDays} days · {girlsStats.count} students
+                              {girlsStats.totalPresent} / {girlsStats.totalWorkingDays} days · {girlsStats.count} students
                             </p>
                           </div>
                           <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-4">
