@@ -11,6 +11,10 @@ import {
   GraduationCap,
   VenusAndMars,
   ClipboardCheck,
+  X,
+  CalendarDays,
+  TrendingUp,
+  School,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -33,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
 
 import { fetchAttendanceByDateRange, type AttendanceRecordWithGender } from "@/api/attendance";
 
@@ -42,8 +47,19 @@ function getPercentage(part: number, total: number): string {
   return ((part / total) * 100).toFixed(1);
 }
 
+/** Count unique working dates (excluding holidays) from a set of records. */
 function getWorkingDays(records: AttendanceRecordWithGender[]): number {
-  const dates = new Set(records.map((r) => r.attendanceDate));
+  const dates = new Set(
+    records.filter((r) => r.status !== "holiday").map((r) => r.attendanceDate)
+  );
+  return dates.size;
+}
+
+/** Count total holiday dates from a set of records. */
+function getHolidayDays(records: AttendanceRecordWithGender[]): number {
+  const dates = new Set(
+    records.filter((r) => r.status === "holiday").map((r) => r.attendanceDate)
+  );
   return dates.size;
 }
 
@@ -52,7 +68,8 @@ interface ClassSummary {
   students: AttendanceRecordWithGender[];
   boys: AttendanceRecordWithGender[];
   girls: AttendanceRecordWithGender[];
-  totalDays: number;
+  workingDays: number;
+  holidayDays: number;
 }
 
 interface StudentSummary {
@@ -62,7 +79,7 @@ interface StudentSummary {
   present: number;
   absent: number;
   holiday: number;
-  total: number;
+  workingDays: number;
   percentage: string;
 }
 
@@ -100,8 +117,9 @@ export default function AttendanceSummary() {
       .map(([className, classRecords]) => {
         const boys = classRecords.filter((s) => s.gender?.toLowerCase() === "male");
         const girls = classRecords.filter((s) => s.gender?.toLowerCase() === "female");
-        const totalDays = getWorkingDays(classRecords);
-        return { className, students: classRecords, boys, girls, totalDays };
+        const workingDays = getWorkingDays(classRecords);
+        const holidayDays = getHolidayDays(classRecords);
+        return { className, students: classRecords, boys, girls, workingDays, holidayDays };
       })
       .sort((a, b) => a.className.localeCompare(b.className));
   }, [records]);
@@ -119,12 +137,11 @@ export default function AttendanceSummary() {
           present: 0,
           absent: 0,
           holiday: 0,
-          total: 0,
+          workingDays: 0,
           percentage: "0.0",
         });
       }
       const s = studentMap.get(r.studentId)!;
-      s.total++;
       if (r.status === "present") s.present++;
       else if (r.status === "absent") s.absent++;
       else if (r.status === "holiday") s.holiday++;
@@ -132,7 +149,8 @@ export default function AttendanceSummary() {
 
     const result = Array.from(studentMap.values());
     result.forEach((s) => {
-      s.percentage = getPercentage(s.present, s.total);
+      s.workingDays = s.present + s.absent;
+      s.percentage = getPercentage(s.present, s.workingDays);
     });
 
     // Filter by search
@@ -150,13 +168,13 @@ export default function AttendanceSummary() {
   // ─── Group stats ─────────────────────────────────────────────────────
   const getGroupStats = (students: StudentSummary[]) => {
     const totalPresent = students.reduce((sum, s) => sum + s.present, 0);
-    const totalDays = students.reduce((sum, s) => sum + s.total, 0);
+    const totalWorkingDays = students.reduce((sum, s) => sum + s.workingDays, 0);
     const count = students.length;
     return {
       count,
       totalPresent,
-      totalDays,
-      percentage: getPercentage(totalPresent, totalDays),
+      totalWorkingDays,
+      percentage: getPercentage(totalPresent, totalWorkingDays),
       average: count > 0 ? (totalPresent / count).toFixed(1) : "0.0",
     };
   };
@@ -173,13 +191,13 @@ export default function AttendanceSummary() {
   // ─── Export CSV ──────────────────────────────────────────────────────
   const exportCSV = () => {
     const rows: string[] = [];
-    rows.push("Class,Student ID,Student Name,Gender,Present,Absent,Holiday,Total Days,Percentage");
+    rows.push("Class,Student ID,Student Name,Gender,Present,Absent,Holiday,Working Days,Percentage");
 
     classSummaries.forEach((cls) => {
       const students = getStudentSummaries(cls);
       students.forEach((s) => {
         rows.push(
-          `${cls.className},${s.studentId},"${s.studentName}",${s.gender},${s.present},${s.absent},${s.holiday},${s.total},${s.percentage}%`
+          `${cls.className},${s.studentId},"${s.studentName}",${s.gender},${s.present},${s.absent},${s.holiday},${s.workingDays},${s.percentage}%`
         );
       });
 
@@ -192,6 +210,7 @@ export default function AttendanceSummary() {
 
       rows.push("");
       rows.push(`--- ${cls.className} Summary ---`);
+      rows.push(`Working Days,${cls.workingDays},Holidays,${cls.holidayDays}`);
       rows.push(`Boys,${boysStats.count},Present: ${boysStats.totalPresent},,Percentage: ${boysStats.percentage}%,Average: ${boysStats.average}`);
       rows.push(`Girls,${girlsStats.count},Present: ${girlsStats.totalPresent},,Percentage: ${girlsStats.percentage}%,Average: ${girlsStats.average}`);
       rows.push(`Total,${allStats.count},Present: ${allStats.totalPresent},,Percentage: ${allStats.percentage}%,Average: ${allStats.average}`);
@@ -213,29 +232,29 @@ export default function AttendanceSummary() {
   // ─── Overall stats ───────────────────────────────────────────────────
   const overallStats = useMemo(() => {
     let totalPresent = 0;
-    let totalDays = 0;
+    let totalWorkingDays = 0;
     let totalStudents = 0;
     let totalBoys = 0;
     let totalGirls = 0;
     let boysPresent = 0;
     let girlsPresent = 0;
-    let boysDays = 0;
-    let girlsDays = 0;
+    let boysWorkingDays = 0;
+    let girlsWorkingDays = 0;
 
     classSummaries.forEach((cls) => {
       const students = getStudentSummaries(cls);
       students.forEach((s) => {
         totalStudents++;
         totalPresent += s.present;
-        totalDays += s.total;
+        totalWorkingDays += s.workingDays;
         if (s.gender?.toLowerCase() === "male") {
           totalBoys++;
           boysPresent += s.present;
-          boysDays += s.total;
+          boysWorkingDays += s.workingDays;
         } else if (s.gender?.toLowerCase() === "female") {
           totalGirls++;
           girlsPresent += s.present;
-          girlsDays += s.total;
+          girlsWorkingDays += s.workingDays;
         }
       });
     });
@@ -243,28 +262,30 @@ export default function AttendanceSummary() {
     return {
       totalStudents,
       totalPresent,
-      totalDays,
-      percentage: getPercentage(totalPresent, totalDays),
+      totalWorkingDays,
+      percentage: getPercentage(totalPresent, totalWorkingDays),
       average: totalStudents > 0 ? (totalPresent / totalStudents).toFixed(1) : "0.0",
       totalBoys,
       boysPresent,
-      boysDays,
-      boysPercentage: getPercentage(boysPresent, boysDays),
+      boysWorkingDays,
+      boysPercentage: getPercentage(boysPresent, boysWorkingDays),
       boysAverage: totalBoys > 0 ? (boysPresent / totalBoys).toFixed(1) : "0.0",
       totalGirls,
       girlsPresent,
-      girlsDays,
-      girlsPercentage: getPercentage(girlsPresent, girlsDays),
+      girlsWorkingDays,
+      girlsPercentage: getPercentage(girlsPresent, girlsWorkingDays),
       girlsAverage: totalGirls > 0 ? (girlsPresent / totalGirls).toFixed(1) : "0.0",
     };
   }, [classSummaries, search]);
+
+  const clearSearch = () => setSearch("");
 
   return (
     <div className="min-h-screen bg-slate-50/80 p-4 sm:p-6 md:p-8 font-sans">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="relative overflow-hidden rounded-2xl bg-white border border-slate-200 shadow-sm p-6 sm:p-8 mb-8">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-linear-to-br from-indigo-100/50 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-indigo-100/50 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
           <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold mb-3 border border-indigo-100">
@@ -275,7 +296,7 @@ export default function AttendanceSummary() {
                 Attendance Summary
               </h1>
               <p className="text-base text-slate-500 mt-2 leading-relaxed">
-                View attendance summary by class with gender-wise breakdown for any date range.
+                View attendance summary by class with gender-wise breakdown for any date range. Holidays are excluded from working-day calculations.
               </p>
             </div>
             <Button
@@ -295,10 +316,10 @@ export default function AttendanceSummary() {
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row gap-4 items-end">
               <div className="space-y-2">
-                <Label>Start Date</Label>
+                <Label className="text-sm font-medium text-slate-700">Start Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-44 justify-start text-left font-normal bg-white">
+                    <Button variant="outline" className="w-44 justify-start text-left font-normal bg-white border-slate-200">
                       <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
                       {format(startDate, "MM/dd/yyyy")}
                     </Button>
@@ -309,10 +330,10 @@ export default function AttendanceSummary() {
                 </Popover>
               </div>
               <div className="space-y-2">
-                <Label>End Date</Label>
+                <Label className="text-sm font-medium text-slate-700">End Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-44 justify-start text-left font-normal bg-white">
+                    <Button variant="outline" className="w-44 justify-start text-left font-normal bg-white border-slate-200">
                       <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
                       {format(endDate, "MM/dd/yyyy")}
                     </Button>
@@ -328,8 +349,16 @@ export default function AttendanceSummary() {
                   placeholder="Search student by name or ID..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 bg-white"
+                  className="pl-9 bg-white border-slate-200"
                 />
+                {search && (
+                  <button
+                    onClick={clearSearch}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           </CardContent>
@@ -377,11 +406,11 @@ export default function AttendanceSummary() {
                       <p className="text-2xl font-bold text-emerald-600">{overallStats.percentage}%</p>
                     </div>
                     <div className="p-2 bg-emerald-50 rounded-lg">
-                      <ClipboardCheck className="h-5 w-5 text-emerald-600" />
+                      <TrendingUp className="h-5 w-5 text-emerald-600" />
                     </div>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
-                    {overallStats.totalPresent} / {overallStats.totalDays} days
+                    {overallStats.totalPresent} / {overallStats.totalWorkingDays} working days
                   </p>
                 </CardContent>
               </Card>
@@ -446,7 +475,7 @@ export default function AttendanceSummary() {
                         <div>
                           <h3 className="font-semibold text-slate-900">{cls.className}</h3>
                           <p className="text-xs text-slate-500">
-                            {students.length} students | {cls.totalDays} working days
+                            {students.length} students · {cls.workingDays} working days · {cls.holidayDays} holidays
                           </p>
                         </div>
                       </div>
@@ -468,29 +497,44 @@ export default function AttendanceSummary() {
                       <CardContent className="p-0">
                         {/* Gender Summary Row */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-white border-b border-slate-100">
-                          <div className="rounded-lg bg-blue-50/50 border border-blue-100 p-3">
-                            <p className="text-xs font-medium text-blue-700 mb-1">👦 Boys</p>
-                            <p className="text-lg font-bold text-blue-700">{boysStats.percentage}%</p>
-                            <p className="text-xs text-blue-500">
-                              {boysStats.totalPresent} present / {boysStats.count} students
+                          <div className="rounded-xl bg-blue-50/70 border border-blue-100 p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="p-1.5 bg-blue-100 rounded-lg">
+                                <GraduationCap className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <p className="text-sm font-semibold text-blue-800">Boys</p>
+                            </div>
+                            <p className="text-2xl font-bold text-blue-700">{boysStats.percentage}%</p>
+                            <Progress value={parseFloat(boysStats.percentage)} className="h-2 mt-2 bg-blue-100" />
+                            <p className="text-xs text-blue-600 mt-2">
+                              {boysStats.totalPresent} present / {boysStats.totalWorkingDays} days · {boysStats.count} students
                             </p>
-                            <p className="text-xs text-blue-400">Avg: {boysStats.average} days</p>
                           </div>
-                          <div className="rounded-lg bg-pink-50/50 border border-pink-100 p-3">
-                            <p className="text-xs font-medium text-pink-700 mb-1">👧 Girls</p>
-                            <p className="text-lg font-bold text-pink-700">{girlsStats.percentage}%</p>
-                            <p className="text-xs text-pink-500">
-                              {girlsStats.totalPresent} present / {girlsStats.count} students
+                          <div className="rounded-xl bg-pink-50/70 border border-pink-100 p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="p-1.5 bg-pink-100 rounded-lg">
+                                <VenusAndMars className="h-4 w-4 text-pink-600" />
+                              </div>
+                              <p className="text-sm font-semibold text-pink-800">Girls</p>
+                            </div>
+                            <p className="text-2xl font-bold text-pink-700">{girlsStats.percentage}%</p>
+                            <Progress value={parseFloat(girlsStats.percentage)} className="h-2 mt-2 bg-pink-100" />
+                            <p className="text-xs text-pink-600 mt-2">
+                              {girlsStats.totalPresent} present / {girlsStats.totalWorkingDays} days · {girlsStats.count} students
                             </p>
-                            <p className="text-xs text-pink-400">Avg: {girlsStats.average} days</p>
                           </div>
-                          <div className="rounded-lg bg-emerald-50/50 border border-emerald-100 p-3">
-                            <p className="text-xs font-medium text-emerald-700 mb-1">📊 Total</p>
-                            <p className="text-lg font-bold text-emerald-700">{allStats.percentage}%</p>
-                            <p className="text-xs text-emerald-500">
-                              {allStats.totalPresent} present / {allStats.count} students
+                          <div className="rounded-xl bg-emerald-50/70 border border-emerald-100 p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="p-1.5 bg-emerald-100 rounded-lg">
+                                <School className="h-4 w-4 text-emerald-600" />
+                              </div>
+                              <p className="text-sm font-semibold text-emerald-800">Total</p>
+                            </div>
+                            <p className="text-2xl font-bold text-emerald-700">{allStats.percentage}%</p>
+                            <Progress value={parseFloat(allStats.percentage)} className="h-2 mt-2 bg-emerald-100" />
+                            <p className="text-xs text-emerald-600 mt-2">
+                              {allStats.totalPresent} present / {allStats.totalWorkingDays} days · {allStats.count} students
                             </p>
-                            <p className="text-xs text-emerald-400">Avg: {allStats.average} days</p>
                           </div>
                         </div>
 
@@ -504,54 +548,75 @@ export default function AttendanceSummary() {
                                 <TableHead className="text-xs font-semibold text-slate-500 text-center">Present</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-500 text-center">Absent</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-500 text-center">Holiday</TableHead>
-                                <TableHead className="text-xs font-semibold text-slate-500 text-center">Total Days</TableHead>
+                                <TableHead className="text-xs font-semibold text-slate-500 text-center">Working Days</TableHead>
                                 <TableHead className="text-xs font-semibold text-slate-500 text-center">Percentage</TableHead>
+                                <TableHead className="text-xs font-semibold text-slate-500">Progress</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {students.length === 0 ? (
                                 <TableRow>
-                                  <TableCell colSpan={7} className="text-center text-slate-400 py-8">
+                                  <TableCell colSpan={8} className="text-center text-slate-400 py-8">
                                     No students match your search.
                                   </TableCell>
                                 </TableRow>
                               ) : (
-                                students.map((s) => (
-                                  <TableRow key={s.studentId} className="hover:bg-slate-50">
-                                    <TableCell className="font-medium text-slate-900">{s.studentName}</TableCell>
-                                    <TableCell>
-                                      <Badge
-                                        variant="outline"
-                                        className={
-                                          s.gender?.toLowerCase() === "male"
-                                            ? "bg-blue-50 text-blue-700 border-blue-200"
-                                            : s.gender?.toLowerCase() === "female"
-                                            ? "bg-pink-50 text-pink-700 border-pink-200"
-                                            : "bg-slate-50 text-slate-500 border-slate-200"
-                                        }
-                                      >
-                                        {s.gender || "—"}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-center text-emerald-600 font-medium">{s.present}</TableCell>
-                                    <TableCell className="text-center text-red-600 font-medium">{s.absent}</TableCell>
-                                    <TableCell className="text-center text-purple-600 font-medium">{s.holiday}</TableCell>
-                                    <TableCell className="text-center text-slate-600">{s.total}</TableCell>
-                                    <TableCell className="text-center">
-                                      <span
-                                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                          parseFloat(s.percentage) >= 75
-                                            ? "bg-emerald-100 text-emerald-700"
-                                            : parseFloat(s.percentage) >= 50
-                                            ? "bg-amber-100 text-amber-700"
-                                            : "bg-red-100 text-red-700"
-                                        }`}
-                                      >
-                                        {s.percentage}%
-                                      </span>
+                                <>
+                                  {students.map((s) => (
+                                    <TableRow key={s.studentId} className="hover:bg-slate-50">
+                                      <TableCell className="font-medium text-slate-900">{s.studentName}</TableCell>
+                                      <TableCell>
+                                        <Badge
+                                          variant="outline"
+                                          className={
+                                            s.gender?.toLowerCase() === "male"
+                                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                                              : s.gender?.toLowerCase() === "female"
+                                              ? "bg-pink-50 text-pink-700 border-pink-200"
+                                              : "bg-slate-50 text-slate-500 border-slate-200"
+                                          }
+                                        >
+                                          {s.gender || "—"}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-center text-emerald-600 font-medium">{s.present}</TableCell>
+                                      <TableCell className="text-center text-red-600 font-medium">{s.absent}</TableCell>
+                                      <TableCell className="text-center text-purple-600 font-medium">{s.holiday}</TableCell>
+                                      <TableCell className="text-center text-slate-600">{s.workingDays}</TableCell>
+                                      <TableCell className="text-center">
+                                        <span
+                                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                            parseFloat(s.percentage) >= 75
+                                              ? "bg-emerald-100 text-emerald-700"
+                                              : parseFloat(s.percentage) >= 50
+                                              ? "bg-amber-100 text-amber-700"
+                                              : "bg-red-100 text-red-700"
+                                          }`}
+                                        >
+                                          {s.percentage}%
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="w-32">
+                                        <Progress
+                                          value={parseFloat(s.percentage)}
+                                          className="h-2"
+                                        />
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                  {/* Class Total Row */}
+                                  <TableRow className="bg-slate-50/80 font-semibold">
+                                    <TableCell colSpan={2} className="text-slate-700">Class Total</TableCell>
+                                    <TableCell className="text-center text-emerald-700">{allStats.totalPresent}</TableCell>
+                                    <TableCell className="text-center text-red-700">—</TableCell>
+                                    <TableCell className="text-center text-purple-700">—</TableCell>
+                                    <TableCell className="text-center text-slate-700">{allStats.totalWorkingDays}</TableCell>
+                                    <TableCell className="text-center text-emerald-700">{allStats.percentage}%</TableCell>
+                                    <TableCell className="w-32">
+                                      <Progress value={parseFloat(allStats.percentage)} className="h-2 bg-slate-200" />
                                     </TableCell>
                                   </TableRow>
-                                ))
+                                </>
                               )}
                             </TableBody>
                           </Table>
@@ -569,7 +634,7 @@ export default function AttendanceSummary() {
         {!isLoading && !isError && records.length === 0 && (
           <div className="text-center py-16 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ClipboardCheck className="h-8 w-8 text-slate-400" />
+              <CalendarDays className="h-8 w-8 text-slate-400" />
             </div>
             <p className="text-lg font-semibold text-slate-900">No attendance data</p>
             <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
