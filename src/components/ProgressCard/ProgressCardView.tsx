@@ -9,6 +9,8 @@ import {
   Award,
   Users,
   School,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +38,8 @@ import {
   type StudentProgressCard,
 } from "@/api/progress-card";
 
+type SubjectMark = StudentProgressCard["subjects"][0];
+
 function getExamTitle(name: string): string {
   const lower = name.toLowerCase();
   if (lower.includes("annual")) return "Annual Examination";
@@ -43,6 +47,34 @@ function getExamTitle(name: string): string {
   if (lower.includes("quarter")) return "Quarterly Examination";
   if (lower.includes("monthly")) return "Monthly Test";
   return name;
+}
+
+function useSubjectData(cards: StudentProgressCard[]) {
+  const allSubjects = useMemo(() => {
+    const subjectSet = new Set<string>();
+    cards.forEach((card) => card.subjects.forEach((s) => subjectSet.add(s.subject)));
+    return Array.from(subjectSet);
+  }, [cards]);
+
+  const subjectMap = useMemo(() => {
+    const map = new Map<number, Map<string, SubjectMark>>();
+    cards.forEach((card) => {
+      const inner = new Map<string, SubjectMark>();
+      card.subjects.forEach((s) => inner.set(s.subject, s));
+      map.set(card.studentId, inner);
+    });
+    return map;
+  }, [cards]);
+
+  return { allSubjects, subjectMap };
+}
+
+function escapeCsv(value: string | number): string {
+  const str = String(value);
+  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
 }
 
 export default function ProgressCardView() {
@@ -161,7 +193,66 @@ export default function ProgressCardView() {
         c.scholarNo.toLowerCase().includes(q)
     );
   }, [cards, search]);
-  {console.log("Rendering table body with cards:", cards)}
+
+  const { allSubjects, subjectMap } = useSubjectData(filteredCards);
+  const displayClassName = getClassDisplayLabel(selectedClass);
+
+  const handleDownloadPDF = () => {
+    window.print();
+  };
+
+  const handleDownloadExcel = () => {
+    if (filteredCards.length === 0) return;
+
+    const headers = [
+      "#",
+      "Scholar No.",
+      "Roll No.",
+      "Student Name",
+      "Father's Name",
+      "Mother's Name",
+      ...allSubjects.map((sub) => `${sub} (Max)`),
+      "Total",
+      "Percentage",
+      "Grade",
+      "Result",
+    ];
+
+    const rows = filteredCards.map((card, idx) => {
+      const inner = subjectMap.get(card.studentId);
+      return [
+        idx + 1,
+        card.scholarNo,
+        card.rollNo,
+        card.name,
+        card.fatherName,
+        card.motherName,
+        ...allSubjects.map((sub) => {
+          const mark = inner?.get(sub);
+          return mark ? `${mark.obtained}/${mark.maxMarks}` : "—";
+        }),
+        `${card.totalObtained}/${card.totalMax}`,
+        card.percentage.toFixed(1),
+        card.overallGrade,
+        card.result,
+      ];
+    });
+
+    const csvContent = [headers.join(","), ...rows.map((row) => row.map(escapeCsv).join(","))].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const safeAssessment = selectedAssessment.replace(/[^a-zA-Z0-9]/g, "_");
+    link.download = `Progress_Card_${displayClassName}_${safeAssessment}_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success("Excel file downloaded");
+  };
 
   return (
     <div className="min-h-screen bg-slate-50/80 p-4 sm:p-6 md:p-8 font-sans print:p-0 print:bg-white">
@@ -267,7 +358,7 @@ export default function ProgressCardView() {
                   ) : (
                     <span>
                       <strong>{studentCount}</strong> student{studentCount !== 1 ? "s" : ""} in{" "}
-                      <strong>{getClassDisplayLabel(selectedClass)}</strong>
+                      <strong>{displayClassName}</strong>
                       {studentsData?.classteacherName && (
                         <span className="text-slate-400">
                           {" "}
@@ -301,6 +392,22 @@ export default function ProgressCardView() {
                   <Button variant="outline" onClick={() => window.print()} className="border-slate-200">
                     <Printer className="h-4 w-4 mr-2" /> Print All
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadPDF}
+                    disabled={filteredCards.length === 0}
+                    className="border-slate-200"
+                  >
+                    <Download className="h-4 w-4 mr-2" /> PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadExcel}
+                    disabled={filteredCards.length === 0}
+                    className="border-slate-200"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -331,8 +438,10 @@ export default function ProgressCardView() {
             <ConsolidatedMarksheet
               cards={filteredCards}
               examTitle={getExamTitle(selectedAssessment)}
-              className={getClassDisplayLabel(selectedClass)}
+              className={displayClassName}
               sessionLabel={sessionLabel}
+              allSubjects={allSubjects}
+              subjectMap={subjectMap}
             />
           </div>
         )}
@@ -354,30 +463,16 @@ function ConsolidatedMarksheet({
   examTitle,
   className,
   sessionLabel,
+  allSubjects,
+  subjectMap,
 }: {
   cards: StudentProgressCard[];
   examTitle: string;
   className: string;
   sessionLabel: string;
+  allSubjects: string[];
+  subjectMap: Map<number, Map<string, SubjectMark>>;
 }) {
-  // Collect all unique subjects across all students
-  const allSubjects = useMemo(() => {
-    const subjectSet = new Set<string>();
-    cards.forEach((card) => card.subjects.forEach((s) => subjectSet.add(s.subject)));
-    return Array.from(subjectSet);
-  }, [cards]);
-
-  // Build a lookup: studentId → { subject → SubjectMark }
-  const subjectMap = useMemo(() => {
-    const map = new Map<number, Map<string, StudentProgressCard['subjects'][0]>>();
-    cards.forEach((card) => {
-      const inner = new Map<string, StudentProgressCard['subjects'][0]>();
-      card.subjects.forEach((s) => inner.set(s.subject, s));
-      map.set(card.studentId, inner);
-    });
-    return map;
-  }, [cards]);
-
   return (
     <Card className="marksheet-page overflow-hidden border border-slate-300 bg-white shadow-lg print:shadow-none">
       <CardContent className="p-0">
