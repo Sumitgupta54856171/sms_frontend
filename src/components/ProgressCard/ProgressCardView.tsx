@@ -89,6 +89,7 @@ export default function ProgressCardView() {
   const [search, setSearch] = useState("");
 
   const marksheetRef = useRef<HTMLDivElement>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   const currentSession = useAppSelector((s) => s.session.currentSession);
   const sessionLabel = currentSession?.sessionName ?? "—";
@@ -203,7 +204,7 @@ export default function ProgressCardView() {
   const displayClassName = getClassDisplayLabel(selectedClass);
 
   const handleDownloadPDF = async () => {
-    if (!marksheetRef.current || filteredCards.length === 0) {
+    if (!pdfRef.current || filteredCards.length === 0) {
       toast.error("No marksheet available to download");
       return;
     }
@@ -212,30 +213,29 @@ export default function ProgressCardView() {
     let offScreenContainer: HTMLDivElement | null = null;
 
     try {
-      const source = marksheetRef.current;
+      const source = pdfRef.current;
       const rect = source.getBoundingClientRect();
 
       if (rect.width === 0 || rect.height === 0) {
         throw new Error("Marksheet has zero size");
       }
 
-      // Clone the marksheet into an off-screen container so the live UI
-      // (scrollbars, overlays, hidden print styles) cannot interfere.
+      // Clone the PDF marksheet into an off-screen container.
       const clone = source.cloneNode(true) as HTMLElement;
 
-      // Remove overflow clipping so the full table is rendered without scrollbars.
-      clone.querySelectorAll(".overflow-x-auto, .overflow-hidden").forEach((el) => {
-        (el as HTMLElement).style.overflow = "visible";
-        (el as HTMLElement).style.maxWidth = "none";
+      // Strip any remaining oklch / color-mix references and force safe colors.
+      clone.querySelectorAll("*").forEach((el) => {
+        const htmlEl = el as HTMLElement;
+        const computed = window.getComputedStyle(htmlEl);
+        const color = computed.color;
+        const bg = computed.backgroundColor;
+        if (color && color.includes("oklch")) {
+          htmlEl.style.color = "#000000";
+        }
+        if (bg && bg.includes("oklch")) {
+          htmlEl.style.backgroundColor = "#ffffff";
+        }
       });
-
-      // Ensure the table uses its full intrinsic width.
-      const table = clone.querySelector("table");
-      if (table) {
-        table.style.width = "max-content";
-        table.style.maxWidth = "none";
-        table.style.tableLayout = "auto";
-      }
 
       offScreenContainer = document.createElement("div");
       offScreenContainer.style.position = "fixed";
@@ -249,8 +249,8 @@ export default function ProgressCardView() {
       offScreenContainer.appendChild(clone);
       document.body.appendChild(offScreenContainer);
 
-      // Wait a tick for the browser to layout the off-screen clone.
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for layout.
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       const canvas = await html2canvas(clone, {
         scale: 2,
@@ -270,17 +270,15 @@ export default function ProgressCardView() {
       const pdf = new jsPDF("l", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 5;
+      const margin = 4;
 
       const imgWidthPx = canvas.width;
       const imgHeightPx = canvas.height;
 
-      // A4 landscape in pixels at 96 DPI: 297mm x 210mm
       const pxPerMm = 96 / 25.4;
       const availablePageWidthPx = (pageWidth - margin * 2) * pxPerMm;
       const availablePageHeightPx = (pageHeight - margin * 2) * pxPerMm;
 
-      // Scale so the full width fits the page.
       const widthScale = availablePageWidthPx / imgWidthPx;
       const scaledHeight = imgHeightPx * widthScale;
 
@@ -288,7 +286,6 @@ export default function ProgressCardView() {
       const dateStr = new Date().toISOString().split("T")[0];
       const fileName = `Progress_Card_${displayClassName}_${safeAssessment}_${dateStr}.pdf`;
 
-      // If the whole marksheet fits on one page, render it centered.
       if (scaledHeight <= availablePageHeightPx) {
         const finalWidthMm = (imgWidthPx * widthScale) / pxPerMm;
         const finalHeightMm = (imgHeightPx * widthScale) / pxPerMm;
@@ -298,7 +295,6 @@ export default function ProgressCardView() {
         const imgData = canvas.toDataURL("image/png");
         pdf.addImage(imgData, "PNG", x, y, finalWidthMm, finalHeightMm);
       } else {
-        // Split into multiple pages by slicing the canvas vertically.
         const totalPages = Math.ceil(scaledHeight / availablePageHeightPx);
         const sliceHeightPx = availablePageHeightPx / widthScale;
 
@@ -307,7 +303,10 @@ export default function ProgressCardView() {
 
           const sliceCanvas = document.createElement("canvas");
           sliceCanvas.width = imgWidthPx;
-          sliceCanvas.height = Math.min(sliceHeightPx, imgHeightPx - page * sliceHeightPx);
+          sliceCanvas.height = Math.min(
+            sliceHeightPx,
+            imgHeightPx - page * sliceHeightPx
+          );
 
           const ctx = sliceCanvas.getContext("2d");
           if (!ctx) continue;
@@ -605,17 +604,42 @@ export default function ProgressCardView() {
         )}
 
         {!loading && filteredCards.length > 0 && (
-          <div className="print:block print-only-marksheet">
-            <ConsolidatedMarksheet
-              ref={marksheetRef}
-              cards={filteredCards}
-              examTitle={getExamTitle(selectedAssessment)}
-              className={displayClassName}
-              sessionLabel={sessionLabel}
-              allSubjects={allSubjects}
-              subjectMap={subjectMap}
-            />
-          </div>
+          <>
+            <div className="print:block print-only-marksheet">
+              <ConsolidatedMarksheet
+                ref={marksheetRef}
+                cards={filteredCards}
+                examTitle={getExamTitle(selectedAssessment)}
+                className={displayClassName}
+                sessionLabel={sessionLabel}
+                allSubjects={allSubjects}
+                subjectMap={subjectMap}
+              />
+            </div>
+
+            {/* Hidden PDF-only marksheet using only hex/RGB colors */}
+            <div
+              ref={pdfRef}
+              className="pdf-marksheet"
+              style={{
+                position: "absolute",
+                left: "-9999px",
+                top: 0,
+                width: "297mm",
+                visibility: "hidden",
+                zIndex: -1,
+              }}
+            >
+              <PdfMarksheet
+                cards={filteredCards}
+                examTitle={getExamTitle(selectedAssessment)}
+                className={displayClassName}
+                sessionLabel={sessionLabel}
+                allSubjects={allSubjects}
+                subjectMap={subjectMap}
+              />
+            </div>
+          </>
         )}
       </div>
 
@@ -867,3 +891,258 @@ const ConsolidatedMarksheet = forwardRef<
     </div>
   );
 });
+
+function PdfMarksheet({
+  cards,
+  examTitle,
+  className,
+  sessionLabel,
+  allSubjects,
+  subjectMap,
+}: {
+  cards: StudentProgressCard[];
+  examTitle: string;
+  className: string;
+  sessionLabel: string;
+  allSubjects: string[];
+  subjectMap: Map<number, Map<string, SubjectMark>>;
+}) {
+  const headerStyle: React.CSSProperties = {
+    backgroundColor: "#1e3a8a",
+    color: "#ffffff",
+    textAlign: "center",
+    padding: "16px 20px",
+    fontFamily: "Arial, sans-serif",
+  };
+
+  const tableStyle: React.CSSProperties = {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "9pt",
+    fontFamily: "Arial, sans-serif",
+    color: "#000000",
+  };
+
+  const thStyle: React.CSSProperties = {
+    backgroundColor: "#1f2937",
+    color: "#ffffff",
+    border: "1px solid #4b5563",
+    padding: "4px 3px",
+    textAlign: "center",
+    fontWeight: "bold",
+    fontSize: "8pt",
+  };
+
+  const tdStyle: React.CSSProperties = {
+    border: "1px solid #9ca3af",
+    padding: "3px 2px",
+    textAlign: "center",
+    fontSize: "8pt",
+  };
+
+  const leftAlign: React.CSSProperties = {
+    ...tdStyle,
+    textAlign: "left",
+  };
+
+  const gradeBadge = (grade: string): React.CSSProperties => {
+    if (["A1", "A2"].includes(grade)) return { backgroundColor: "#d1fae5", color: "#047857" };
+    if (["B1", "B2"].includes(grade)) return { backgroundColor: "#dbeafe", color: "#1d4ed8" };
+    if (["C1", "C2"].includes(grade)) return { backgroundColor: "#fef3c7", color: "#b45309" };
+    if (grade === "D") return { backgroundColor: "#ffedd5", color: "#c2410c" };
+    return { backgroundColor: "#fee2e2", color: "#b91c1c" };
+  };
+
+  const resultBadge = (result: string): React.CSSProperties => {
+    return result === "Pass"
+      ? { backgroundColor: "#d1fae5", color: "#047857" }
+      : { backgroundColor: "#fee2e2", color: "#b91c1c" };
+  };
+
+  return (
+    <div
+      style={{
+        width: "297mm",
+        minHeight: "210mm",
+        backgroundColor: "#ffffff",
+        fontFamily: "Arial, sans-serif",
+        boxSizing: "border-box",
+        padding: "0",
+      }}
+    >
+      {/* Header */}
+      <div style={headerStyle}>
+        <h1
+          style={{
+            fontSize: "22px",
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            letterSpacing: "1px",
+            margin: 0,
+          }}
+        >
+          Rose Convent High School
+        </h1>
+        <p
+          style={{
+            fontSize: "16px",
+            fontWeight: "bold",
+            margin: "6px 0 0",
+            color: "#bfdbfe",
+          }}
+        >
+          {examTitle}
+        </p>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "40px",
+            marginTop: "6px",
+            fontSize: "12px",
+            color: "#bfdbfe",
+          }}
+        >
+          <span>
+            Class: <strong style={{ color: "#ffffff" }}>{className}</strong>
+          </span>
+          <span>
+            Session: <strong style={{ color: "#ffffff" }}>{sessionLabel}</strong>
+          </span>
+        </div>
+      </div>
+
+      {/* Table */}
+      <table style={tableStyle}>
+        <thead>
+          <tr>
+            <th style={{ ...thStyle, width: "28px" }}>#</th>
+            <th style={thStyle}>Scholar No.</th>
+            <th style={thStyle}>Roll No.</th>
+            <th style={{ ...thStyle, textAlign: "left", minWidth: "110px" }}>
+              Student Name
+            </th>
+            <th style={{ ...thStyle, textAlign: "left", minWidth: "100px" }}>
+              Father's Name
+            </th>
+            <th style={{ ...thStyle, textAlign: "left", minWidth: "100px" }}>
+              Mother's Name
+            </th>
+            {allSubjects.map((sub) => (
+              <th key={sub} style={{ ...thStyle, minWidth: "48px" }}>
+                {sub}
+                <br />
+                <span style={{ fontSize: "7pt", fontWeight: "normal", color: "#bfdbfe" }}>
+                  (Max)
+                </span>
+              </th>
+            ))}
+            <th style={{ ...thStyle, width: "50px" }}>Total</th>
+            <th style={{ ...thStyle, width: "42px" }}>%age</th>
+            <th style={{ ...thStyle, width: "38px" }}>Grade</th>
+            <th style={{ ...thStyle, width: "42px" }}>Result</th>
+            <th style={{ ...thStyle, width: "70px" }}>Parent Sign</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cards.map((card, idx) => {
+            const inner = subjectMap.get(card.studentId);
+            return (
+              <tr
+                key={card.studentId}
+                style={{
+                  backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                }}
+              >
+                <td style={tdStyle}>{idx + 1}</td>
+                <td style={{ ...tdStyle, fontFamily: "monospace" }}>{card.scholarNo}</td>
+                <td style={{ ...tdStyle, fontFamily: "monospace" }}>{card.rollNo}</td>
+                <td style={{ ...leftAlign, fontWeight: "bold" }}>{card.name}</td>
+                <td style={leftAlign}>{card.fatherName}</td>
+                <td style={leftAlign}>{card.motherName}</td>
+                {allSubjects.map((sub) => {
+                  const mark = inner?.get(sub);
+                  return (
+                    <td key={sub} style={{ ...tdStyle, fontWeight: "bold" }}>
+                      {mark ? `${mark.obtained}/${mark.maxMarks}` : "—"}
+                    </td>
+                  );
+                })}
+                <td style={{ ...tdStyle, fontWeight: "bold" }}>
+                  {card.totalObtained}/{card.totalMax}
+                </td>
+                <td style={{ ...tdStyle, fontWeight: "bold" }}>
+                  {card.percentage.toFixed(1)}
+                </td>
+                <td style={tdStyle}>
+                  <span
+                    style={{
+                      ...gradeBadge(card.overallGrade),
+                      display: "inline-block",
+                      padding: "1px 4px",
+                      borderRadius: "3px",
+                      fontSize: "8pt",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {card.overallGrade}
+                  </span>
+                </td>
+                <td style={tdStyle}>
+                  <span
+                    style={{
+                      ...resultBadge(card.result),
+                      display: "inline-block",
+                      padding: "1px 4px",
+                      borderRadius: "3px",
+                      fontSize: "8pt",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {card.result}
+                  </span>
+                </td>
+                <td style={{ ...tdStyle, color: "#9ca3af", fontStyle: "italic" }}>
+                  __________
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Footer */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          padding: "12px 20px",
+          borderTop: "1px solid #9ca3af",
+          fontSize: "10pt",
+          color: "#374151",
+        }}
+      >
+        <div>
+          Total Students: <strong>{cards.length}</strong>
+          {" | "}
+          Passed: <strong style={{ color: "#047857" }}>{cards.filter((c) => c.result === "Pass").length}</strong>
+          {" | "}
+          Failed: <strong style={{ color: "#b91c1c" }}>{cards.filter((c) => c.result === "Fail").length}</strong>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              borderTop: "1px solid #4b5563",
+              paddingTop: "4px",
+              width: "120px",
+              marginTop: "24px",
+            }}
+          >
+            <strong>Principal</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
