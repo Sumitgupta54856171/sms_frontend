@@ -222,11 +222,23 @@ export default function ProgressCardView() {
       // Clone the marksheet into an off-screen container so the live UI
       // (scrollbars, overlays, hidden print styles) cannot interfere.
       const clone = source.cloneNode(true) as HTMLElement;
+      // Remove overflow clipping so the full table (including rightmost columns)
+      // is rendered without scrollbars cutting off content.
+      clone.querySelectorAll(".overflow-x-auto, .overflow-hidden").forEach((el) => {
+        (el as HTMLElement).style.overflow = "visible";
+        (el as HTMLElement).style.maxWidth = "none";
+      });
+      // Ensure the table uses its full intrinsic width
+      const table = clone.querySelector("table");
+      if (table) {
+        table.style.width = "max-content";
+        table.style.maxWidth = "none";
+      }
       offScreenContainer = document.createElement("div");
       offScreenContainer.style.position = "fixed";
       offScreenContainer.style.top = "0";
       offScreenContainer.style.left = "-9999px";
-      offScreenContainer.style.width = "auto";
+      offScreenContainer.style.width = "max-content";
       offScreenContainer.style.height = "auto";
       offScreenContainer.style.overflow = "visible";
       offScreenContainer.style.visibility = "visible";
@@ -258,6 +270,19 @@ export default function ProgressCardView() {
         availableWidth / imgWidth,
         availableHeight / imgHeight
       );
+
+      // Log scale info to browser console
+      console.log("📐 PDF Scale Info:", {
+        canvasWidth: imgWidth,
+        canvasHeight: imgHeight,
+        pageWidth: pageWidth,
+        pageHeight: pageHeight,
+        availableWidth,
+        availableHeight,
+        ratio: ratio,
+        scalePercent: Math.round(ratio * 100),
+        recommendedBrowserScale: Math.round(ratio * 100),
+      });
 
       const finalWidth = imgWidth * ratio;
       const finalHeight = imgHeight * ratio;
@@ -558,7 +583,7 @@ export default function ProgressCardView() {
 
       <style>{`
         @media print {
-          @page { size: A4 landscape; margin: 0; }
+          @page { size: A4 landscape; margin: 4mm; }
           html, body { height: auto; overflow: visible !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body * { visibility: hidden !important; }
           .print-only-marksheet, .print-only-marksheet * { visibility: visible !important; }
@@ -578,8 +603,26 @@ export default function ProgressCardView() {
             max-width: none !important;
             overflow: visible !important;
           }
-          .marksheet-page table { font-size: 8pt !important; }
+          .marksheet-page table {
+            font-size: 5.5pt !important;
+          }
+          .marksheet-page th,
+          .marksheet-page td {
+            padding: 1px 2px !important;
+          }
+          .marksheet-page th:nth-child(4),
+          .marksheet-page td:nth-child(4),
+          .marksheet-page th:nth-child(5),
+          .marksheet-page td:nth-child(5),
+          .marksheet-page th:nth-child(6),
+          .marksheet-page td:nth-child(6) {
+            min-width: 0 !important;
+            max-width: 90px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
         }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   );
@@ -601,7 +644,7 @@ const ConsolidatedMarksheet = forwardRef<
 ) {
   return (
     <div ref={ref} className="w-full">
-      <Card className="marksheet-page overflow-hidden border border-slate-300 bg-white shadow-lg print:shadow-none">
+      <Card className="marksheet-page border border-slate-300 bg-white shadow-lg print:shadow-none">
         <CardContent className="p-0">
           {/* ── Header ── */}
           <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 text-white text-center py-5 px-6">
@@ -622,7 +665,7 @@ const ConsolidatedMarksheet = forwardRef<
           </div>
 
           {/* ── Consolidated Marks Table ── */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto hide-scrollbar" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
             <table className="w-full text-xs border-collapse border border-slate-300">
               <thead>
                 <tr className="bg-slate-800 text-white">
@@ -667,9 +710,6 @@ const ConsolidatedMarksheet = forwardRef<
                   </th>
                   <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">
                     Result
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold text-white bg-black">
-                    Class Teacher Sign
                   </th>
                   <th className="border border-slate-600 px-2 py-2 text-center font-semibold text-white bg-black">
                     Parent Sign
@@ -751,9 +791,6 @@ const ConsolidatedMarksheet = forwardRef<
                       <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-400 italic">
                         _______________
                       </td>
-                      <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-400 italic">
-                        _______________
-                      </td>
                     </tr>
                   );
                 })}
@@ -778,13 +815,6 @@ const ConsolidatedMarksheet = forwardRef<
               </strong>
             </div>
             <div className="flex gap-16">
-              <div className="text-center">
-                <div className="border-t border-slate-400 pt-2 w-36 mt-8">
-                  <p className="font-semibold text-slate-700 text-sm">
-                    Class Teacher
-                  </p>
-                </div>
-              </div>
               <div className="text-center">
                 <div className="border-t border-slate-400 pt-2 w-36 mt-8">
                   <p className="font-semibold text-slate-700 text-sm">
