@@ -222,18 +222,21 @@ export default function ProgressCardView() {
       // Clone the marksheet into an off-screen container so the live UI
       // (scrollbars, overlays, hidden print styles) cannot interfere.
       const clone = source.cloneNode(true) as HTMLElement;
-      // Remove overflow clipping so the full table (including rightmost columns)
-      // is rendered without scrollbars cutting off content.
+
+      // Remove overflow clipping so the full table is rendered without scrollbars.
       clone.querySelectorAll(".overflow-x-auto, .overflow-hidden").forEach((el) => {
         (el as HTMLElement).style.overflow = "visible";
         (el as HTMLElement).style.maxWidth = "none";
       });
-      // Ensure the table uses its full intrinsic width
+
+      // Ensure the table uses its full intrinsic width.
       const table = clone.querySelector("table");
       if (table) {
         table.style.width = "max-content";
         table.style.maxWidth = "none";
+        table.style.tableLayout = "auto";
       }
+
       offScreenContainer = document.createElement("div");
       offScreenContainer.style.position = "fixed";
       offScreenContainer.style.top = "0";
@@ -246,11 +249,18 @@ export default function ProgressCardView() {
       offScreenContainer.appendChild(clone);
       document.body.appendChild(offScreenContainer);
 
+      // Wait a tick for the browser to layout the off-screen clone.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
+        width: clone.scrollWidth,
+        height: clone.scrollHeight,
+        windowWidth: clone.scrollWidth,
+        windowHeight: clone.scrollHeight,
       });
 
       if (canvas.width === 0 || canvas.height === 0) {
@@ -262,48 +272,76 @@ export default function ProgressCardView() {
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 5;
 
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const availableWidth = pageWidth - margin * 2;
-      const availableHeight = pageHeight - margin * 2;
-      const ratio = Math.min(
-        availableWidth / imgWidth,
-        availableHeight / imgHeight
-      );
+      const imgWidthPx = canvas.width;
+      const imgHeightPx = canvas.height;
 
-      // Log scale info to browser console
-      console.log("📐 PDF Scale Info:", {
-        canvasWidth: imgWidth,
-        canvasHeight: imgHeight,
-        pageWidth: pageWidth,
-        pageHeight: pageHeight,
-        availableWidth,
-        availableHeight,
-        ratio: ratio,
-        scalePercent: Math.round(ratio * 100),
-        recommendedBrowserScale: Math.round(ratio * 100),
-      });
+      // A4 landscape in pixels at 96 DPI: 297mm x 210mm
+      const pxPerMm = 96 / 25.4;
+      const availablePageWidthPx = (pageWidth - margin * 2) * pxPerMm;
+      const availablePageHeightPx = (pageHeight - margin * 2) * pxPerMm;
 
-      const finalWidth = imgWidth * ratio;
-      const finalHeight = imgHeight * ratio;
-      const x = (pageWidth - finalWidth) / 2;
-      const y = (pageHeight - finalHeight) / 2;
-
-      const imgData = canvas.toDataURL("image/png");
-      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
+      // Scale so the full width fits the page.
+      const widthScale = availablePageWidthPx / imgWidthPx;
+      const scaledHeight = imgHeightPx * widthScale;
 
       const safeAssessment = selectedAssessment.replace(/[^a-zA-Z0-9]/g, "_");
       const dateStr = new Date().toISOString().split("T")[0];
-      pdf.save(
-        `Progress_Card_${displayClassName}_${safeAssessment}_${dateStr}.pdf`
-      );
+      const fileName = `Progress_Card_${displayClassName}_${safeAssessment}_${dateStr}.pdf`;
+
+      // If the whole marksheet fits on one page, render it centered.
+      if (scaledHeight <= availablePageHeightPx) {
+        const finalWidthMm = (imgWidthPx * widthScale) / pxPerMm;
+        const finalHeightMm = (imgHeightPx * widthScale) / pxPerMm;
+        const x = (pageWidth - finalWidthMm) / 2;
+        const y = (pageHeight - finalHeightMm) / 2;
+
+        const imgData = canvas.toDataURL("image/png");
+        pdf.addImage(imgData, "PNG", x, y, finalWidthMm, finalHeightMm);
+      } else {
+        // Split into multiple pages by slicing the canvas vertically.
+        const totalPages = Math.ceil(scaledHeight / availablePageHeightPx);
+        const sliceHeightPx = availablePageHeightPx / widthScale;
+
+        for (let page = 0; page < totalPages; page++) {
+          if (page > 0) pdf.addPage("a4", "l");
+
+          const sliceCanvas = document.createElement("canvas");
+          sliceCanvas.width = imgWidthPx;
+          sliceCanvas.height = Math.min(sliceHeightPx, imgHeightPx - page * sliceHeightPx);
+
+          const ctx = sliceCanvas.getContext("2d");
+          if (!ctx) continue;
+
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+          ctx.drawImage(
+            canvas,
+            0,
+            page * sliceHeightPx,
+            imgWidthPx,
+            sliceCanvas.height,
+            0,
+            0,
+            imgWidthPx,
+            sliceCanvas.height
+          );
+
+          const sliceImgData = sliceCanvas.toDataURL("image/png");
+          const finalWidthMm = (imgWidthPx * widthScale) / pxPerMm;
+          const finalHeightMm = (sliceCanvas.height * widthScale) / pxPerMm;
+          const x = (pageWidth - finalWidthMm) / 2;
+          const y = margin;
+
+          pdf.addImage(sliceImgData, "PNG", x, y, finalWidthMm, finalHeightMm);
+        }
+      }
+
+      pdf.save(fileName);
       toast.success("PDF downloaded successfully");
     } catch (err) {
       console.error("PDF generation error:", err);
       const message = err instanceof Error ? err.message : "Unknown error";
-      toast.error(`Failed to generate PDF: ${message}. Falling back to print.`);
-      // Fallback to browser print so the user is never stuck.
-      setTimeout(() => window.print(), 500);
+      toast.error(`Failed to generate PDF: ${message}`);
     } finally {
       if (offScreenContainer && offScreenContainer.parentNode) {
         document.body.removeChild(offScreenContainer);
@@ -513,7 +551,7 @@ export default function ProgressCardView() {
                     onClick={() => window.print()}
                     className="border-slate-200"
                   >
-                    <Printer className="h-4 w-4 mr-2" /> Print All
+                    <Printer className="h-4 w-4 mr-2" /> Print
                   </Button>
                   <Button
                     variant="outline"
