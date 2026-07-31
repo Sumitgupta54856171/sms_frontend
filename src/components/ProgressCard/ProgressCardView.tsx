@@ -203,49 +203,86 @@ export default function ProgressCardView() {
   const displayClassName = getClassDisplayLabel(selectedClass);
 
   const handleDownloadPDF = async () => {
-    if (!marksheetRef.current || filteredCards.length === 0) return;
+    if (!marksheetRef.current || filteredCards.length === 0) {
+      toast.error("No marksheet available to download");
+      return;
+    }
 
     setIsPdfLoading(true);
-    try {
-      const element = marksheetRef.current;
+    let offScreenContainer: HTMLDivElement | null = null;
 
-      const canvas = await html2canvas(element, {
+    try {
+      const source = marksheetRef.current;
+      const rect = source.getBoundingClientRect();
+
+      if (rect.width === 0 || rect.height === 0) {
+        throw new Error("Marksheet has zero size");
+      }
+
+      // Clone the marksheet into an off-screen container so the live UI
+      // (scrollbars, overlays, hidden print styles) cannot interfere.
+      const clone = source.cloneNode(true) as HTMLElement;
+      offScreenContainer = document.createElement("div");
+      offScreenContainer.style.position = "fixed";
+      offScreenContainer.style.top = "0";
+      offScreenContainer.style.left = "-9999px";
+      offScreenContainer.style.width = "auto";
+      offScreenContainer.style.height = "auto";
+      offScreenContainer.style.overflow = "visible";
+      offScreenContainer.style.visibility = "visible";
+      offScreenContainer.style.zIndex = "-1";
+      offScreenContainer.appendChild(clone);
+      document.body.appendChild(offScreenContainer);
+
+      const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
         backgroundColor: "#ffffff",
         logging: false,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
       });
+
+      if (canvas.width === 0 || canvas.height === 0) {
+        throw new Error("Captured canvas has zero size");
+      }
 
       const pdf = new jsPDF("l", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 6;
+      const margin = 5;
 
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
       const availableWidth = pageWidth - margin * 2;
       const availableHeight = pageHeight - margin * 2;
-      const ratio = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
+      const ratio = Math.min(
+        availableWidth / imgWidth,
+        availableHeight / imgHeight
+      );
 
       const finalWidth = imgWidth * ratio;
       const finalHeight = imgHeight * ratio;
       const x = (pageWidth - finalWidth) / 2;
-      const y = margin;
+      const y = (pageHeight - finalHeight) / 2;
 
       const imgData = canvas.toDataURL("image/png");
       pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight);
 
       const safeAssessment = selectedAssessment.replace(/[^a-zA-Z0-9]/g, "_");
       const dateStr = new Date().toISOString().split("T")[0];
-      pdf.save(`Progress_Card_${displayClassName}_${safeAssessment}_${dateStr}.pdf`);
+      pdf.save(
+        `Progress_Card_${displayClassName}_${safeAssessment}_${dateStr}.pdf`
+      );
       toast.success("PDF downloaded successfully");
     } catch (err) {
       console.error("PDF generation error:", err);
-      toast.error("Failed to generate PDF");
+      const message = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Failed to generate PDF: ${message}. Falling back to print.`);
+      // Fallback to browser print so the user is never stuck.
+      setTimeout(() => window.print(), 500);
     } finally {
+      if (offScreenContainer && offScreenContainer.parentNode) {
+        document.body.removeChild(offScreenContainer);
+      }
       setIsPdfLoading(false);
     }
   };
@@ -287,9 +324,14 @@ export default function ProgressCardView() {
       ];
     });
 
-    const csvContent = [headers.join(","), ...rows.map((row) => row.map(escapeCsv).join(","))].join("\n");
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map(escapeCsv).join(",")),
+    ].join("\n");
 
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -384,7 +426,9 @@ export default function ProgressCardView() {
 
                 <Button
                   onClick={handleGenerate}
-                  disabled={loading || !selectedClass || !selectedType || !selectedAssessment}
+                  disabled={
+                    loading || !selectedClass || !selectedType || !selectedAssessment
+                  }
                   className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   {loading ? (
@@ -406,7 +450,8 @@ export default function ProgressCardView() {
                     </span>
                   ) : (
                     <span>
-                      <strong>{studentCount}</strong> student{studentCount !== 1 ? "s" : ""} in{" "}
+                      <strong>{studentCount}</strong> student
+                      {studentCount !== 1 ? "s" : ""} in{" "}
                       <strong>{displayClassName}</strong>
                       {studentsData?.classteacherName && (
                         <span className="text-slate-400">
@@ -438,7 +483,11 @@ export default function ProgressCardView() {
                       </button>
                     )}
                   </div>
-                  <Button variant="outline" onClick={() => window.print()} className="border-slate-200">
+                  <Button
+                    variant="outline"
+                    onClick={() => window.print()}
+                    className="border-slate-200"
+                  >
                     <Printer className="h-4 w-4 mr-2" /> Print All
                   </Button>
                   <Button
@@ -471,7 +520,9 @@ export default function ProgressCardView() {
         {loading && (
           <div className="print:hidden flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-200 shadow-sm">
             <Loader2 className="h-10 w-10 animate-spin text-indigo-600 mb-4" />
-            <p className="text-sm font-medium text-slate-600">Generating progress cards...</p>
+            <p className="text-sm font-medium text-slate-600">
+              Generating progress cards...
+            </p>
           </div>
         )}
 
@@ -480,15 +531,18 @@ export default function ProgressCardView() {
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <School className="h-8 w-8 text-slate-400" />
             </div>
-            <p className="text-lg font-semibold text-slate-900">No progress cards to show</p>
+            <p className="text-lg font-semibold text-slate-900">
+              No progress cards to show
+            </p>
             <p className="text-sm text-slate-500 mt-1">
-              Select a class to load students, then choose test/exam and generate cards.
+              Select a class to load students, then choose test/exam and generate
+              cards.
             </p>
           </div>
         )}
 
         {!loading && filteredCards.length > 0 && (
-          <div className="print-block print-only-marksheet">
+          <div className="print:block print-only-marksheet">
             <ConsolidatedMarksheet
               ref={marksheetRef}
               cards={filteredCards}
@@ -531,14 +585,17 @@ export default function ProgressCardView() {
   );
 }
 
-const ConsolidatedMarksheet = forwardRef<HTMLDivElement, {
-  cards: StudentProgressCard[];
-  examTitle: string;
-  className: string;
-  sessionLabel: string;
-  allSubjects: string[];
-  subjectMap: Map<number, Map<string, SubjectMark>>;
-}>(function ConsolidatedMarksheet(
+const ConsolidatedMarksheet = forwardRef<
+  HTMLDivElement,
+  {
+    cards: StudentProgressCard[];
+    examTitle: string;
+    className: string;
+    sessionLabel: string;
+    allSubjects: string[];
+    subjectMap: Map<number, Map<string, SubjectMark>>;
+  }
+>(function ConsolidatedMarksheet(
   { cards, examTitle, className, sessionLabel, allSubjects, subjectMap },
   ref
 ) {
@@ -548,11 +605,19 @@ const ConsolidatedMarksheet = forwardRef<HTMLDivElement, {
         <CardContent className="p-0">
           {/* ── Header ── */}
           <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 text-white text-center py-5 px-6">
-            <h1 className="text-2xl font-bold uppercase tracking-wide">Rose Convent High School</h1>
-            <p className="text-indigo-200 text-lg font-semibold mt-1">{examTitle}</p>
+            <h1 className="text-2xl font-bold uppercase tracking-wide">
+              Rose Convent High School
+            </h1>
+            <p className="text-indigo-200 text-lg font-semibold mt-1">
+              {examTitle}
+            </p>
             <div className="flex justify-center gap-8 mt-1 text-sm text-indigo-200">
-              <span>Class: <strong className="text-white">{className}</strong></span>
-              <span>Session: <strong className="text-white">{sessionLabel}</strong></span>
+              <span>
+                Class: <strong className="text-white">{className}</strong>
+              </span>
+              <span>
+                Session: <strong className="text-white">{sessionLabel}</strong>
+              </span>
             </div>
           </div>
 
@@ -561,26 +626,58 @@ const ConsolidatedMarksheet = forwardRef<HTMLDivElement, {
             <table className="w-full text-xs border-collapse border border-slate-300">
               <thead>
                 <tr className="bg-slate-800 text-white">
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-8">#</th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold">Scholar No.</th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold">Roll No.</th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[140px]">Student Name</th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[120px]">Father's Name</th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[120px]">Mother's Name</th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-8">
+                    #
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold">
+                    Scholar No.
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold">
+                    Roll No.
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[140px]">
+                    Student Name
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[120px]">
+                    Father's Name
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[120px]">
+                    Mother's Name
+                  </th>
                   {allSubjects.map((sub) => (
-                    <th key={sub} className="border border-slate-600 px-1 py-2 text-center font-semibold min-w-[70px]">{sub}<br /><span className="text-[9px] font-normal text-indigo-200">(Max)</span></th>
+                    <th
+                      key={sub}
+                      className="border border-slate-600 px-1 py-2 text-center font-semibold min-w-[70px]"
+                    >
+                      {sub}
+                      <br />
+                      <span className="text-[9px] font-normal text-indigo-200">
+                        (Max)
+                      </span>
+                    </th>
                   ))}
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">Total</th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">%age</th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-12">Grade</th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">Result</th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold text-white bg-black">Class Teacher Sign</th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold text-white bg-black">Parent Sign</th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">
+                    Total
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">
+                    %age
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-12">
+                    Grade
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">
+                    Result
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold text-white bg-black">
+                    Class Teacher Sign
+                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold text-white bg-black">
+                    Parent Sign
+                  </th>
                 </tr>
               </thead>
-             
+
               <tbody>
-                 
                 {cards.map((card, idx) => {
                   const inner = subjectMap.get(card.studentId);
                   return (
@@ -588,48 +685,75 @@ const ConsolidatedMarksheet = forwardRef<HTMLDivElement, {
                       key={card.studentId}
                       className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/70"} hover:bg-indigo-50/50 transition-colors`}
                     >
-                      <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-500">{idx + 1}</td>
-                      <td className="border border-slate-300 px-2 py-1.5 font-mono text-slate-700">{card.scholarNo}</td>
-                      <td className="border border-slate-300 px-2 py-1.5 font-mono text-slate-700">{card.rollNo}</td>
-                      <td className="border border-slate-300 px-2 py-1.5 font-medium text-slate-900">{card.name}</td>
-                      <td className="border border-slate-300 px-2 py-1.5 text-slate-700">{card.fatherName}</td>
-                      <td className="border border-slate-300 px-2 py-1.5 text-slate-700">{card.motherName}</td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-500">
+                        {idx + 1}
+                      </td>
+                      <td className="border border-slate-300 px-2 py-1.5 font-mono text-slate-700">
+                        {card.scholarNo}
+                      </td>
+                      <td className="border border-slate-300 px-2 py-1.5 font-mono text-slate-700">
+                        {card.rollNo}
+                      </td>
+                      <td className="border border-slate-300 px-2 py-1.5 font-medium text-slate-900">
+                        {card.name}
+                      </td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-slate-700">
+                        {card.fatherName}
+                      </td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-slate-700">
+                        {card.motherName}
+                      </td>
                       {allSubjects.map((sub) => {
                         const mark = inner?.get(sub);
                         return (
-                          <td key={sub} className="border border-slate-300 px-1 py-1.5 text-center font-semibold text-slate-900">
+                          <td
+                            key={sub}
+                            className="border border-slate-300 px-1 py-1.5 text-center font-semibold text-slate-900"
+                          >
                             {mark ? `${mark.obtained}/${mark.maxMarks}` : "—"}
                           </td>
                         );
                       })}
-                      <td className="border border-slate-300 px-2 py-1.5 text-center font-bold text-slate-900">{card.totalObtained}/{card.totalMax}</td>
-                      <td className="border border-slate-300 px-2 py-1.5 text-center font-semibold text-slate-900">{card.percentage.toFixed(1)}</td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-center font-bold text-slate-900">
+                        {card.totalObtained}/{card.totalMax}
+                      </td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-center font-semibold text-slate-900">
+                        {card.percentage.toFixed(1)}
+                      </td>
                       <td className="border border-slate-300 px-2 py-1.5 text-center">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          ["A1", "A2"].includes(card.overallGrade)
-                            ? "bg-emerald-100 text-emerald-700"
-                            : ["B1", "B2"].includes(card.overallGrade)
-                              ? "bg-blue-100 text-blue-700"
-                              : ["C1", "C2"].includes(card.overallGrade)
-                                ? "bg-amber-100 text-amber-700"
-                                : card.overallGrade === "D"
-                                  ? "bg-orange-100 text-orange-700"
-                                  : "bg-red-100 text-red-700"
-                        }`}>
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            ["A1", "A2"].includes(card.overallGrade)
+                              ? "bg-emerald-100 text-emerald-700"
+                              : ["B1", "B2"].includes(card.overallGrade)
+                                ? "bg-blue-100 text-blue-700"
+                                : ["C1", "C2"].includes(card.overallGrade)
+                                  ? "bg-amber-100 text-amber-700"
+                                  : card.overallGrade === "D"
+                                    ? "bg-orange-100 text-orange-700"
+                                    : "bg-red-100 text-red-700"
+                          }`}
+                        >
                           {card.overallGrade}
                         </span>
                       </td>
                       <td className="border border-slate-300 px-2 py-1.5 text-center">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          card.result === "Pass"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-red-100 text-red-700"
-                        }`}>
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            card.result === "Pass"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
                           {card.result}
                         </span>
                       </td>
-                      <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-400 italic">_______________</td>
-                      <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-400 italic">_______________</td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-400 italic">
+                        _______________
+                      </td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-400 italic">
+                        _______________
+                      </td>
                     </tr>
                   );
                 })}
@@ -640,21 +764,32 @@ const ConsolidatedMarksheet = forwardRef<HTMLDivElement, {
           {/* ── Summary & Signatures ── */}
           <div className="px-6 py-4 flex items-center justify-between border-t border-slate-300">
             <div className="text-sm text-slate-600">
-              Total Students: <strong className="text-slate-900">{cards.length}</strong>
+              Total Students:{" "}
+              <strong className="text-slate-900">{cards.length}</strong>
               {" | "}
-              Passed: <strong className="text-emerald-700">{cards.filter((c) => c.result === "Pass").length}</strong>
+              Passed:{" "}
+              <strong className="text-emerald-700">
+                {cards.filter((c) => c.result === "Pass").length}
+              </strong>
               {" | "}
-              Failed: <strong className="text-red-700">{cards.filter((c) => c.result === "Fail").length}</strong>
+              Failed:{" "}
+              <strong className="text-red-700">
+                {cards.filter((c) => c.result === "Fail").length}
+              </strong>
             </div>
             <div className="flex gap-16">
               <div className="text-center">
                 <div className="border-t border-slate-400 pt-2 w-36 mt-8">
-                  <p className="font-semibold text-slate-700 text-sm">Class Teacher</p>
+                  <p className="font-semibold text-slate-700 text-sm">
+                    Class Teacher
+                  </p>
                 </div>
               </div>
               <div className="text-center">
                 <div className="border-t border-slate-400 pt-2 w-36 mt-8">
-                  <p className="font-semibold text-slate-700 text-sm">Principal</p>
+                  <p className="font-semibold text-slate-700 text-sm">
+                    Principal
+                  </p>
                 </div>
               </div>
             </div>
