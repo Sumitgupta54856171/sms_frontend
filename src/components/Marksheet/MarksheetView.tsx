@@ -105,6 +105,9 @@ interface StudentInfo {
   motherName: string;
   gender: string;
   dob: string;
+  aadhaar: string;
+  sssmid: string;
+  address: string;
 }
 
 interface SubjectMarks {
@@ -190,12 +193,22 @@ export default function MarksheetView() {
         const sid = row.studentId ?? studentObj.id ?? row.id ?? 0;
         let fatherName = studentObj.father_name ?? "—";
         let motherName = studentObj.mother_name ?? "—";
+        let gender = studentObj.gender ?? "";
+        let dob = studentObj.dob ?? "";
+        let aadhaar = studentObj.aadhaar ?? "";
+        let sssmid = studentObj.sssmid ?? "";
+        let address = studentObj.address ?? "";
         if (sid) {
           try {
             const detail = await fetchStudentDetail(sid);
             if (detail?.student) {
               fatherName = detail.student.father_name || "—";
               motherName = detail.student.mother_name || "—";
+              gender = detail.student.gender || "";
+              dob = detail.student.dob || "";
+              aadhaar = detail.student.aadhaar || "";
+              sssmid = detail.student.sssmid || "";
+              address = detail.student.address || "";
             }
           } catch {}
         }
@@ -206,8 +219,11 @@ export default function MarksheetView() {
           scholarNo: row.scholarNo ?? studentObj.scholar_no ?? "—",
           fatherName,
           motherName,
-          gender: studentObj.gender ?? "",
-          dob: studentObj.dob ?? "",
+          gender,
+          dob,
+          aadhaar,
+          sssmid,
+          address,
         });
       }
       setStudents(infoList);
@@ -280,7 +296,7 @@ export default function MarksheetView() {
         backgroundColor: "#ffffff",
       });
       const imgData = canvas;
-      const pdf = new jsPDF("l", "mm", "a4");
+      const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = canvas.width;
@@ -381,13 +397,19 @@ export default function MarksheetView() {
         dangerouslySetInnerHTML={{
           __html: `
             @media print {
-              @page { size: A4 landscape; margin: 6mm; }
+              @page { size: A4 portrait; margin: 10mm; }
               body, html { margin: 0; padding: 0; background: white; }
-              .no-print { display: none !important; }
+              body * { visibility: hidden; }
+              .marksheet-print-area, .marksheet-print-area * { visibility: visible; }
               .marksheet-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
+              .no-print { display: none !important; }
             }
             .hide-scrollbar::-webkit-scrollbar { display: none; }
             .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -521,10 +543,10 @@ export default function MarksheetView() {
                 <tr className="bg-slate-50">
                   <th className="border border-slate-300 p-1" colSpan={3}></th>
                   {subjectList.map((sub) => (
-                    <>
-                      <th key={`${sub}-half`} className="border border-slate-300 p-1 text-center text-[10px] text-blue-700 font-semibold">Half (40)</th>
-                      <th key={`${sub}-ann`} className="border border-slate-300 p-1 text-center text-[10px] text-amber-700 font-semibold">Annual (60)</th>
-                    </>
+                    <React.Fragment key={`${sub}-headers`}>
+                      <th className="border border-slate-300 p-1 text-center text-[10px] text-blue-700 font-semibold">Half (40)</th>
+                      <th className="border border-slate-300 p-1 text-center text-[10px] text-amber-700 font-semibold">Annual (60)</th>
+                    </React.Fragment>
                   ))}
                 </tr>
               </thead>
@@ -535,8 +557,8 @@ export default function MarksheetView() {
                     <td className="border border-slate-300 p-2 font-semibold sticky left-[40px] bg-white hover:bg-slate-50 z-10">{entry.info.name}</td>
                     <td className="border border-slate-300 p-2 text-center">{entry.info.rollNo}</td>
                     {entry.marks.map((m, subIdx) => (
-                      <>
-                        <td key={`${m.subject}-half`} className="border border-slate-300 p-1 text-center">
+                      <React.Fragment key={`${m.subject}-inputs`}>
+                        <td className="border border-slate-300 p-1 text-center">
                           <input
                             type="number"
                             min={0}
@@ -547,7 +569,7 @@ export default function MarksheetView() {
                             placeholder="0"
                           />
                         </td>
-                        <td key={`${m.subject}-ann`} className="border border-slate-300 p-1 text-center">
+                        <td className="border border-slate-300 p-1 text-center">
                           <input
                             type="number"
                             min={0}
@@ -558,7 +580,7 @@ export default function MarksheetView() {
                             placeholder="0"
                           />
                         </td>
-                      </>
+                      </React.Fragment>
                     ))}
                   </tr>
                 ))}
@@ -575,7 +597,7 @@ export default function MarksheetView() {
                 <Card className="border-2 border-[#005b9f] shadow-lg print:shadow-none overflow-hidden">
                   <div className="border border-[#005b9f] m-2 p-3">
                     {/* Header */}
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-2">
                       <img src="/LOGO.jpg.jpeg" alt="Logo" className="w-[70px] h-[70px] rounded-full object-cover border-2 border-[#C8972A] shadow-sm"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                       <div className="text-center flex-1">
@@ -586,45 +608,53 @@ export default function MarksheetView() {
                     </div>
 
                     {/* Session Banner */}
-                    <div className="bg-[#e6f2ff] text-[#004b87] text-center text-[13px] font-bold py-2 border-t-2 border-b-2 border-[#005b9f] mb-3">
+                    <div className="bg-[#e6f2ff] text-[#004b87] text-center text-[13px] font-bold py-1.5 border-t-2 border-b-2 border-[#005b9f] mb-2">
                       STUDENT PROGRESS CARD (SESSION : {sessionLabel})
                     </div>
 
                     {/* Student Info */}
-                    <table className="w-full border-collapse mb-3 text-[11px]">
+                    <table className="w-full border-collapse mb-2 text-[11px]">
                       <tbody>
                         <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left w-[16%]">Roll Number</th>
-                          <td className="border border-slate-400 p-1.5 w-[14%]">{pd.info.rollNo || "N/A"}</td>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left w-[16%]">Scholar Number</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={2}>{pd.info.scholarNo || "N/A"}</td>
-                          <td className="border border-slate-400 p-1 text-center" rowSpan={7} style={{ width: "15%" }}>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left w-[16%]">Roll Number</th>
+                          <td className="border border-slate-400 p-1 w-[14%]">{pd.info.rollNo || "N/A"}</td>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left w-[16%]">Scholar Number</th>
+                          <td className="border border-slate-400 p-1" colSpan={2}>{pd.info.scholarNo || "N/A"}</td>
+                          <td className="border border-slate-400 p-1 text-center" rowSpan={8} style={{ width: "15%" }}>
                             <div className="w-[75px] h-[95px] border border-slate-300 mx-auto flex items-center justify-center text-slate-300 text-[10px] bg-slate-50">PHOTO</div>
                           </td>
                         </tr>
                         <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Name of Student</th>
-                          <td className="border border-slate-400 p-1.5 font-bold" colSpan={4}>{pd.info.name}</td>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left">Name of Student</th>
+                          <td className="border border-slate-400 p-1 font-bold" colSpan={4}>{pd.info.name}</td>
                         </tr>
                         <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Father's Name</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={4}>{pd.info.fatherName}</td>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left">Father's Name</th>
+                          <td className="border border-slate-400 p-1" colSpan={4}>{pd.info.fatherName}</td>
                         </tr>
                         <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Mother's Name</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={4}>{pd.info.motherName}</td>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left">Mother's Name</th>
+                          <td className="border border-slate-400 p-1" colSpan={4}>{pd.info.motherName}</td>
                         </tr>
                         <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Date of Birth</th>
-                          <td className="border border-slate-400 p-1.5">{pd.info.dob || "N/A"}</td>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Class</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={2}>{displayClassName}{selectedStream ? ` (${selectedStream})` : ""}</td>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left">Date of Birth</th>
+                          <td className="border border-slate-400 p-1">{pd.info.dob || "N/A"}</td>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left">Gender</th>
+                          <td className="border border-slate-400 p-1" colSpan={2}>{pd.info.gender || "N/A"}</td>
                         </tr>
                         <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Gender</th>
-                          <td className="border border-slate-400 p-1.5">{pd.info.gender || "N/A"}</td>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Medium</th>
-                          <td className="border border-slate-400 p-1.5 font-bold" colSpan={2}>ENGLISH</td>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left">Aadhaar No</th>
+                          <td className="border border-slate-400 p-1" colSpan={4}>{pd.info.aadhaar || "N/A"}</td>
+                        </tr>
+                        <tr>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left">SSSMID</th>
+                          <td className="border border-slate-400 p-1" colSpan={4}>{pd.info.sssmid || "N/A"}</td>
+                        </tr>
+                        <tr>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left">Class</th>
+                          <td className="border border-slate-400 p-1">{displayClassName}{selectedStream ? ` (${selectedStream})` : ""}</td>
+                          <th className="border border-slate-400 bg-slate-50 p-1 text-left">Medium</th>
+                          <td className="border border-slate-400 p-1 font-bold" colSpan={2}>ENGLISH</td>
                         </tr>
                       </tbody>
                     </table>
@@ -634,64 +664,64 @@ export default function MarksheetView() {
                       Student's Performance <span className="text-[#e66] text-[9px] font-normal">(As per order of M.P. Govt.)</span>
                     </div>
 
-                    <table className="w-full border-collapse mb-3 text-[10.5px]">
+                    <table className="w-full border-collapse mb-2 text-[10.5px]">
                       <thead>
                         <tr className="bg-[#e6f2ff]">
-                          <th className="border border-slate-400 p-1.5 text-center" rowSpan={2} style={{ width: "16%" }}>Subjects</th>
-                          <th className="border border-slate-400 p-1.5 text-center" colSpan={3}>Half Yearly Evaluation</th>
-                          <th className="border border-slate-400 p-1.5 text-center" colSpan={3}>Annual Evaluation</th>
-                          <th className="border border-slate-400 p-1.5 text-center" colSpan={3}>Final Assessment</th>
+                          <th className="border border-slate-400 p-1 text-center" rowSpan={2} style={{ width: "16%" }}>Subjects</th>
+                          <th className="border border-slate-400 p-1 text-center" colSpan={3}>Half Yearly Evaluation</th>
+                          <th className="border border-slate-400 p-1 text-center" colSpan={3}>Annual Evaluation</th>
+                          <th className="border border-slate-400 p-1 text-center" colSpan={3}>Final Assessment</th>
                         </tr>
                         <tr className="bg-[#e6f2ff]">
-                          <th className="border border-slate-400 p-1 text-center">Max.</th>
-                          <th className="border border-slate-400 p-1 text-center">Obt.</th>
-                          <th className="border border-slate-400 p-1 text-center">Grade</th>
-                          <th className="border border-slate-400 p-1 text-center">Max.</th>
-                          <th className="border border-slate-400 p-1 text-center">Obt.</th>
-                          <th className="border border-slate-400 p-1 text-center">Grade</th>
-                          <th className="border border-slate-400 p-1 text-center">Max.</th>
-                          <th className="border border-slate-400 p-1 text-center">Obt.</th>
-                          <th className="border border-slate-400 p-1 text-center">Grade</th>
+                          <th className="border border-slate-400 p-0.5 text-center">Max.</th>
+                          <th className="border border-slate-400 p-0.5 text-center">Obt.</th>
+                          <th className="border border-slate-400 p-0.5 text-center">Grade</th>
+                          <th className="border border-slate-400 p-0.5 text-center">Max.</th>
+                          <th className="border border-slate-400 p-0.5 text-center">Obt.</th>
+                          <th className="border border-slate-400 p-0.5 text-center">Grade</th>
+                          <th className="border border-slate-400 p-0.5 text-center">Max.</th>
+                          <th className="border border-slate-400 p-0.5 text-center">Obt.</th>
+                          <th className="border border-slate-400 p-0.5 text-center">Grade</th>
                         </tr>
                       </thead>
                       <tbody>
                         {pd.rows.map((r) => (
                           <tr key={r.subject} className="text-center">
-                            <td className="border border-slate-400 p-1.5 text-left font-semibold">{r.subject}</td>
-                            <td className="border border-slate-400 p-1">{r.halfMax}</td>
-                            <td className="border border-slate-400 p-1">{r.halfObt}</td>
-                            <td className={`border border-slate-400 p-1 font-bold ${getGradeColor(r.halfGrade)}`}>{r.halfGrade}</td>
-                            <td className="border border-slate-400 p-1">{r.annMax}</td>
-                            <td className="border border-slate-400 p-1">{r.annObt}</td>
-                            <td className={`border border-slate-400 p-1 font-bold ${getGradeColor(r.annGrade)}`}>{r.annGrade}</td>
-                            <td className="border border-slate-400 p-1">{r.finalMax}</td>
-                            <td className="border border-slate-400 p-1">{r.finalObt}</td>
-                            <td className={`border border-slate-400 p-1 font-bold ${getGradeColor(r.finalGrade)}`}>{r.finalGrade}</td>
+                            <td className="border border-slate-400 p-1 text-left font-semibold">{r.subject}</td>
+                            <td className="border border-slate-400 p-0.5">{r.halfMax}</td>
+                            <td className="border border-slate-400 p-0.5">{r.halfObt}</td>
+                            <td className={`border border-slate-400 p-0.5 font-bold ${getGradeColor(r.halfGrade)}`}>{r.halfGrade}</td>
+                            <td className="border border-slate-400 p-0.5">{r.annMax}</td>
+                            <td className="border border-slate-400 p-0.5">{r.annObt}</td>
+                            <td className={`border border-slate-400 p-0.5 font-bold ${getGradeColor(r.annGrade)}`}>{r.annGrade}</td>
+                            <td className="border border-slate-400 p-0.5">{r.finalMax}</td>
+                            <td className="border border-slate-400 p-0.5">{r.finalObt}</td>
+                            <td className={`border border-slate-400 p-0.5 font-bold ${getGradeColor(r.finalGrade)}`}>{r.finalGrade}</td>
                           </tr>
                         ))}
                         <tr className="text-center font-bold bg-slate-50">
-                          <td className="border border-slate-400 p-1.5 text-left">Total</td>
-                          <td className="border border-slate-400 p-1">{pd.rows.length * 40}</td>
-                          <td className="border border-slate-400 p-1">{pd.totalHalf}</td>
-                          <td className={`border border-slate-400 p-1 ${getGradeColor(getGrade((pd.totalHalf / (pd.rows.length * 40)) * 100))}`}>{getGrade((pd.totalHalf / (pd.rows.length * 40)) * 100)}</td>
-                          <td className="border border-slate-400 p-1">{pd.rows.length * 60}</td>
-                          <td className="border border-slate-400 p-1">{pd.totalAnn}</td>
-                          <td className={`border border-slate-400 p-1 ${getGradeColor(getGrade((pd.totalAnn / (pd.rows.length * 60)) * 100))}`}>{getGrade((pd.totalAnn / (pd.rows.length * 60)) * 100)}</td>
-                          <td className="border border-slate-400 p-1">{pd.totalFinalMax}</td>
-                          <td className="border border-slate-400 p-1">{pd.totalFinal}</td>
-                          <td className={`border border-slate-400 p-1 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
+                          <td className="border border-slate-400 p-1 text-left">Total</td>
+                          <td className="border border-slate-400 p-0.5">{pd.rows.length * 40}</td>
+                          <td className="border border-slate-400 p-0.5">{pd.totalHalf}</td>
+                          <td className={`border border-slate-400 p-0.5 ${getGradeColor(getGrade((pd.totalHalf / (pd.rows.length * 40)) * 100))}`}>{getGrade((pd.totalHalf / (pd.rows.length * 40)) * 100)}</td>
+                          <td className="border border-slate-400 p-0.5">{pd.rows.length * 60}</td>
+                          <td className="border border-slate-400 p-0.5">{pd.totalAnn}</td>
+                          <td className={`border border-slate-400 p-0.5 ${getGradeColor(getGrade((pd.totalAnn / (pd.rows.length * 60)) * 100))}`}>{getGrade((pd.totalAnn / (pd.rows.length * 60)) * 100)}</td>
+                          <td className="border border-slate-400 p-0.5">{pd.totalFinalMax}</td>
+                          <td className="border border-slate-400 p-0.5">{pd.totalFinal}</td>
+                          <td className={`border border-slate-400 p-0.5 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
                         </tr>
                       </tbody>
                     </table>
 
                     {/* Co-Scholastic */}
                     <div className="text-[#005b9f] text-[12px] font-bold mb-1">Performance in Co-Scholastic Areas :</div>
-                    <table className="w-full border-collapse mb-3 text-[10px]">
+                    <table className="w-full border-collapse mb-2 text-[10px]">
                       <thead>
                         <tr>
-                          <th className="border border-slate-400 bg-[#e6f2ff] p-1 text-center" colSpan={2} style={{ width: "33.33%" }}>Co-Curricular Activities</th>
-                          <th className="border border-slate-400 bg-[#e6f2ff] p-1 text-center" colSpan={2} style={{ width: "33.33%" }}>Personal &amp; Social</th>
-                          <th className="border border-slate-400 bg-[#e6f2ff] p-1 text-center" colSpan={2} style={{ width: "33.33%" }}>Social Values</th>
+                          <th className="border border-slate-400 bg-[#e6f2ff] p-0.5 text-center" colSpan={2} style={{ width: "33.33%" }}>Co-Curricular Activities</th>
+                          <th className="border border-slate-400 bg-[#e6f2ff] p-0.5 text-center" colSpan={2} style={{ width: "33.33%" }}>Personal &amp; Social</th>
+                          <th className="border border-slate-400 bg-[#e6f2ff] p-0.5 text-center" colSpan={2} style={{ width: "33.33%" }}>Social Values</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -703,12 +733,12 @@ export default function MarksheetView() {
                           ["Sports", "Co-operation", "Expressive"],
                         ].map(([a, b, c]) => (
                           <tr key={a}>
-                            <td className="border border-slate-400 p-1">{a}</td>
-                            <td className="border border-slate-400 p-1 text-center">A</td>
-                            <td className="border border-slate-400 p-1">{b}</td>
-                            <td className="border border-slate-400 p-1 text-center">A</td>
-                            <td className="border border-slate-400 p-1">{c}</td>
-                            <td className="border border-slate-400 p-1 text-center">A</td>
+                            <td className="border border-slate-400 p-0.5">{a}</td>
+                            <td className="border border-slate-400 p-0.5 text-center">A</td>
+                            <td className="border border-slate-400 p-0.5">{b}</td>
+                            <td className="border border-slate-400 p-0.5 text-center">A</td>
+                            <td className="border border-slate-400 p-0.5">{c}</td>
+                            <td className="border border-slate-400 p-0.5 text-center">A</td>
                           </tr>
                         ))}
                       </tbody>
@@ -716,23 +746,23 @@ export default function MarksheetView() {
 
                     {/* Final Result */}
                     <div className="text-[#005b9f] text-[12px] font-bold mb-1">Final Result :</div>
-                    <table className="w-full border-collapse mb-3 text-[11px]">
+                    <table className="w-full border-collapse mb-2 text-[11px]">
                       <thead>
                         <tr className="bg-[#e6f2ff] text-center">
-                          <th className="border border-slate-400 p-1.5 text-center">Max. Marks</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Obt. Marks</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Result</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Percentage</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Grade</th>
+                          <th className="border border-slate-400 p-1 text-center">Max. Marks</th>
+                          <th className="border border-slate-400 p-1 text-center">Obt. Marks</th>
+                          <th className="border border-slate-400 p-1 text-center">Result</th>
+                          <th className="border border-slate-400 p-1 text-center">Percentage</th>
+                          <th className="border border-slate-400 p-1 text-center">Grade</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr className="text-center font-bold">
-                          <td className="border border-slate-400 p-1.5">{pd.totalFinalMax}</td>
-                          <td className="border border-slate-400 p-1.5">{pd.totalFinal}</td>
-                          <td className={`border border-slate-400 p-1.5 ${pd.result === "Pass" ? "text-green-700" : "text-red-700"}`}>{pd.result}</td>
-                          <td className="border border-slate-400 p-1.5">{pd.overallPct.toFixed(2)}%</td>
-                          <td className={`border border-slate-400 p-1.5 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
+                          <td className="border border-slate-400 p-1">{pd.totalFinalMax}</td>
+                          <td className="border border-slate-400 p-1">{pd.totalFinal}</td>
+                          <td className={`border border-slate-400 p-1 ${pd.result === "Pass" ? "text-green-700" : "text-red-700"}`}>{pd.result}</td>
+                          <td className="border border-slate-400 p-1">{pd.overallPct.toFixed(2)}%</td>
+                          <td className={`border border-slate-400 p-1 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -742,7 +772,7 @@ export default function MarksheetView() {
                       <div>Class Teacher Remark: <span className="font-normal">Good</span></div>
                       <div>Status: <span className="font-normal">{pd.result === "Pass" ? "Promoted" : "Detained"}</span></div>
                     </div>
-                    <div className="flex justify-between mt-10 px-4">
+                    <div className="flex justify-between mt-8 px-4">
                       <div className="text-center text-[11px] font-bold text-slate-700">
                         <div className="w-[140px] border-t-2 border-slate-700 mb-1"></div>
                         Class Teacher
@@ -762,7 +792,7 @@ export default function MarksheetView() {
 
         {/* ─── Empty State ─── */}
         {!loading && students.length === 0 && selectedClass && (
-          <div className="text-center py-16 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="no-print text-center py-16 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
             <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <p className="text-lg font-semibold text-slate-900">No students found</p>
             <p className="text-sm text-slate-500 mt-1">No students enrolled in this class.</p>
@@ -771,7 +801,7 @@ export default function MarksheetView() {
 
         {/* ─── Loading ─── */}
         {loading && (
-          <div className="flex items-center justify-center py-20">
+          <div className="no-print flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-[#005b9f]" />
             <span className="ml-3 text-slate-600 font-medium">Loading students...</span>
           </div>
