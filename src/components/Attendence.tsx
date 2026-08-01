@@ -78,7 +78,7 @@ interface StudentRow {
   name: string;
   rollNumber: string;
   scholarNo: string;
-  status: "present" | "absent" | null;
+  status: "present" | "absent" | "holiday" | null;
 }
 
 export default function Attendance() {
@@ -225,10 +225,11 @@ export default function Attendance() {
   const totalCount = students.length;
   const presentCount = students.filter((s) => s.status === "present").length;
   const absentCount = students.filter((s) => s.status === "absent").length;
+  const holidayCount = students.filter((s) => s.status === "holiday").length;
 
   // ─── Handle local status toggle ─────────────────────────────────────
   const handleStatusChange = useCallback(
-    (id: number, newStatus: "present" | "absent") => {
+    (id: number, newStatus: "present" | "absent" | "holiday") => {
       setStudents((prev) =>
         prev.map((s) => (s.id === id ? { ...s, status: s.status === newStatus ? null : newStatus } : s))
       );
@@ -238,7 +239,7 @@ export default function Attendance() {
 
   // ─── Update mutation (individual edit) ───────────────────────────────
   const updateMutation = useMutation({
-    mutationFn: ({ studentId, status, date }: { studentId: number; status: "present" | "absent"; date: string }) =>
+    mutationFn: ({ studentId, status, date }: { studentId: number; status: "present" | "absent" | "holiday"; date: string }) =>
       updateAttendance(studentId, status, date),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["attendance", formattedDate] });
@@ -249,7 +250,7 @@ export default function Attendance() {
     },
   });
 
-  const handleUpdate = (id: number, status: "present" | "absent") => {
+  const handleUpdate = (id: number, status: "present" | "absent" | "holiday") => {
     updateMutation.mutate({ studentId: id, status, date: formattedDate });
   };
 
@@ -271,7 +272,7 @@ export default function Attendance() {
       .map((s) => ({
         attendanceDate: formattedDate,
         studentId: s.id,
-        status: s.status as "present" | "absent",
+        status: s.status as "present" | "absent" | "holiday",
         grade: selectedClass,
       }));
 
@@ -368,7 +369,7 @@ export default function Attendance() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-500">
@@ -397,6 +398,22 @@ export default function Attendance() {
             <CardContent>
               <div className="text-2xl font-bold text-slate-900">
                 {absentCount}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">
+                Holiday
+              </CardTitle>
+              <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                <CalendarIcon className="w-4 h-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-slate-900">
+                {holidayCount}
               </div>
             </CardContent>
           </Card>
@@ -517,6 +534,25 @@ export default function Attendance() {
                         >
                           Absent
                         </Button>
+
+                        <Button
+                          variant={
+                            student.status === "holiday"
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          className={
+                            student.status === "holiday"
+                              ? "bg-purple-600 hover:bg-purple-700 text-white"
+                              : "text-slate-600"
+                          }
+                          onClick={() =>
+                            handleStatusChange(student.id, "holiday")
+                          }
+                        >
+                          Holiday
+                        </Button>
                       </div>
                     </TableCell>
 
@@ -564,6 +600,10 @@ export default function Attendance() {
               ,{" "}
               <span className="text-red-600 font-medium">
                 {absentCount} Absent
+              </span>
+              ,{" "}
+              <span className="text-purple-600 font-medium">
+                {holidayCount} Holiday
               </span>{" "}
               out of {totalCount} students.
             </div>

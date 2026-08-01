@@ -1,7 +1,16 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, GraduationCap, Hash, BookOpen } from "lucide-react";
+import {
+  ArrowLeft,
+  Users,
+  GraduationCap,
+  Hash,
+  BookOpen,
+  Save,
+  Loader2,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import {
   Table,
@@ -14,14 +23,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
-import { fetchStudentsByClass } from "@/api/student";
+import { fetchStudentsByClass, updateBulkRollNo } from "@/api/student";
 import StudentAvatar from "@/components/StudentAvatar";
 
 export default function ClassStudentList() {
   const { classNo } = useParams<{ classNo: string }>();
   const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["students", "class", classNo],
@@ -39,6 +50,33 @@ export default function ClassStudentList() {
       scholar_no: s.scholarNo ?? s.scholarNo ?? "-",
     }));
   }, [data]);
+
+  const [rollNos, setRollNos] = useState<Record<number, string>>({});
+
+  // Sync rollNos state when students data loads
+  useMemo(() => {
+    const initial: Record<number, string> = {};
+    students.forEach((s: { id: number; roll_no: string }) => {
+      initial[s.id] = s.roll_no;
+    });
+    setRollNos(initial);
+  }, [students]);
+
+  const handleSaveRollNos = async () => {
+    const payload = students.map((s: { id: number; roll_no: string }) => ({
+      studentId: s.id,
+      rollNo: rollNos[s.id] ?? s.roll_no,
+    }));
+    setSaving(true);
+    try {
+      await updateBulkRollNo(payload);
+      toast.success("Roll numbers updated successfully");
+    } catch {
+      toast.error("Failed to update roll numbers");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen font-sans">
@@ -69,13 +107,28 @@ export default function ClassStudentList() {
                 </p>
               )}
             </div>
-            <Badge
-              variant="secondary"
-              className="bg-indigo-50 text-indigo-700 border border-indigo-200 gap-1.5 px-3 py-1.5 text-sm self-start"
-            >
-              <Users className="h-4 w-4" />
-              {students.length} Student{students.length !== 1 ? "s" : ""}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Badge
+                variant="secondary"
+                className="bg-indigo-50 text-indigo-700 border border-indigo-200 gap-1.5 px-3 py-1.5 text-sm"
+              >
+                <Users className="h-4 w-4" />
+                {students.length} Student{students.length !== 1 ? "s" : ""}
+              </Badge>
+              <Button
+                onClick={handleSaveRollNos}
+                disabled={saving}
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-1.5" />
+                )}
+                Save Roll Nos
+              </Button>
+            </div>
           </div>
         </CardHeader>
 
@@ -128,7 +181,16 @@ export default function ClassStudentList() {
                         {student.class_no}
                       </TableCell>
                       <TableCell className="py-3 text-slate-600">
-                        {student.roll_no}
+                        <Input
+                          value={rollNos[student.id] ?? ""}
+                          onChange={(e) =>
+                            setRollNos((prev) => ({
+                              ...prev,
+                              [student.id]: e.target.value,
+                            }))
+                          }
+                          className="h-8 w-20 text-sm"
+                        />
                       </TableCell>
                       <TableCell className="py-3">
                         <div className="flex items-center gap-3">

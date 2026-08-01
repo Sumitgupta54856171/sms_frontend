@@ -1,0 +1,26 @@
+﻿Class,Student ID,Student Name,Gender,Present,Absent,Holiday,Working Days,Percentage
+6,3,"Sumit Gupta",male,5,2,1,7,71.4%
+6,1,"anshika vishwakarma ",female,5,2,1,7,71.4%
+
+--- 6 Summary ---
+Working Days,7,Holidays,1
+Boys,1,Present: 5,,Percentage: 71.4%,Average: 5.0
+Girls,1,Present: 5,,Percentage: 71.4%,Average: 5.0
+Total,2,Present: 10,,Percentage: 71.4%,Average: 5.0
+
+9,4,"Aman Gupta",male,6,0,1,7,85.7%
+
+--- 9 Summary ---
+Working Days,7,Holidays,1
+Boys,1,Present: 6,,Percentage: 85.7%,Average: 6.0
+Girls,0,Present: 0,,Percentage: 0.0%,Average: 0.0
+Total,1,Present: 6,,Percentage: 85.7%,Average: 6.0
+
+Nursery,5,"Rahul",male,7,0,1,7,100.0%
+Nursery,6,"h",male,7,0,1,7,100.0%
+
+--- Nursery Summary ---
+Working Days,7,Holidays,1
+Boys,2,Present: 14,,Percentage: 100.0%,Average: 7.0
+Girls,0,Present: 0,,Percentage: 0.0%,Average: 0.0
+Total,2,Present: 14,,Percentage: 100.0%,Average: 7.0

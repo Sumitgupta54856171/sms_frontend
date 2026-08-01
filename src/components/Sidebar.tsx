@@ -22,6 +22,12 @@ import {
   Smartphone,
   Plus,
   LayoutTemplate,
+  Settings,
+  PanelLeftDashedIcon,
+  Workflow,
+  PackagePlus,
+  CreativeCommonsIcon,
+  FileSpreadsheet,
 } from "lucide-react";
 
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
@@ -56,6 +62,7 @@ const pagePreloaders: Record<string, () => Promise<unknown>> = {
   "/timetable": () => import("@/pages/Timetablepage"),
   "/lesson-plans": () => import("@/pages/TeacherPlan/TeacherPlanPage"),
   "/attendance": () => import("@/pages/Attendence/Attendecepage"),
+  "/attendance/summary": () => import("@/pages/Attendence/AttendanceSummaryPage"),
   "/timetable/exams": () => import("@/pages/ExamTimetable/ExamTimetablePage"),
   "/fees": () => import("@/pages/Fees/Feepage"),
   "/fees/invoice-history": () => import("@/pages/InvoiceHistory/InvoiceHistoryPage"),
@@ -68,8 +75,14 @@ const pagePreloaders: Record<string, () => Promise<unknown>> = {
   "/grades": () => import("@/pages/GradePage/GradePage"),
   "/gmail": () => import("@/pages/GmailPage/GmailPage"),
   "/sms-alert": () => import("@/pages/SmsAlertPage/SmsAlertPage"),
-  "/id-card-print": () => import("@/pages/IdCardPrintPage/IdCardPrintPage"),
+  "/report":()=>import("@/pages/ReportsPage/ReportsPage"),
+  "/setting":()=>import('@/pages/SettingsPage/SettingsPage'),  
   "/id-card-template": () => import("@/pages/IdCardTemplate/IdCardTemplate"),
+  "/homework":()=> import("@/pages/HomeworkPage/HomeworkPage"),
+  "/payroll":()=> import("@/pages/PayrollPage/PayrollPage"),
+  "/progress":()=>import("@/pages/ProgressCardPage/ProgressCardPage"),
+  "/id-card-generator":()=>import("@/components/IdCardGenerator"),
+  "/marksheet":()=>import("@/pages/MarksheetPage/MarksheetPage"),
 };
 
 // Grouped Menu Items matching the screenshot
@@ -89,6 +102,7 @@ const menuGroups = [
     label: "OPERATIONS",
     items: [
       { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
+      { title: "Attendance Summary", url: "/attendance/summary", icon: ClipboardCheck },
       { title: "Examinations", url: "/timetable/exams", icon: FileText },
       { title: "Grades", url: "/grades", icon: LineChart },
       { title: "Fee Management", url: "/fees", icon: DollarSign, badge: { text: "32", style: "bg-slate-100 text-slate-700 text-xs font-semibold" } },
@@ -96,15 +110,21 @@ const menuGroups = [
       { title: "Fee Structure", url: "/fees/structure", icon: IndianRupee },
       { title: "Transfer Certificate", url: "/tc", icon: FileText },
       { title: "Enrollment", url: "/enrollment", icon: ArrowUpDown },
-      { title: "ID Card Print", url: "/id-card-print", icon: FileText },
+      
+      
       { title: "ID Card Template", url: "/id-card-template", icon: LayoutTemplate },
+      {title:"Progress Report",url:"/progress",icon:CreativeCommonsIcon},
+      {title:"Final Marksheet",url:"/marksheet",icon:FileSpreadsheet},
+      { title:"ID Card Generator",url:"/id-card-generator",icon:Workflow}
     ]
   },
   {
     label: "SERVICES",
     items: [
       { title: "Calendar", url: "/calendar", icon: Calendar },
-      { title: "Notice Board", url: "/notices", icon: FileText }
+      { title: "Notice Board", url: "/notices", icon: FileText },
+      {title:"Report Generator",url:"/report",icon:PanelLeftDashedIcon},
+      {title:'Payroll',url:"/payroll",icon:PackagePlus}
       
     ]
   },
@@ -114,6 +134,13 @@ const menuGroups = [
       { title: "Messages", url: "/messages", icon: MessageSquare },
       { title: "Gmail", url: "/gmail", icon: Mail },
       { title: "SMS Alert", url: "/sms-alert", icon: Smartphone },
+      
+    ]
+  },
+  {
+    label:"Setting",
+    items:[
+      {title:"Settings",url:"/setting",icon:Settings}
     ]
   }
 ];

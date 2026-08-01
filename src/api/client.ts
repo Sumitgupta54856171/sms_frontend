@@ -79,8 +79,12 @@ apiClient.interceptors.response.use(
     activeRequests--;
     notifyLoading();
 
-    // ── Auto-logout on 401 ──
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    // ── Auto-logout on 401 (skip if already on login page) ──
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 401 &&
+      !window.location.pathname.startsWith("/login")
+    ) {
       localStorage.removeItem("token");
       localStorage.removeItem("useRole");
       localStorage.removeItem("userName");

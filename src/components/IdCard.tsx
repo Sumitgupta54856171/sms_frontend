@@ -148,7 +148,7 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
           <div className="absolute top-8 -right-8 w-24 h-32 bg-[#93c572] rounded-full opacity-70 transform rotate-12 z-0"></div>
 
           <div className="absolute top-0 left-0 w-full h-full z-20 flex items-start px-4 pt-3">
-            <div className="w-[45px] h-[45px] bg-white rounded-full flex items-center justify-center shadow-sm overflow-hidden border border-slate-200 flex-shrink-0 mt-1">
+            <div className="w-[70px] h-[70px] bg-white rounded-full flex items-center justify-center shadow-sm overflow-hidden border border-slate-200 flex-shrink-0 mt-1">
               <img src="/LOGO.jpg.jpeg" alt="" className="w-full h-full object-cover" crossOrigin="anonymous" />
             </div>
             <div className="ml-3 flex flex-col justify-start pt-0.5">
@@ -158,7 +158,7 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
               <h2 className="text-[14px] font-bold text-white/90 font-serif tracking-[0.2em] pl-0.5">
                 HIGH SCHOOL
               </h2>
-              <p className="text-[9px] text-white/80 font-medium tracking-wide mt-0.5">
+              <p className="text-[14px] text-white/80 font-medium tracking-wide mt-0.5">
                 Tikuriyatola, Satna (M.P.)
               </p>
             </div>
@@ -177,7 +177,7 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
 
           {/* Photo */}
           <div className="flex flex-col items-center w-full">
-            <div className="w-[100px] h-[115px] border-[2px] border-[#1a2b4c]/20 p-[2px] bg-white shadow-md overflow-hidden rounded-lg">
+            <div className="w-[150px] h-[165px] border-[2px] border-[#1a2b4c]/20 p-[2px] bg-white shadow-md overflow-hidden rounded-lg">
               {photoUrl ? (
                 <img
                   src={photoUrl}
@@ -197,8 +197,8 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
             </h3>
 
             {/* Scholar No badge */}
-            <div className="mt-1 bg-[#1a2b4c]/5 px-3 py-[2px] rounded-full">
-              <p className="text-[10px] text-[#1a2b4c] font-bold tracking-wide">
+            <div className="mt-1 bg-[#1a2b4c]/5 px-12 py-[2px] rounded-full">
+              <p className="text-[14px] text-[#1a2b4c] font-bold tracking-wide">
                 Sch. No. {student?.scholar_no || "—"}
               </p>
             </div>
@@ -212,30 +212,24 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
           </div>
 
           {/* Details List */}
-          <div className="w-full space-y-[4px] font-sans flex flex-col justify-center">
+          <div className="w-full  font-sans flex flex-col space-y-[4px] justify-center">
             <div className="flex text-[12px] items-center">
-              <div className="w-[85px] shrink-0 text-slate-500 font-medium">Father's Name</div>
+              <div className="w-[85px] shrink-0 text-slate-500 font-medium">Fathers Name </div>
               <div className="w-[10px] shrink-0 text-slate-400 font-bold text-center">:</div>
-              <div className="flex-1 font-bold text-slate-900 text-[12px] leading-snug truncate">
-                {student?.father_name || "—"}
+              <div className="flex-1 font-bold text-slate-900 text-[12px] leading-snug">
+                {student.father_name}
               </div>
             </div>
 
             <div className="flex text-[12px] items-center">
-              <div className="w-[85px] shrink-0 text-slate-500 font-medium">Class / Sec.</div>
+              <div className="w-[85px] shrink-0 text-slate-500 font-medium">Class </div>
               <div className="w-[10px] shrink-0 text-slate-400 font-bold text-center">:</div>
               <div className="flex-1 font-bold text-slate-900 text-[12px] leading-snug">
                 {student?.classInfo ? formatClassWithSuffix(student.classInfo) : "—"}
               </div>
             </div>
 
-            <div className="flex text-[12px] items-center">
-              <div className="w-[85px] shrink-0 text-slate-500 font-medium">Roll No.</div>
-              <div className="w-[10px] shrink-0 text-slate-400 font-bold text-center">:</div>
-              <div className="flex-1 font-bold text-slate-900 text-[12px] leading-snug">
-                {student?.roll || "—"}
-              </div>
-            </div>
+            
 
             <div className="flex text-[12px] items-center">
               <div className="w-[85px] shrink-0 text-slate-500 font-medium">Mob. No.</div>
@@ -245,7 +239,7 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
               </div>
             </div>
 
-            <div className="flex text-[11px] items-start">
+            <div className="flex text-[11px] items-center">
               <div className="w-[85px] shrink-0 text-slate-500 font-medium pt-[1px]">Address</div>
               <div className="w-[10px] shrink-0 text-slate-400 font-bold text-center pt-[1px]">:</div>
               <div className="flex-1 font-bold text-slate-900 text-[11px] leading-tight line-clamp-2">
@@ -260,8 +254,12 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
         <div className="absolute bottom-4 right-5 z-20">
           <div className="flex flex-col items-center">
             <svg className="w-16 h-8 text-slate-800" viewBox="0 0 80 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M5 16 C 15 2 25 22 35 12 C 45 2 55 20 65 14 Q 72 20 78 12" strokeLinecap="round" strokeLinejoin="round" />
+              
             </svg>
+            <img src="/sign.svg" className="w-34 h-12" />
+            
+          
+
             <div className="text-[10px] font-bold text-[#1a2b4c] border-t-2 border-[#1a2b4c] pt-[2px] px-2 uppercase tracking-widest mt-0.5">
               Principal
             </div>

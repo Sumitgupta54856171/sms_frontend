@@ -1,8 +1,7 @@
-import apiClient from "./client";
-import { fetchExamTimetableByName, type ExamTimetableEntry } from "./exam-timetable";
-import { fetchTestTimetableByName, type TestTimetableEntry } from "./test-timetable";
-import { fetchMarks, type GradeMarkResponse } from "./grade";
-import { fetchStudentsByClass } from "./student";
+import { fetchMarksByClassAndAssessment } from "./grade";
+import { fetchStudentsByClass, fetchStudentDetail } from "./student";
+import { fetchExamNames, fetchExamTimetableByName } from "./exam-timetable";
+import { fetchTestNames, fetchTestTimetableByName } from "./test-timetable";
 
 export type AssessmentType = "test" | "exam";
 
@@ -37,6 +36,19 @@ export interface AssessmentOption {
   type: AssessmentType;
 }
 
+/** API class value: "Grade 9" → "9", keep Nursery/LKG/UKG as-is */
+export function normalizeClassForApi(className: string): string {
+  const match = className.match(/^Grade\s+(\d+)$/i);
+  return match ? match[1] : className;
+}
+
+/** Display label for class dropdown */
+export function getClassDisplayLabel(className: string): string {
+  if (["Nursery", "LKG", "UKG", "Grade 12"].includes(className)) return className;
+  if (/^\d+$/.test(className)) return `Grade ${className}`;
+  return className;
+}
+
 function getGrade(percentage: number): string {
   if (percentage >= 91) return "A1";
   if (percentage >= 81) return "A2";
@@ -66,20 +78,43 @@ function getRemarks(grade: string): string {
   }
 }
 
+interface StudentDetailRow {
+  studentId?: number;
+  id?: number;
+  roll_no?: string;
+  rolleNo?: string;
+  studentName?: string;
+  scholarNo?: string;
+  student?: {
+    id?: number;
+    name?: string;
+    scholar_no?: string;
+    father_name?: string;
+    mother_name?: string;
+    gender?: string;
+    dob?: string;
+  };
+}
+
+function mapStudentRow(raw: StudentDetailRow) {
+  const studentObj = raw.student ?? {};
+  return {
+    studentId: raw.studentId ?? studentObj.id ?? raw.id ?? 0,
+    name: raw.studentName ?? studentObj.name ?? "—",
+    rollNo: raw.roll_no ?? raw.rolleNo ?? "—",
+    scholarNo: raw.scholarNo ?? studentObj.scholar_no ?? "—",
+    fatherName: studentObj.father_name ?? "—",
+    motherName: studentObj.mother_name ?? "—",
+    gender: studentObj.gender ?? "",
+    dob: studentObj.dob ?? "",
+  };
+}
+
 export const fetchAssessmentNames = async (): Promise<AssessmentOption[]> => {
   try {
-    const [examNames, testNames] = await Promise.all([
-      (async () => {
-        const response = await apiClient.get("/api/v1/timetable/examName", { withCredentials: true });
-        return response.data ?? [];
-      })(),
-      (async () => {
-        const response = await apiClient.get("/api/v1/timetable/testName", { withCredentials: true });
-        return response.data ?? [];
-      })(),
-    ]);
-    const exams: AssessmentOption[] = (examNames ?? []).map((n: string) => ({ name: n, type: "exam" }));
-    const tests: AssessmentOption[] = (testNames ?? []).map((n: string) => ({ name: n, type: "test" }));
+    const [examNames, testNames] = await Promise.all([fetchExamNames(), fetchTestNames()]);
+    const exams: AssessmentOption[] = (examNames ?? []).map((n) => ({ name: n, type: "exam" as const }));
+    const tests: AssessmentOption[] = (testNames ?? []).map((n) => ({ name: n, type: "test" as const }));
     return [...exams, ...tests];
   } catch {
     return [];
@@ -87,86 +122,113 @@ export const fetchAssessmentNames = async (): Promise<AssessmentOption[]> => {
 };
 
 export const fetchProgressCards = async (
+  className: string,
   assessmentName: string,
-  type: AssessmentType,
-  className: string
+  type: AssessmentType
 ): Promise<StudentProgressCard[]> => {
-  let timetableEntries: Array<{ subject: string; maxMarks?: number; examid: number; classNO: string }> = [];
+  const apiClassNo = normalizeClassForApi(className);
+  const displayClass = getClassDisplayLabel(className);
 
-  if (type === "exam") {
-    const entries = await fetchExamTimetableByName(assessmentName);
-    timetableEntries = entries
-      .filter((e) => e.classNO === className)
-      .map((e) => ({
-        subject: e.subject,
-        maxMarks: e.maxMarks,
-        examid: e.testtimetableId ?? e.examcode ?? 0,
-        classNO: e.classNO,
-      }));
-  } else {
-    const entries = await fetchTestTimetableByName(assessmentName);
-    timetableEntries = entries
-      .filter((e) => e.classNO === className)
-      .map((e) => ({
-        subject: e.subject,
-        maxMarks: e.maxMarks,
-        examid: e.testtimetableId ?? e.testcode ?? 0,
-        classNO: e.classNO,
-      }));
-  }
+  const studentsResponse = await fetchStudentsByClass(apiClassNo);
+  const studentList: StudentDetailRow[] =
+    studentsResponse?.studentdetail ?? studentsResponse?.data ?? [];
 
-  if (timetableEntries.length === 0) return [];
+  const studentMap = new Map<number, ReturnType<typeof mapStudentRow>>();
+  studentList.forEach((row) => {
+    const mapped = mapStudentRow(row);
+    if (mapped.studentId) studentMap.set(mapped.studentId, mapped);
+  });
 
-  const studentsResponse = await fetchStudentsByClass(className);
-  const studentList = studentsResponse?.studentdetail ?? studentsResponse?.data ?? studentsResponse ?? [];
-
-  const studentMap = new Map<number, StudentProgressCard>();
-
-  for (const entry of timetableEntries) {
-    if (!entry.examid) continue;
-    const marks = await fetchMarks("0", entry.subject, className, type, entry.examid);
-    const maxMarks = entry.maxMarks ?? 100;
-
-    marks.forEach((m: GradeMarkResponse) => {
-      const sid = m.studentId;
-      if (!studentMap.has(sid)) {
-        const raw = studentList.find((s: any) => (s.student?.id ?? s.id) === sid) ?? {};
-        const studentObj = raw.student ?? raw;
-        studentMap.set(sid, {
-          studentId: sid,
-          name: studentObj.name ?? m.studentName ?? "—",
-          rollNo: raw.roll_no ?? raw.rollNo ?? "—",
-          scholarNo: studentObj.scholar_no ?? "—",
-          fatherName: studentObj.father_name ?? "—",
-          motherName: studentObj.mother_name ?? "—",
-          gender: studentObj.gender,
-          dob: studentObj.dob,
-          className,
-          subjects: [],
-          totalObtained: 0,
-          totalMax: 0,
-          percentage: 0,
-          overallGrade: "E",
-          result: "Fail",
-        });
+  // Fetch parent details (father_name, mother_name) for each student
+  // since fetchStudentsByClass doesn't include them
+  await Promise.all(
+    Array.from(studentMap.keys()).map(async (sid) => {
+      try {
+        const detail = await fetchStudentDetail(sid);
+        if (detail?.student) {
+          const existing = studentMap.get(sid);
+          if (existing) {
+            existing.fatherName = detail.student.father_name || "—";
+            existing.motherName = detail.student.mother_name || "—";
+          }
+        }
+      } catch {
+        // Keep defaults if detail fetch fails
       }
-      const card = studentMap.get(sid)!;
-      const obtained = typeof m.mark === "number" ? m.mark : Number(m.mark) || 0;
-      const percentage = maxMarks > 0 ? (obtained / maxMarks) * 100 : 0;
-      const grade = getGrade(percentage);
-      card.subjects.push({
-        subject: entry.subject,
-        maxMarks,
-        obtained,
-        grade,
-        remarks: getRemarks(grade),
+    })
+  );
+
+  // Fetch timetable entries to get the real maxMarks per subject for this class+assessment
+  let subjectMaxMarks: Record<string, number> = {};
+  try {
+    const timetableEntries =
+      type === "exam"
+        ? await fetchExamTimetableByName(assessmentName)
+        : await fetchTestTimetableByName(assessmentName);
+    // Filter entries for this class and build subject → maxMarks map
+    timetableEntries
+      .filter((e) => e.classNO === displayClass || e.classNO === apiClassNo)
+      .forEach((e) => {
+        if (e.subject && e.maxMarks) {
+          subjectMaxMarks[e.subject] = e.maxMarks;
+        }
       });
-      card.totalObtained += obtained;
-      card.totalMax += maxMarks;
-    });
+  } catch {
+    // If timetable fetch fails, fall back to marks' maxMarks or default
   }
 
-  const cards = Array.from(studentMap.values());
+  // Use displayClass for marks API (DB stores "Grade 6", not "6")
+  // but use normalized apiClassNo for fetchStudentsByClass
+  const marks = await fetchMarksByClassAndAssessment(displayClass, assessmentName, type);
+  if (marks.length === 0) return [];
+
+  const cardMap = new Map<number, StudentProgressCard>();
+
+  marks.forEach((m) => {
+    const sid = m.studentId;
+    if (!sid) return;
+
+    const studentInfo = studentMap.get(sid);
+
+    if (!cardMap.has(sid)) {
+      cardMap.set(sid, {
+        studentId: sid,
+        name: studentInfo?.name ?? m.studentName ?? "—",
+        rollNo: studentInfo?.rollNo ?? "—",
+        scholarNo: studentInfo?.scholarNo ?? "—",
+        fatherName: studentInfo?.fatherName ?? "—",
+        motherName: studentInfo?.motherName ?? "—",
+        gender: studentInfo?.gender,
+        dob: studentInfo?.dob,
+        className: displayClass,
+        subjects: [],
+        totalObtained: 0,
+        totalMax: 0,
+        percentage: 0,
+        overallGrade: "E",
+        result: "Fail",
+      });
+    }
+
+    const card = cardMap.get(sid)!;
+    const obtained = typeof m.mark === "number" ? m.mark : Number(m.mark) || 0;
+    // Use maxMarks from timetable if available, otherwise from marks response, otherwise default 100
+    const maxMarks = subjectMaxMarks[m.subject ?? ""] ?? m.maxMarks ?? 100;
+    const pct = maxMarks > 0 ? (obtained / maxMarks) * 100 : 0;
+    const grade = getGrade(pct);
+
+    card.subjects.push({
+      subject: m.subject ?? "—",
+      maxMarks,
+      obtained,
+      grade,
+      remarks: getRemarks(grade),
+    });
+    card.totalObtained += obtained;
+    card.totalMax += maxMarks;
+  });
+
+  const cards = Array.from(cardMap.values());
   cards.forEach((card) => {
     card.percentage = card.totalMax > 0 ? (card.totalObtained / card.totalMax) * 100 : 0;
     card.overallGrade = getGrade(card.percentage);

@@ -30,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppSelector } from "@/store/hooks";
-import { fetchReportData, type ReportType } from "@/api/reports";
+import { fetchReportData, downloadAttendanceExcel, type ReportType } from "@/api/reports";
 import { toast } from "sonner";
 
 type ReportFormat = "pdf" | "excel" | "sql";
@@ -248,6 +248,10 @@ export default function ReportsView() {
   const [search, setSearch] = useState("");
   const [downloading, setDownloading] = useState<ReportFormat | null>(null);
   const [lastDownload, setLastDownload] = useState<{ title: string; format: ReportFormat } | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const needsDateRange = selectedReport === "all" || selectedReport === "attendance" || selectedReport === "fees";
 
   const filteredReports = useMemo(() => {
     if (selectedReport === "all") return reportTypes;
@@ -267,10 +271,32 @@ export default function ReportsView() {
   const handleDownload = async (report: ReportTypeMeta, format: ReportFormat) => {
     setDownloading(format);
     try {
-      const { columns, rows } = await fetchReportData(report.id as ReportType);
-      const tableName = `${report.id}_report`;
+      const isAttendanceOrFees = report.id === "attendance" || report.id === "fees";
+      const dateRange =
+        isAttendanceOrFees && startDate && endDate
+          ? { startDate, endDate }
+          : undefined;
       const safeDate = new Date().toISOString().split("T")[0];
-      const filenameBase = `${report.title.replace(/\s+/g, "_")}_${safeDate}`;
+      const dateSuffix = dateRange ? `_${startDate}_to_${endDate}` : "";
+      const filenameBase = `${report.title.replace(/\s+/g, "_")}_${safeDate}${dateSuffix}`;
+
+      // Attendance Excel uses multi-sheet class-wise format with P/A/H
+      if (report.id === "attendance" && format === "excel") {
+        if (!startDate || !endDate) {
+          toast.error("Please select start and end dates for attendance report");
+          setDownloading(null);
+          return;
+        }
+        await downloadAttendanceExcel(
+          { startDate, endDate },
+          `${filenameBase}.xlsx`
+        );
+        setLastDownload({ title: report.title, format });
+        return;
+      }
+
+      const { columns, rows } = await fetchReportData(report.id as ReportType, dateRange);
+      const tableName = `${report.id}_report`;
 
       if (rows.length === 0) {
         toast.info(`No data available for ${report.title}.`);
@@ -362,6 +388,40 @@ export default function ReportsView() {
             </Select>
           </div>
         </div>
+
+        {/* Date range picker for attendance & fees */}
+        {needsDateRange && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 mb-6 p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">Start Date</label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-10 w-full sm:w-44 bg-white border-slate-200"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">End Date</label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-10 w-full sm:w-44 bg-white border-slate-200"
+              />
+            </div>
+            {(startDate || endDate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setStartDate(""); setEndDate(""); }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Last download toast */}
         {lastDownload && (

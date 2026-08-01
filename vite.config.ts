@@ -1,6 +1,10 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -11,16 +15,16 @@ export default defineConfig({
   server:{
     host:'0.0.0.0',
     allowedHosts: [
-      'ubuntu.newt-oratrice.ts.net' // Yahan apna Tailscale domain daal dein
+      'lisa-issued-peaceful-earthquake.trycloudflare.com'// Yahan apna Tailscale domain daal dein
     ],
     proxy: {
       '/api': {
-        target: 'http://100.68.219.67:8080', // Backend ka direct IP
+        target: 'https://online-sheets-investment-justin.trycloudflare.com', // Backend ka direct IP
         changeOrigin: true,
         secure: false, // Backend HTTP par hai isliye false
       },
       '/uploads': {
-        target: 'http://100.68.219.67:8080',
+        target: 'https://online-sheets-investment-justin.trycloudflare.com',
         changeOrigin: true,
         secure: false,
       },
@@ -33,7 +37,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/src',
+      '@': path.resolve(rootDir, 'src'),
     },
   },
   build: {

@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .aider*
 .env
+.zed
+.aider.tags.chache.v4
+.idea

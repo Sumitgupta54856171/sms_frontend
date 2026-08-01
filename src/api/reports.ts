@@ -1,12 +1,13 @@
 import apiClient from "./client";
 import { fetchSessions } from "./academicsession";
-import { fetchAttendanceByDate } from "./attendance";
+import { fetchAttendanceByDate, fetchAttendanceByDateRange } from "./attendance";
 import { fetchInvoiceHistory } from "./fee";
 import { fetchStudents } from "./student";
 import { fetchTeachers } from "./teacher";
 import { fetchNotices } from "./notice";
 import { fetchEvents } from "./event";
 import { fetchExamNames, fetchExamTimetableByName } from "./exam-timetable";
+import * as XLSX from "xlsx";
 
 export type ReportType =
   | "session"
@@ -26,6 +27,11 @@ export interface ReportColumn {
 export interface ReportData {
   columns: ReportColumn[];
   rows: Record<string, string | number>[];
+}
+
+export interface DateRange {
+  startDate: string;
+  endDate: string;
 }
 
 function getToday(): string {
@@ -75,18 +81,24 @@ async function fetchSessionReport(): Promise<ReportData> {
 }
 
 // ─── Attendance Report ─────────────────────────────────────────────────
-async function fetchAttendanceReport(): Promise<ReportData> {
-  const date = getToday();
-  const records = await fetchAttendanceByDate(date);
+async function fetchAttendanceReport(dateRange?: DateRange): Promise<ReportData> {
+  let records: any[];
+  if (dateRange?.startDate && dateRange?.endDate) {
+    records = await fetchAttendanceByDateRange(dateRange.startDate, dateRange.endDate);
+  } else {
+    const date = getToday();
+    records = await fetchAttendanceByDate(date);
+  }
   const rows = Array.isArray(records)
     ? records.map((r: any) => ({
-        date: safeString(r.attendanceDate ?? date),
+        date: safeString(r.attendanceDate ?? dateRange?.startDate ?? getToday()),
         studentId: safeNumber(r.studentId),
         studentName: safeString(r.studentName),
         grade: safeString(r.grade),
         rollNumber: safeString(r.rollNumber),
         scholarNo: safeString(r.scholarNo),
         status: safeString(r.status).charAt(0).toUpperCase() + safeString(r.status).slice(1),
+        gender: safeString(r.gender),
       }))
     : [];
   return {
@@ -98,15 +110,103 @@ async function fetchAttendanceReport(): Promise<ReportData> {
       { key: "rollNumber", label: "Roll No" },
       { key: "scholarNo", label: "Scholar No" },
       { key: "status", label: "Status" },
+      { key: "gender", label: "Gender" },
     ],
     rows,
   };
 }
 
+// ─── Attendance Excel — class-wise multi-sheet with P/A/H ──────────────
+function mapStatusToCode(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "present" || s === "p") return "P";
+  if (s === "absent" || s === "a") return "A";
+  if (s === "holiday" || s === "h") return "H";
+  return status;
+}
+
+export async function downloadAttendanceExcel(
+  dateRange: DateRange,
+  filename: string
+): Promise<void> {
+  const records = await fetchAttendanceByDateRange(dateRange.startDate, dateRange.endDate);
+  if (!Array.isArray(records) || records.length === 0) {
+    throw new Error("No attendance data found for the selected date range");
+  }
+
+  // Group by grade
+  const grouped: Record<string, any[]> = {};
+  for (const r of records) {
+    const grade = r.grade || "Unknown";
+    if (!grouped[grade]) grouped[grade] = [];
+    grouped[grade].push(r);
+  }
+
+  const wb = XLSX.utils.book_new();
+
+  // Collect all unique dates across all records
+  const allDates = [...new Set(records.map((r) => r.attendanceDate))].sort();
+
+  for (const [grade, gradeRecords] of Object.entries(grouped)) {
+    // Get unique students in this grade (by studentId)
+    const studentMap = new Map<number, any>();
+    for (const r of gradeRecords) {
+      if (!studentMap.has(r.studentId)) {
+        studentMap.set(r.studentId, {
+          studentId: r.studentId,
+          studentName: r.studentName,
+          rollNumber: r.rollNumber,
+          scholarNo: r.scholarNo,
+        });
+      }
+    }
+    const students = Array.from(studentMap.values());
+
+    // Build header: Student Info columns + one column per date
+    const header = [
+      "S.No",
+      "Student Name",
+      "Roll No",
+      "Scholar No",
+      ...allDates,
+    ];
+
+    // Build rows
+    const rows = students.map((s, idx) => {
+      const row: Record<string, string | number> = {
+        "S.No": idx + 1,
+        "Student Name": s.studentName,
+        "Roll No": s.rollNumber,
+        "Scholar No": s.scholarNo,
+      };
+      for (const date of allDates) {
+        const match = gradeRecords.find(
+          (r) => r.studentId === s.studentId && r.attendanceDate === date
+        );
+        row[date] = match ? mapStatusToCode(match.status) : "";
+      }
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows, { header });
+    // Set column widths
+    ws["!cols"] = [
+      { wch: 5 },   // S.No
+      { wch: 25 },  // Student Name
+      { wch: 8 },   // Roll No
+      { wch: 12 },  // Scholar No
+      ...allDates.map(() => ({ wch: 6 })), // date columns
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, grade.slice(0, 31));
+  }
+
+  XLSX.writeFile(wb, filename);
+}
+
 // ─── Fees Report ───────────────────────────────────────────────────────
-async function fetchFeesReport(): Promise<ReportData> {
-  const start = getSessionStart();
-  const end = getToday();
+async function fetchFeesReport(dateRange?: DateRange): Promise<ReportData> {
+  const start = dateRange?.startDate ?? getSessionStart();
+  const end = dateRange?.endDate ?? getToday();
   const history = await fetchInvoiceHistory(start, end);
   const invoices = Array.isArray(history?.invoice) ? history.invoice : [];
   const rows = invoices.map((item: any) => ({
@@ -277,14 +377,17 @@ async function fetchEventsReport(): Promise<ReportData> {
 }
 
 // ─── Generic dispatcher ──────────────────────────────────────────────
-export const fetchReportData = async (type: ReportType): Promise<ReportData> => {
+export const fetchReportData = async (
+  type: ReportType,
+  dateRange?: DateRange
+): Promise<ReportData> => {
   switch (type) {
     case "session":
       return fetchSessionReport();
     case "attendance":
-      return fetchAttendanceReport();
+      return fetchAttendanceReport(dateRange);
     case "fees":
-      return fetchFeesReport();
+      return fetchFeesReport(dateRange);
     case "students":
       return fetchStudentsReport();
     case "teachers":

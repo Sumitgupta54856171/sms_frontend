@@ -1,4 +1,5 @@
 import apiClient from "./client";
+import { parseTimetableNameList } from "@/lib/timetable-names";
 
 export interface ExamTimetableEntry {
   testtimetableId?: number;
@@ -23,10 +24,14 @@ export interface ExamTimetableGroup {
 
 // ─── Fetch all exam names ─────────────────────────────────────────────
 export const fetchExamNames = async (): Promise<string[]> => {
-  const response = await apiClient.get("/api/v1/timetable/examName", {
-    withCredentials: true,
-  });
-  return response.data ?? [];
+  try {
+    const response = await apiClient.get("/api/v1/timetable/examName", {
+      withCredentials: true,
+    });
+    return parseTimetableNameList(response.data);
+  } catch {
+    return [];
+  }
 };
 
 // ─── Fetch exam timetable by exam name ─────────────────────────────────

@@ -515,7 +515,7 @@ export default function AttendanceSummary() {
                               <p className="text-sm font-semibold text-blue-800">Boys</p>
                             </div>
                             <p className="text-2xl font-bold text-blue-700">{boysStats.percentage}%</p>
-                            <Progress value={parseFloat(boysStats.percentage)} className="h-2 mt-2 bg-blue-100" />
+                            <Progress value={parseFloat(boysStats.percentage)} className="h-2 mt-2 bg-blue-100" color="blue-600"/>
                             <p className="text-xs text-blue-600 mt-2">
                               {boysStats.totalPresent} present / {boysStats.totalWorkingDays} days · {boysStats.count} students
                             </p>
@@ -528,7 +528,7 @@ export default function AttendanceSummary() {
                               <p className="text-sm font-semibold text-pink-800">Girls</p>
                             </div>
                             <p className="text-2xl font-bold text-pink-700">{girlsStats.percentage}%</p>
-                            <Progress value={parseFloat(girlsStats.percentage)} className="h-2 mt-2 bg-pink-100" />
+                            <Progress value={parseFloat(girlsStats.percentage)} className="h-2 mt-2 bg-pink-100" color="pink-800"/>
                             <p className="text-xs text-pink-600 mt-2">
                               {girlsStats.totalPresent} / {girlsStats.totalWorkingDays} days · {girlsStats.count} students
                             </p>
@@ -541,7 +541,7 @@ export default function AttendanceSummary() {
                               <p className="text-sm font-semibold text-emerald-800">Total</p>
                             </div>
                             <p className="text-2xl font-bold text-emerald-700">{allStats.percentage}%</p>
-                            <Progress value={parseFloat(allStats.percentage)} className="h-2 mt-2 bg-emerald-100" />
+                            <Progress value={parseFloat(allStats.percentage)} className="h-2 mt-2 bg-emerald-100" color="emerald-600" />
                             <p className="text-xs text-emerald-600 mt-2">
                               {allStats.totalPresent} present / {allStats.totalWorkingDays} days · {allStats.count} students
                             </p>

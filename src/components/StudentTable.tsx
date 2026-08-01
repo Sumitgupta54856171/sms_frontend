@@ -52,9 +52,8 @@ export default function StudentTable() {
     const searchTerm = globalFilter.toLowerCase();
     return students.filter((student: StudentListItem) => {
       return (
-        student.StudentName?.toLowerCase().includes(searchTerm) ||
-        student.scholarNo?.toLowerCase().includes(searchTerm) ||
-        student.faterhName?.toLowerCase().includes(searchTerm)
+        student.studentName?.toLowerCase().includes(searchTerm) ||
+        student.scholarNo?.toLowerCase().includes(searchTerm)
       );
     });
   }, [students, globalFilter]);
@@ -141,7 +140,7 @@ export default function StudentTable() {
                 </TableRow>
               ) : paginatedData.length > 0 ? (
                 paginatedData.map((student: any, idx: number) => {
-                  const initials = student.StudentName
+                  const initials = student.studentName
                     ?.split(" ")
                     .map((n: string) => n[0])
                     .join("");

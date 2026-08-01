@@ -34,6 +34,16 @@ export interface GradeMarkResponse {
   testgradeid?: number;
 }
 
+// ─── Response from GET /get/mark/{classNo}/{testname}/{checkmark} ──
+export interface ClassAssessmentMark {
+  studentId: number;
+  studentName?: string;
+  subject: string;
+  classNo?: string;
+  mark: number;
+  maxMarks?: number;
+}
+
 // ─── Fetch existing marks ──────────────────────────────────────────────
 // GET /api/v1/grade/get/mark/{teacherId}/{subject}/{grade}/{type}/{examid}
 export const fetchMarks = async (
@@ -48,8 +58,27 @@ export const fetchMarks = async (
       `/api/v1/grade/get/mark/${encodeURIComponent(teacherId)}/${encodeURIComponent(subject)}/${encodeURIComponent(grade)}/${type}/${examid}`,
       { withCredentials: true }
     );
-    console.log("check the mark",response.data.body);
-    const raw = response.data?.body ?? response.data?.body ?? response.data ?? [];
+    console.log("check the mark response:", response.data);
+    const raw = response.data?.body ?? response.data?.data ?? response.data ?? [];
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+};
+
+// GET /api/v1/grade/get/mark/{classNo}/{testname}/{checkmark}
+export const fetchMarksByClassAndAssessment = async (
+  classNo: string,
+  testname: string,
+  checkmark: "test" | "exam"
+): Promise<ClassAssessmentMark[]> => {
+  try {
+    const response = await apiClient.get(
+      `/api/v1/grade/get/mark/${classNo}/${encodeURIComponent(testname)}/${checkmark}`,
+      { withCredentials: true }
+    );
+    console.log("check the progroess report",response.data)
+    const raw = response.data?.body ?? response.data?.data ?? response.data ?? [];
     return Array.isArray(raw) ? raw : [];
   } catch {
     return [];

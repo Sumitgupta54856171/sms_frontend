@@ -3,7 +3,7 @@ import apiClient from "./client";
 export interface AttendanceRecord {
   attendanceId: number;
   attendanceDate: string; // "YYYY-MM-DD"
-  status: "present" | "absent";
+  status: "present" | "absent" | "holiday";
   studentId: number;
   studentName: string;
   grade: string;
@@ -14,7 +14,7 @@ export interface AttendanceRecord {
 export interface AttendancePayload {
   attendanceDate: string;
   studentId: number;
-  status: "present" | "absent";
+  status: "present" | "absent" | "holiday";
   grade?: string;
 }
 
@@ -34,7 +34,7 @@ export const saveAttendance = async (
 // ─── Update attendance (individual) ────────────────────────────────────
 export const updateAttendance = async (
   studentId: number,
-  status: "present" | "absent",
+  status: "present" | "absent" | "holiday",
   date: string
 ): Promise<any> => {
   const response = await apiClient.put(
@@ -104,6 +104,44 @@ export const fetchAttendanceByClassAndDate = async (
     });
   } catch (error) {
     console.warn("Failed to fetch attendance by class/date:", error);
+    return [];
+  }
+};
+
+// ─── Attendance record with gender ─────────────────────────────────────
+export interface AttendanceRecordWithGender extends AttendanceRecord {
+  gender?: string;
+}
+
+// ─── Fetch attendance by date range ────────────────────────────────────
+// GET /api/v1/attendance/dateAttendance/{startdate}/{enddate}
+export const fetchAttendanceByDateRange = async (
+  startDate: string,
+  endDate: string
+): Promise<AttendanceRecordWithGender[]> => {
+  try {
+    const response = await apiClient.get(
+      `/api/v1/attendance/dateAttendance/${startDate}/${endDate}`,
+      { withCredentials: true }
+    );
+    console.log("API response for attendance by date range:", response.data);
+    const raw = response.data?.data ?? response.data?.body ?? response.data ?? [];
+    return raw.map((item: any) => {
+      const mapped: AttendanceRecordWithGender = {
+        attendanceId: item.attendanceId ?? item.attendance_id,
+        attendanceDate: item.attendanceDate ?? item.attendance_date,
+        status: (item.status ?? "")?.toLowerCase?.() ?? "absent",
+        studentId: item.studentId ?? item.student_id,
+        studentName: item.studentName ?? item.student_name ?? "",
+        grade: item.grade ?? "",
+        rollNumber: item.rollNumber ?? item.roll_number ?? "",
+        scholarNo: item.scholarNo ?? item.scholar_no ?? "",
+        gender: item.gender ?? "",
+      };
+      return mapped;
+    });
+  } catch (error) {
+    console.warn("Failed to fetch attendance by date range:", error);
     return [];
   }
 };

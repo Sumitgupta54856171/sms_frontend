@@ -1,5 +1,4 @@
 import apiClient from "./client";
-import { toast } from "sonner";
 
 export interface LoginData {
   email: string;
@@ -7,21 +6,9 @@ export interface LoginData {
 }
 
 export const loginUser = async (data: LoginData) => {
-  try{
-    const response = await apiClient.post("/api/v1/auth/login", data,{withCredentials: true});
-
+  const response = await apiClient.post("/api/v1/auth/login", data, { withCredentials: true });
+  console.log("Login response:", response.data);
   return response.data;
-
-  }catch(error){
-    if (error instanceof Error) {
-      toast.error(error.message);
-    } else {
-      toast.error("An unknown error occurred.");
-    }
-  }
-  
-  
-
 };
   
  

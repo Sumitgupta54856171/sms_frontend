@@ -132,7 +132,7 @@ export const deleteStudent = async (id: string) => {
 
 // ─── Student list item from /api/v1/students/studentlist ───────────────
 export interface StudentListItem {
-  StudentName: string;
+  studentName: string;
   studentId: number;
   scholarNo: string;
   faterhName: string;
@@ -236,6 +236,20 @@ export const updateBankDetail = async (data: {
   branchName: string;
 }) => {
   const response = await apiClient.put("/api/v1/students/update/student/bank-detail", data, {
+    withCredentials: true,
+  });
+  return response.data;
+};
+
+// ─── Bulk update roll numbers ──────────────────────────────────────────
+export interface BulkRollNoPayload {
+  studentId: number;
+  rollno: string;
+}
+
+export const updateBulkRollNo = async (data: BulkRollNoPayload[]) => {
+  console.log(data);
+  const response = await apiClient.put("/api/v1/students/update/roll/no", data, {
     withCredentials: true,
   });
   return response.data;

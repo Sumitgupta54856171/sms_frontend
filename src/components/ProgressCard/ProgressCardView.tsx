@@ -51,24 +51,82 @@ function getExamTitle(name: string): string {
   return name;
 }
 
-function useSubjectData(cards: StudentProgressCard[]) {
+function useSubjectData(cards: StudentProgressCard[], className: string) {
+  const isSeniorSec = isSeniorSecondary(className);
+  const isPrimaryClass = isPrimary(className);
+
   const allSubjects = useMemo(() => {
+    if (isSeniorSec) return ["Subjects"];
+
     const subjectSet = new Set<string>();
     cards.forEach((card) => card.subjects.forEach((s) => subjectSet.add(s.subject)));
-    return Array.from(subjectSet);
-  }, [cards]);
+    const subjects = Array.from(subjectSet);
+
+    // Add Drawing column for primary classes (Nursery to Grade 5)
+    if (isPrimaryClass && !subjects.includes("Drawing")) {
+      subjects.push("Drawing");
+    }
+    return subjects;
+  }, [cards, isSeniorSec, isPrimaryClass]);
 
   const subjectMap = useMemo(() => {
     const map = new Map<number, Map<string, SubjectMark>>();
     cards.forEach((card) => {
       const inner = new Map<string, SubjectMark>();
-      card.subjects.forEach((s) => inner.set(s.subject, s));
+
+      if (isSeniorSec) {
+        // Combine all subjects into one "Subjects" entry
+        const combined = card.subjects
+          .map((s) => `${s.subject}: ${s.obtained}/${s.maxMarks}`)
+          .join(", ");
+        const totalMax = card.subjects.reduce((sum, s) => sum + s.maxMarks, 0);
+        const totalObtained = card.subjects.reduce((sum, s) => sum + s.obtained, 0);
+        inner.set("Subjects", {
+          subject: "Subjects",
+          maxMarks: totalMax,
+          obtained: totalObtained,
+          grade: card.overallGrade,
+          remarks: combined,
+        });
+      } else {
+        card.subjects.forEach((s) => inner.set(s.subject, s));
+
+        // Add Drawing placeholder for primary if not already present
+        if (isPrimaryClass && !inner.has("Drawing")) {
+          inner.set("Drawing", {
+            subject: "Drawing",
+            maxMarks: 0,
+            obtained: 0,
+            grade: "—",
+            remarks: "",
+          });
+        }
+      }
+
       map.set(card.studentId, inner);
     });
     return map;
-  }, [cards]);
+  }, [cards, isSeniorSec, isPrimaryClass]);
 
   return { allSubjects, subjectMap };
+}
+
+/** Classes 11 and 12 have multiple streams — combine all subjects into one column */
+function isSeniorSecondary(className: string): boolean {
+  return className === "11" || className === "Grade 11" || className === "Grade 12";
+}
+
+/** Nursery to Grade 5 — add Drawing grade column */
+function isPrimary(className: string): boolean {
+  const primary = new Set([
+    "Nursery", "LKG", "UKG",
+    "1", "Grade 1",
+    "2", "Grade 2",
+    "3", "Grade 3",
+    "4", "Grade 4",
+    "5", "Grade 5",
+  ]);
+  return primary.has(className);
 }
 
 function escapeCsv(value: string | number): string {
@@ -200,7 +258,7 @@ export default function ProgressCardView() {
     );
   }, [cards, search]);
 
-  const { allSubjects, subjectMap } = useSubjectData(filteredCards);
+  const { allSubjects, subjectMap } = useSubjectData(filteredCards, selectedClass);
   const displayClassName = getClassDisplayLabel(selectedClass);
 
   const handleDownloadPDF = async () => {
@@ -731,51 +789,41 @@ const ConsolidatedMarksheet = forwardRef<
             <table className="w-full text-xs border-collapse border border-slate-300">
               <thead>
                 <tr className="bg-slate-800 text-white">
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-8">
-                    #
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold">
-                    Scholar No.
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold">
-                    Roll No.
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[140px]">
-                    Student Name
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[120px]">
-                    Father's Name
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[120px]">
-                    Mother's Name
-                  </th>
-                  {allSubjects.map((sub) => (
-                    <th
-                      key={sub}
-                      className="border border-slate-600 px-1 py-2 text-center font-semibold min-w-[70px]"
-                    >
-                      {sub}
-                      <br />
-                      <span className="text-[9px] font-normal text-indigo-200">
-                        (Max)
-                      </span>
-                    </th>
-                  ))}
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">
-                    Total
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">
-                    %age
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-12">
-                    Grade
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">
-                    Result
-                  </th>
-                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold text-white bg-black">
-                    Parent Sign
-                  </th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-8">#</th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold">Scholar No.</th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold">Roll No.</th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[140px]">Student Name</th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[120px]">Father's Name</th>
+                  <th className="border border-slate-600 px-2 py-2 text-left font-semibold min-w-[120px]">Mother's Name</th>
+                  {allSubjects.map((sub) => {
+                    const isDrawing = sub === "Drawing";
+                    const isCombined = sub === "Subjects";
+                    return (
+                      <th
+                        key={sub}
+                        className={`border border-slate-600 px-1 py-2 text-center font-semibold ${isCombined ? "min-w-[180px]" : "min-w-[70px]"}`}
+                      >
+                        {sub}
+                        {!isDrawing && !isCombined && (
+                          <>
+                            <br />
+                            <span className="text-[9px] font-normal text-indigo-200">(Max)</span>
+                          </>
+                        )}
+                        {isDrawing && (
+                          <>
+                            <br />
+                            <span className="text-[9px] font-normal text-indigo-200">(Grade)</span>
+                          </>
+                        )}
+                      </th>
+                    );
+                  })}
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">Total</th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">%age</th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-12">Grade</th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold w-14">Result</th>
+                  <th className="border border-slate-600 px-2 py-2 text-center font-semibold text-white bg-black">Parent Sign</th>
                 </tr>
               </thead>
 
@@ -787,32 +835,28 @@ const ConsolidatedMarksheet = forwardRef<
                       key={card.studentId}
                       className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50/70"} hover:bg-indigo-50/50 transition-colors`}
                     >
-                      <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-500">
-                        {idx + 1}
-                      </td>
-                      <td className="border border-slate-300 px-2 py-1.5 font-mono text-slate-700">
-                        {card.scholarNo}
-                      </td>
-                      <td className="border border-slate-300 px-2 py-1.5 font-mono text-slate-700">
-                        {card.rollNo}
-                      </td>
-                      <td className="border border-slate-300 px-2 py-1.5 font-medium text-slate-900">
-                        {card.name}
-                      </td>
-                      <td className="border border-slate-300 px-2 py-1.5 text-slate-700">
-                        {card.fatherName}
-                      </td>
-                      <td className="border border-slate-300 px-2 py-1.5 text-slate-700">
-                        {card.motherName}
-                      </td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-center text-slate-500">{idx + 1}</td>
+                      <td className="border border-slate-300 px-2 py-1.5 font-mono text-slate-700">{card.scholarNo}</td>
+                      <td className="border border-slate-300 px-2 py-1.5 font-mono text-slate-700">{card.rollNo}</td>
+                      <td className="border border-slate-300 px-2 py-1.5 font-medium text-slate-900">{card.name}</td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-slate-700">{card.fatherName}</td>
+                      <td className="border border-slate-300 px-2 py-1.5 text-slate-700">{card.motherName}</td>
                       {allSubjects.map((sub) => {
                         const mark = inner?.get(sub);
+                        const isDrawing = sub === "Drawing";
+                        const isCombined = sub === "Subjects";
                         return (
                           <td
                             key={sub}
-                            className="border border-slate-300 px-1 py-1.5 text-center font-semibold text-slate-900"
+                            className={`border border-slate-300 px-1 py-1.5 text-center font-semibold text-slate-900 ${isCombined ? "text-[7px] leading-tight" : ""}`}
                           >
-                            {mark ? `${mark.obtained}/${mark.maxMarks}` : "—"}
+                            {isCombined && mark
+                              ? mark.remarks
+                              : isDrawing && mark && mark.grade !== "—"
+                                ? mark.grade
+                                : mark
+                                  ? `${mark.obtained}/${mark.maxMarks}`
+                                  : "—"}
                           </td>
                         );
                       })}
@@ -879,9 +923,7 @@ const ConsolidatedMarksheet = forwardRef<
             <div className="flex gap-16">
               <div className="text-center">
                 <div className="border-t border-slate-400 pt-2 w-36 mt-8">
-                  <p className="font-semibold text-slate-700 text-sm">
-                    Principal
-                  </p>
+                  <p className="font-semibold text-slate-700 text-sm">Principal</p>
                 </div>
               </div>
             </div>
@@ -1019,24 +1061,22 @@ function PdfMarksheet({
             <th style={{ ...thStyle, width: "28px" }}>#</th>
             <th style={thStyle}>Scholar No.</th>
             <th style={thStyle}>Roll No.</th>
-            <th style={{ ...thStyle, textAlign: "left", minWidth: "110px" }}>
-              Student Name
-            </th>
-            <th style={{ ...thStyle, textAlign: "left", minWidth: "100px" }}>
-              Father's Name
-            </th>
-            <th style={{ ...thStyle, textAlign: "left", minWidth: "100px" }}>
-              Mother's Name
-            </th>
-            {allSubjects.map((sub) => (
-              <th key={sub} style={{ ...thStyle, minWidth: "48px" }}>
-                {sub}
-                <br />
-                <span style={{ fontSize: "7pt", fontWeight: "normal", color: "#bfdbfe" }}>
-                  (Max)
-                </span>
-              </th>
-            ))}
+            <th style={{ ...thStyle, textAlign: "left", minWidth: "110px" }}>Student Name</th>
+            <th style={{ ...thStyle, textAlign: "left", minWidth: "100px" }}>Father's Name</th>
+            <th style={{ ...thStyle, textAlign: "left", minWidth: "100px" }}>Mother's Name</th>
+            {allSubjects.map((sub) => {
+              const isDrawing = sub === "Drawing";
+              const isCombined = sub === "Subjects";
+              return (
+                <th key={sub} style={{ ...thStyle, minWidth: isCombined ? "160px" : "48px" }}>
+                  {sub}
+                  <br />
+                  <span style={{ fontSize: "7pt", fontWeight: "normal", color: "#bfdbfe" }}>
+                    {isDrawing ? "(Grade)" : isCombined ? "(Marks)" : "(Max)"}
+                  </span>
+                </th>
+              );
+            })}
             <th style={{ ...thStyle, width: "50px" }}>Total</th>
             <th style={{ ...thStyle, width: "42px" }}>%age</th>
             <th style={{ ...thStyle, width: "38px" }}>Grade</th>
@@ -1062,9 +1102,30 @@ function PdfMarksheet({
                 <td style={leftAlign}>{card.motherName}</td>
                 {allSubjects.map((sub) => {
                   const mark = inner?.get(sub);
+                  const isDrawing = sub === "Drawing";
+                  const isCombined = sub === "Subjects";
+                  let display: string;
+                  if (isCombined && mark) {
+                    display = mark.remarks;
+                  } else if (isDrawing && mark && mark.grade !== "—") {
+                    display = mark.grade;
+                  } else if (mark) {
+                    display = `${mark.obtained}/${mark.maxMarks}`;
+                  } else {
+                    display = "—";
+                  }
                   return (
-                    <td key={sub} style={{ ...tdStyle, fontWeight: "bold" }}>
-                      {mark ? `${mark.obtained}/${mark.maxMarks}` : "—"}
+                    <td
+                      key={sub}
+                      style={{
+                        ...tdStyle,
+                        fontWeight: "bold",
+                        fontSize: isCombined ? "6.5pt" : "8pt",
+                        textAlign: isCombined ? "left" : "center",
+                        lineHeight: isCombined ? "1.2" : "normal",
+                      }}
+                    >
+                      {display}
                     </td>
                   );
                 })}
