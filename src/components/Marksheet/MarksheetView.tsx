@@ -9,7 +9,6 @@ import {
   Download,
   Users,
   Save,
-  LayoutGrid,
   FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -135,7 +134,6 @@ export default function MarksheetView() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [showPreview, setShowPreview] = useState(false);
-  const [templateCount, setTemplateCount] = useState<1 | 12 | 14>(1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const currentSession = useAppSelector((s) => s.session.currentSession);
@@ -338,6 +336,40 @@ export default function MarksheetView() {
     }
   };
 
+  const handleDownloadSinglePNG = async (studentId: number) => {
+    if (!containerRef.current) return;
+    const el = containerRef.current.querySelector<HTMLElement>(`[data-student-id="${studentId}"]`);
+    if (!el) return;
+    try {
+      const blob = await toBlob(el, {
+        quality: 1.0,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+        width: 794,
+        height: 1123,
+        style: {
+          width: "794px",
+          height: "1123px",
+          transform: "none",
+        },
+      });
+      if (!blob) throw new Error("Failed to capture marksheet");
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      const name = el.getAttribute("data-student-name") || `student_${studentId}`;
+      link.download = `Marksheet_${name.replace(/\s+/g, "_")}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      toast.success("PNG downloaded!");
+    } catch (err) {
+      console.error("PNG error:", err);
+      toast.error("Failed to download PNG");
+    }
+  };
+
   const handleDownloadAllPNG = async () => {
     if (!containerRef.current) return;
     const items = containerRef.current.querySelectorAll<HTMLElement>("[data-marksheet]");
@@ -346,20 +378,17 @@ export default function MarksheetView() {
       for (let i = 0; i < items.length; i++) {
         const el = items[i];
         const name = el.getAttribute("data-student-name") || `student_${i + 1}`;
-        const isPage = el.hasAttribute("data-marksheet-page");
         const blob = await toBlob(el, {
           quality: 1.0,
           pixelRatio: 2,
           backgroundColor: "#ffffff",
-          ...(isPage ? {
-            width: 794,
-            height: 1123,
-            style: {
-              width: "794px",
-              height: "1123px",
-              transform: "none",
-            },
-          } : {}),
+          width: 794,
+          height: 1123,
+          style: {
+            width: "794px",
+            height: "1123px",
+            transform: "none",
+          },
         });
         if (!blob) throw new Error("Failed to capture marksheet");
         const blobUrl = URL.createObjectURL(blob);
@@ -443,32 +472,25 @@ export default function MarksheetView() {
           __html: `
             @media print {
               @page { size: A4 portrait; margin: 0; }
-              html, body {
-                margin: 0 !important;
-                padding: 0 !important;
-                background: white !important;
-              }
-              body > * { display: none !important; }
-              .marksheet-print-area {
-                display: block !important;
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 210mm !important;
-                background: white !important;
-              }
-              .marksheet-print-area,
-              .marksheet-print-area * {
-                visibility: visible !important;
-              }
+              body { background: white !important; }
               .no-print { display: none !important; }
+              body * { visibility: hidden; }
+              .marksheet-print-area, .marksheet-print-area * { visibility: visible; }
+              .marksheet-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                display: block !important;
+              }
               [data-marksheet-page] {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
                 page-break-after: always !important;
                 width: 210mm !important;
                 height: 297mm !important;
-                margin: 0 !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
               }
             }
             .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -637,29 +659,12 @@ export default function MarksheetView() {
         {/* ─── Preview Controls ─── */}
         {showPreview && previewData.length > 0 && (
           <div className="no-print flex flex-wrap items-center gap-3 mb-6 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-            <LayoutGrid className="h-5 w-5 text-slate-500" />
-            <span className="text-sm font-medium text-slate-700">Template:</span>
-            <div className="flex gap-1">
-              {([1, 12, 14] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTemplateCount(t)}
-                  className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${
-                    templateCount === t
-                      ? "bg-[#005b9f] text-white border-[#005b9f] shadow-sm"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  {t === 1 ? "1 per page" : `${t} per page`}
-                </button>
-              ))}
-            </div>
             <div className="flex-1" />
             <Button onClick={handleDownloadPDF} className="h-9 bg-[#005b9f] hover:bg-[#004b87] text-white text-sm">
-              <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
+              <Download className="h-3.5 w-3.5 mr-1.5" /> Download All PDF
             </Button>
             <Button onClick={handleDownloadAllPNG} className="h-9 bg-[#0d9488] hover:bg-[#0a7a6f] text-white text-sm">
-              <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" /> PNGs
+              <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" /> Download All PNG
             </Button>
             <Button onClick={handlePrint} variant="outline" className="h-9 border-slate-200 text-sm">
               <Printer className="h-3.5 w-3.5 mr-1.5" /> Print
@@ -669,337 +674,223 @@ export default function MarksheetView() {
 
         {/* ─── Preview Marksheets ─── */}
         {showPreview && previewData.length > 0 && (
-          <div ref={containerRef} className="marksheet-print-area">
-            {templateCount === 1 && previewData.map((pd) => (
-              <div
-                key={pd.info.studentId}
-                data-marksheet-page
-                data-marksheet
-                data-student-name={pd.info.name}
-                style={{ width: "794px", height: "1123px", margin: "0 auto" }}
-              >
-                <div className="border-[3px] border-[#005b9f] overflow-hidden bg-white" style={{ width: "794px", height: "1123px" }}>
-                  <div className="border border-[#005b9f] m-1 p-2 flex flex-col" style={{ height: "calc(1123px - 10px)" }}>
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-2 shrink-0">
-                      <img src="/LOGO.jpg.jpeg" alt="Logo" className="w-20 h-20 rounded-full object-cover border-[3px] border-[#C8972A]"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                      <div className="text-center flex-1">
-                        <h2 className="text-[26px] font-black text-[#004b87] uppercase tracking-wide leading-tight">Rose Convent High School</h2>
-                        <p className="text-[14px] font-bold text-slate-700">DILAURA, SATNA (M.P.)</p>
+          <div ref={containerRef} className="marksheet-print-area flex flex-col items-center gap-12">
+            {previewData.map((pd) => (
+              <div key={pd.info.studentId} className="relative">
+                <button
+                  onClick={() => handleDownloadSinglePNG(pd.info.studentId)}
+                  className="no-print absolute -top-9 right-0 z-50 bg-[#0d9488] text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm hover:bg-[#0a7a6f] flex items-center gap-1.5"
+                >
+                  <Download className="h-3.5 w-3.5" /> Download PNG
+                </button>
+                <div
+                  data-marksheet-page
+                  data-marksheet
+                  data-student-id={pd.info.studentId}
+                  data-student-name={pd.info.name}
+                  style={{ width: "794px", height: "1123px" }}
+                >
+                  <div className="border-[3px] border-[#005b9f] overflow-hidden bg-white" style={{ width: "794px", height: "1123px" }}>
+                    <div className="border border-[#005b9f] m-1 p-2 flex flex-col" style={{ height: "calc(1123px - 10px)" }}>
+                      {/* Header */}
+                      <div className="flex items-center justify-between mb-2 shrink-0">
+                        <img src="/LOGO.jpg.jpeg" alt="Logo" className="w-20 h-20 rounded-full object-cover border-[3px] border-[#C8972A]"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                        <div className="text-center flex-1">
+                          <h2 className="text-[26px] font-black text-[#004b87] uppercase tracking-wide leading-tight">Rose Convent High School</h2>
+                          <p className="text-[14px] font-bold text-slate-700">DILAURA, SATNA (M.P.)</p>
+                        </div>
+                        <div className="text-[11px] font-bold text-slate-600 self-end whitespace-nowrap">Dise Code : 23130731404</div>
                       </div>
-                      <div className="text-[11px] font-bold text-slate-600 self-end whitespace-nowrap">Dise Code : 23130731404</div>
-                    </div>
 
-                    {/* Session Banner */}
-                    <div className="bg-[#e6f2ff] text-[#004b87] text-center text-[14px] font-bold py-1.5 border-t-2 border-b-2 border-[#005b9f] mb-2">
-                      STUDENT PROGRESS CARD (SESSION : {sessionLabel})
-                    </div>
-
-                    {/* Student Info - Portrait table matching EJS design */}
-                    <table className="w-full border-collapse mb-2 text-[11px]">
-                      <tbody>
-                        <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left" style={{ width: "18%" }}>Roll Number</th>
-                          <td className="border border-slate-400 p-1.5" style={{ width: "15%" }}>{pd.info.rollNo || "N/A"}</td>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left" style={{ width: "18%" }}>Scholar Number</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={2}>{pd.info.scholarNo || "N/A"}</td>
-                          <td rowSpan={7} style={{ width: "15%", padding: "2px", verticalAlign: "top" }}>
-                            <div className="w-20 h-24 border border-slate-300 mx-auto flex items-center justify-center text-slate-300 text-[8px] bg-slate-50">PHOTO</div>
-                          </td>
-                        </tr>
-                        <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Name of Student</th>
-                          <td className="border border-slate-400 p-1.5 font-bold" colSpan={4}>{pd.info.name}</td>
-                        </tr>
-                        <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Father's Name</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={4}>{pd.info.fatherName}</td>
-                        </tr>
-                        <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Mothers' Name</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={4}>{pd.info.motherName}</td>
-                        </tr>
-                        <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Date of Birth</th>
-                          <td className="border border-slate-400 p-1.5">{pd.info.dob || "N/A"}</td>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">in words</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={2}>{pd.info.dob || "N/A"}</td>
-                        </tr>
-                        <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Class</th>
-                          <td className="border border-slate-400 p-1.5">{displayClassName}{selectedStream ? ` (${selectedStream})` : ""}</td>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Section</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={2}>Section - {pd.info.section}</td>
-                        </tr>
-                        <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Caste / Category</th>
-                          <td className="border border-slate-400 p-1.5">{pd.info.category || "N/A"}</td>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">SSSM ID</th>
-                          <td className="border border-slate-400 p-1.5" colSpan={2}>{pd.info.sssmid || "N/A"}</td>
-                        </tr>
-                        <tr>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Aadhaar Number</th>
-                          <td className="border border-slate-400 p-1.5">{pd.info.aadhaar || "N/A"}</td>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Appar ID</th>
-                          <td className="border border-slate-400 p-1.5">{pd.info.apaarId || "N/A"}</td>
-                          <th className="border border-slate-400 bg-slate-50 p-1.5 text-left" style={{ width: "12%" }}>Medium</th>
-                          <td className="border border-slate-400 p-1.5 font-bold">{pd.info.medium}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Performance */}
-                    <div className="text-[#005b9f] text-[13px] font-bold mb-1">
-                      Student's Performance <span className="text-[#e66] text-[9px] font-normal">(As per order of M.P. Govt.)</span>
-                    </div>
-
-                    <table className="w-full border-collapse mb-2 text-[11px]">
-                      <thead>
-                        <tr className="bg-[#e6f2ff]">
-                          <th className="border border-slate-400 p-1.5 text-center" rowSpan={2} style={{ width: "16%" }}>Subjects</th>
-                          <th className="border border-slate-400 p-1.5 text-center" colSpan={3}>Half Yearly Evaluation</th>
-                          <th className="border border-slate-400 p-1.5 text-center" colSpan={3}>Annual Evaluation</th>
-                          <th className="border border-slate-400 p-1.5 text-center" colSpan={3}>Final Assessment</th>
-                        </tr>
-                        <tr className="bg-[#e6f2ff]">
-                          <th className="border border-slate-400 p-1.5 text-center">Max.</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Obt.</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Grade</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Max.</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Obt.</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Grade</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Max.</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Obt.</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Grade</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pd.rows.map((r) => (
-                          <tr key={r.subject} className="text-center">
-                            <td className="border border-slate-400 p-1.5 text-left font-semibold">{r.subject}</td>
-                            <td className="border border-slate-400 p-1.5">{r.halfMax}</td>
-                            <td className="border border-slate-400 p-1.5">{r.halfObt}</td>
-                            <td className={`border border-slate-400 p-1.5 font-bold ${getGradeColor(r.halfGrade)}`}>{r.halfGrade}</td>
-                            <td className="border border-slate-400 p-1.5">{r.annMax}</td>
-                            <td className="border border-slate-400 p-1.5">{r.annObt}</td>
-                            <td className={`border border-slate-400 p-1.5 font-bold ${getGradeColor(r.annGrade)}`}>{r.annGrade}</td>
-                            <td className="border border-slate-400 p-1.5">{r.finalMax}</td>
-                            <td className="border border-slate-400 p-1.5">{r.finalObt}</td>
-                            <td className={`border border-slate-400 p-1.5 font-bold ${getGradeColor(r.finalGrade)}`}>{r.finalGrade}</td>
-                          </tr>
-                        ))}
-                        <tr className="text-center font-bold bg-slate-50">
-                          <td className="border border-slate-400 p-1.5 text-left">Total</td>
-                          <td className="border border-slate-400 p-1.5">{pd.rows.length * 40}</td>
-                          <td className="border border-slate-400 p-1.5">{pd.totalHalf}</td>
-                          <td className={`border border-slate-400 p-1.5 ${getGradeColor(getGrade((pd.totalHalf / (pd.rows.length * 40)) * 100))}`}>{getGrade((pd.totalHalf / (pd.rows.length * 40)) * 100)}</td>
-                          <td className="border border-slate-400 p-1.5">{pd.rows.length * 60}</td>
-                          <td className="border border-slate-400 p-1.5">{pd.totalAnn}</td>
-                          <td className={`border border-slate-400 p-1.5 ${getGradeColor(getGrade((pd.totalAnn / (pd.rows.length * 60)) * 100))}`}>{getGrade((pd.totalAnn / (pd.rows.length * 60)) * 100)}</td>
-                          <td className="border border-slate-400 p-1.5">{pd.totalFinalMax}</td>
-                          <td className="border border-slate-400 p-1.5">{pd.totalFinal}</td>
-                          <td className={`border border-slate-400 p-1.5 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Co-Scholastic */}
-                    <div className="text-[#005b9f] text-[13px] font-bold mb-1">Performance in Co-Scholastic Areas :</div>
-                    <table className="w-full border-collapse mb-2 text-[11px]">
-                      <thead>
-                        <tr>
-                          <th className="border border-slate-400 bg-[#e6f2ff] p-1.5 text-center" colSpan={2} style={{ width: "33.33%" }}>Co-Curricular Activities</th>
-                          <th className="border border-slate-400 bg-[#e6f2ff] p-1.5 text-center" colSpan={2} style={{ width: "33.33%" }}>Personal &amp; Social</th>
-                          <th className="border border-slate-400 bg-[#e6f2ff] p-1.5 text-center" colSpan={2} style={{ width: "33.33%" }}>Social Activities</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ["LITERARY SKILLS", "REGULARITY", "ENV. CONSCIOUSNESS"],
-                          ["SCIENTIFIC SKILLS", "PUNCTUALITY", "LEADERSHIP"],
-                          ["CULTURAL SKILLS", "CLEANLINESS", "TRUTHFULNESS"],
-                          ["CREATIVITY", "DISCIPLINE", "HONESTY"],
-                          ["SPORTS", "CO-OPERATION", "EXPRESSIVE"],
-                        ].map(([a, b, c]) => (
-                          <tr key={a}>
-                            <td className="border border-slate-400 p-1.5">{a}</td>
-                            <td className="border border-slate-400 p-1.5 text-center">A</td>
-                            <td className="border border-slate-400 p-1.5">{b}</td>
-                            <td className="border border-slate-400 p-1.5 text-center">A</td>
-                            <td className="border border-slate-400 p-1.5">{c}</td>
-                            <td className="border border-slate-400 p-1.5 text-center">A</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    {/* Final Result */}
-                    <div className="text-[#005b9f] text-[13px] font-bold mb-1">Final Result :</div>
-                    <table className="w-full border-collapse mb-2 text-[11px]">
-                      <thead>
-                        <tr className="bg-[#e6f2ff] text-center">
-                          <th className="border border-slate-400 p-1.5 text-center">Max. Marks</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Obt. Marks</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Result</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Percentage</th>
-                          <th className="border border-slate-400 p-1.5 text-center">Grade</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="text-center font-bold">
-                          <td className="border border-slate-400 p-1.5">{pd.totalFinalMax}</td>
-                          <td className="border border-slate-400 p-1.5">{pd.totalFinal}</td>
-                          <td className={`border border-slate-400 p-1.5 ${pd.result === "Pass" ? "text-green-700" : "text-red-700"}`}>{pd.result === "Pass" ? "PASS" : "FAIL"}</td>
-                          <td className="border border-slate-400 p-1.5">{pd.overallPct.toFixed(2)} %</td>
-                          <td className={`border border-slate-400 p-1.5 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Remarks & Signatures */}
-                    <div className="flex-1"></div>
-                    <div className="flex justify-between text-[11px] font-bold mt-2 px-2.5 shrink-0">
-                      <div>Class Teacher Remark : <span className="font-normal">Good</span></div>
-                      <div style={{ marginRight: "20px" }}>Status : <span className="font-normal">{pd.result === "Pass" ? "Promoted" : "Detained"}</span></div>
-                    </div>
-                    <div className="flex justify-between mt-4 mb-1 px-5 shrink-0">
-                      <div className="text-center text-[11px] font-bold text-slate-700">
-                        <div className="w-32 border-t border-slate-700 mb-1"></div>
-                        Class Teacher
+                      {/* Session Banner */}
+                      <div className="bg-[#e6f2ff] text-[#004b87] text-center text-[14px] font-bold py-1.5 border-t-2 border-b-2 border-[#005b9f] mb-2">
+                        STUDENT PROGRESS CARD (SESSION : {sessionLabel})
                       </div>
-                      <div className="text-center text-[11px] font-bold text-[#004b87]">
-                        <div className="w-32 border-t border-[#005b9f] mb-1"></div>
-                        Principal<br />
-                        <span className="text-[10px] font-normal">Rose Convent High School<br />Head of School</span>
+
+                      {/* Student Info - Portrait table matching EJS design */}
+                      <table className="w-full border-collapse mb-2 text-[11px]">
+                        <tbody>
+                          <tr>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left" style={{ width: "18%" }}>Roll Number</th>
+                            <td className="border border-slate-400 p-1.5" style={{ width: "15%" }}>{pd.info.rollNo || "N/A"}</td>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left" style={{ width: "18%" }}>Scholar Number</th>
+                            <td className="border border-slate-400 p-1.5" colSpan={2}>{pd.info.scholarNo || "N/A"}</td>
+                            <td rowSpan={7} style={{ width: "15%", padding: "2px", verticalAlign: "top" }}>
+                              <div className="w-20 h-24 border border-slate-300 mx-auto flex items-center justify-center text-slate-300 text-[8px] bg-slate-50">PHOTO</div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Name of Student</th>
+                            <td className="border border-slate-400 p-1.5 font-bold" colSpan={4}>{pd.info.name}</td>
+                          </tr>
+                          <tr>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Father's Name</th>
+                            <td className="border border-slate-400 p-1.5" colSpan={4}>{pd.info.fatherName}</td>
+                          </tr>
+                          <tr>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Mothers' Name</th>
+                            <td className="border border-slate-400 p-1.5" colSpan={4}>{pd.info.motherName}</td>
+                          </tr>
+                          <tr>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Date of Birth</th>
+                            <td className="border border-slate-400 p-1.5">{pd.info.dob || "N/A"}</td>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">in words</th>
+                            <td className="border border-slate-400 p-1.5" colSpan={2}>{pd.info.dob || "N/A"}</td>
+                          </tr>
+                          <tr>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Class</th>
+                            <td className="border border-slate-400 p-1.5">{displayClassName}{selectedStream ? ` (${selectedStream})` : ""}</td>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Section</th>
+                            <td className="border border-slate-400 p-1.5" colSpan={2}>Section - {pd.info.section}</td>
+                          </tr>
+                          <tr>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Caste / Category</th>
+                            <td className="border border-slate-400 p-1.5">{pd.info.category || "N/A"}</td>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">SSSM ID</th>
+                            <td className="border border-slate-400 p-1.5" colSpan={2}>{pd.info.sssmid || "N/A"}</td>
+                          </tr>
+                          <tr>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Aadhaar Number</th>
+                            <td className="border border-slate-400 p-1.5">{pd.info.aadhaar || "N/A"}</td>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left">Appar ID</th>
+                            <td className="border border-slate-400 p-1.5">{pd.info.apaarId || "N/A"}</td>
+                            <th className="border border-slate-400 bg-slate-50 p-1.5 text-left" style={{ width: "12%" }}>Medium</th>
+                            <td className="border border-slate-400 p-1.5 font-bold">{pd.info.medium}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      {/* Performance */}
+                      <div className="text-[#005b9f] text-[13px] font-bold mb-1">
+                        Student's Performance <span className="text-[#e66] text-[9px] font-normal">(As per order of M.P. Govt.)</span>
+                      </div>
+
+                      <table className="w-full border-collapse mb-2 text-[11px]">
+                        <thead>
+                          <tr className="bg-[#e6f2ff]">
+                            <th className="border border-slate-400 p-1.5 text-center" rowSpan={2} style={{ width: "16%" }}>Subjects</th>
+                            <th className="border border-slate-400 p-1.5 text-center" colSpan={3}>Half Yearly Evaluation</th>
+                            <th className="border border-slate-400 p-1.5 text-center" colSpan={3}>Annual Evaluation</th>
+                            <th className="border border-slate-400 p-1.5 text-center" colSpan={3}>Final Assessment</th>
+                          </tr>
+                          <tr className="bg-[#e6f2ff]">
+                            <th className="border border-slate-400 p-1.5 text-center">Max.</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Obt.</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Grade</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Max.</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Obt.</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Grade</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Max.</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Obt.</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Grade</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pd.rows.map((r) => (
+                            <tr key={r.subject} className="text-center">
+                              <td className="border border-slate-400 p-1.5 text-left font-semibold">{r.subject}</td>
+                              <td className="border border-slate-400 p-1.5">{r.halfMax}</td>
+                              <td className="border border-slate-400 p-1.5">{r.halfObt}</td>
+                              <td className={`border border-slate-400 p-1.5 font-bold ${getGradeColor(r.halfGrade)}`}>{r.halfGrade}</td>
+                              <td className="border border-slate-400 p-1.5">{r.annMax}</td>
+                              <td className="border border-slate-400 p-1.5">{r.annObt}</td>
+                              <td className={`border border-slate-400 p-1.5 font-bold ${getGradeColor(r.annGrade)}`}>{r.annGrade}</td>
+                              <td className="border border-slate-400 p-1.5">{r.finalMax}</td>
+                              <td className="border border-slate-400 p-1.5">{r.finalObt}</td>
+                              <td className={`border border-slate-400 p-1.5 font-bold ${getGradeColor(r.finalGrade)}`}>{r.finalGrade}</td>
+                            </tr>
+                          ))}
+                          <tr className="text-center font-bold bg-slate-50">
+                            <td className="border border-slate-400 p-1.5 text-left">Total</td>
+                            <td className="border border-slate-400 p-1.5">{pd.rows.length * 40}</td>
+                            <td className="border border-slate-400 p-1.5">{pd.totalHalf}</td>
+                            <td className={`border border-slate-400 p-1.5 ${getGradeColor(getGrade((pd.totalHalf / (pd.rows.length * 40)) * 100))}`}>{getGrade((pd.totalHalf / (pd.rows.length * 40)) * 100)}</td>
+                            <td className="border border-slate-400 p-1.5">{pd.rows.length * 60}</td>
+                            <td className="border border-slate-400 p-1.5">{pd.totalAnn}</td>
+                            <td className={`border border-slate-400 p-1.5 ${getGradeColor(getGrade((pd.totalAnn / (pd.rows.length * 60)) * 100))}`}>{getGrade((pd.totalAnn / (pd.rows.length * 60)) * 100)}</td>
+                            <td className="border border-slate-400 p-1.5">{pd.totalFinalMax}</td>
+                            <td className="border border-slate-400 p-1.5">{pd.totalFinal}</td>
+                            <td className={`border border-slate-400 p-1.5 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      {/* Co-Scholastic */}
+                      <div className="text-[#005b9f] text-[13px] font-bold mb-1">Performance in Co-Scholastic Areas :</div>
+                      <table className="w-full border-collapse mb-2 text-[11px]">
+                        <thead>
+                          <tr>
+                            <th className="border border-slate-400 bg-[#e6f2ff] p-1.5 text-center" colSpan={2} style={{ width: "33.33%" }}>Co-Curricular Activities</th>
+                            <th className="border border-slate-400 bg-[#e6f2ff] p-1.5 text-center" colSpan={2} style={{ width: "33.33%" }}>Personal &amp; Social</th>
+                            <th className="border border-slate-400 bg-[#e6f2ff] p-1.5 text-center" colSpan={2} style={{ width: "33.33%" }}>Social Activities</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            ["LITERARY SKILLS", "REGULARITY", "ENV. CONSCIOUSNESS"],
+                            ["SCIENTIFIC SKILLS", "PUNCTUALITY", "LEADERSHIP"],
+                            ["CULTURAL SKILLS", "CLEANLINESS", "TRUTHFULNESS"],
+                            ["CREATIVITY", "DISCIPLINE", "HONESTY"],
+                            ["SPORTS", "CO-OPERATION", "EXPRESSIVE"],
+                          ].map(([a, b, c]) => (
+                            <tr key={a}>
+                              <td className="border border-slate-400 p-1.5">{a}</td>
+                              <td className="border border-slate-400 p-1.5 text-center">A</td>
+                              <td className="border border-slate-400 p-1.5">{b}</td>
+                              <td className="border border-slate-400 p-1.5 text-center">A</td>
+                              <td className="border border-slate-400 p-1.5">{c}</td>
+                              <td className="border border-slate-400 p-1.5 text-center">A</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {/* Final Result */}
+                      <div className="text-[#005b9f] text-[13px] font-bold mb-1">Final Result :</div>
+                      <table className="w-full border-collapse mb-2 text-[11px]">
+                        <thead>
+                          <tr className="bg-[#e6f2ff] text-center">
+                            <th className="border border-slate-400 p-1.5 text-center">Max. Marks</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Obt. Marks</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Result</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Percentage</th>
+                            <th className="border border-slate-400 p-1.5 text-center">Grade</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="text-center font-bold">
+                            <td className="border border-slate-400 p-1.5">{pd.totalFinalMax}</td>
+                            <td className="border border-slate-400 p-1.5">{pd.totalFinal}</td>
+                            <td className={`border border-slate-400 p-1.5 ${pd.result === "Pass" ? "text-green-700" : "text-red-700"}`}>{pd.result === "Pass" ? "PASS" : "FAIL"}</td>
+                            <td className="border border-slate-400 p-1.5">{pd.overallPct.toFixed(2)} %</td>
+                            <td className={`border border-slate-400 p-1.5 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      {/* Remarks & Signatures */}
+                      <div className="flex-1"></div>
+                      <div className="flex justify-between text-[11px] font-bold mt-2 px-2.5 shrink-0">
+                        <div>Class Teacher Remark : <span className="font-normal">Good</span></div>
+                        <div style={{ marginRight: "20px" }}>Status : <span className="font-normal">{pd.result === "Pass" ? "Promoted" : "Detained"}</span></div>
+                      </div>
+                      <div className="flex justify-between mt-4 mb-1 px-5 shrink-0">
+                        <div className="text-center text-[11px] font-bold text-slate-700">
+                          <div className="w-32 border-t border-slate-700 mb-1"></div>
+                          Class Teacher
+                        </div>
+                        <div className="text-center text-[11px] font-bold text-[#004b87]">
+                          <div className="w-32 border-t border-[#005b9f] mb-1"></div>
+                          Principal<br />
+                          <span className="text-[10px] font-normal">Rose Convent High School<br />Head of School</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             ))}
-
-            {templateCount === 12 && (
-              <div
-                data-marksheet-page
-                data-student-name="all_12"
-                style={{ width: "794px", height: "1123px", margin: "0 auto" }}
-                className="grid grid-cols-3 gap-2 p-2 bg-white"
-              >
-                {previewData.map((pd) => (
-                  <div
-                    key={pd.info.studentId}
-                    data-marksheet
-                    data-student-name={pd.info.name}
-                    className="border border-[#005b9f] p-1 text-[6.5px] leading-tight flex flex-col"
-                  >
-                    <div className="text-center font-bold text-[#004b87] text-[7px] leading-tight">Rose Convent High School</div>
-                    <div className="text-center text-[5px] text-slate-600">DILAURA, SATNA (M.P.)</div>
-                    <div className="border-t border-dotted border-slate-300 my-0.5" />
-                    <div className="flex justify-between text-[6px]">
-                      <span className="font-semibold">{pd.info.name}</span>
-                      <span>Roll: {pd.info.rollNo}</span>
-                      <span>{displayClassName}</span>
-                    </div>
-                    <table className="w-full border-collapse mt-0.5 text-[6px]">
-                      <thead>
-                        <tr className="bg-[#e6f2ff]">
-                          <th className="border border-slate-400 p-0.5 text-left">Subject</th>
-                          <th className="border border-slate-400 p-0.5 text-center">H(40)</th>
-                          <th className="border border-slate-400 p-0.5 text-center">A(60)</th>
-                          <th className="border border-slate-400 p-0.5 text-center">T(100)</th>
-                          <th className="border border-slate-400 p-0.5 text-center">Gr</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pd.rows.map((r) => (
-                          <tr key={r.subject} className="text-center">
-                            <td className="border border-slate-400 p-0.5 text-left">{r.subject}</td>
-                            <td className="border border-slate-400 p-0.5">{r.halfObt}</td>
-                            <td className="border border-slate-400 p-0.5">{r.annObt}</td>
-                            <td className="border border-slate-400 p-0.5">{r.finalObt}</td>
-                            <td className={`border border-slate-400 p-0.5 font-bold ${getGradeColor(r.finalGrade)}`}>{r.finalGrade}</td>
-                          </tr>
-                        ))}
-                        <tr className="text-center font-bold bg-slate-50">
-                          <td className="border border-slate-400 p-0.5 text-left">Total</td>
-                          <td className="border border-slate-400 p-0.5">{pd.totalHalf}</td>
-                          <td className="border border-slate-400 p-0.5">{pd.totalAnn}</td>
-                          <td className="border border-slate-400 p-0.5">{pd.totalFinal}</td>
-                          <td className={`border border-slate-400 p-0.5 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div className="flex justify-between text-[6px] font-bold mt-0.5">
-                      <span className={pd.result === "Pass" ? "text-green-700" : "text-red-700"}>{pd.result}</span>
-                      <span>{pd.overallPct.toFixed(1)}%</span>
-                      <span className={getGradeColor(pd.overallGrade)}>Grade: {pd.overallGrade}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {templateCount === 14 && (
-              <div
-                data-marksheet-page
-                data-student-name="all_14"
-                style={{ width: "794px", height: "1123px", margin: "0 auto" }}
-                className="grid grid-cols-2 gap-2 p-2 bg-white"
-              >
-                {previewData.map((pd) => (
-                  <div
-                    key={pd.info.studentId}
-                    data-marksheet
-                    data-student-name={pd.info.name}
-                    className="border border-[#005b9f] p-1 text-[6.5px] leading-tight flex flex-col"
-                  >
-                    <div className="text-center font-bold text-[#004b87] text-[7px] leading-tight">Rose Convent High School</div>
-                    <div className="text-center text-[5px] text-slate-600">DILAURA, SATNA (M.P.)</div>
-                    <div className="border-t border-dotted border-slate-300 my-0.5" />
-                    <div className="flex justify-between text-[6px]">
-                      <span className="font-semibold">{pd.info.name}</span>
-                      <span>Roll: {pd.info.rollNo}</span>
-                      <span>{displayClassName}</span>
-                    </div>
-                    <table className="w-full border-collapse mt-0.5 text-[6px]">
-                      <thead>
-                        <tr className="bg-[#e6f2ff]">
-                          <th className="border border-slate-400 p-0.5 text-left">Subject</th>
-                          <th className="border border-slate-400 p-0.5 text-center">H(40)</th>
-                          <th className="border border-slate-400 p-0.5 text-center">A(60)</th>
-                          <th className="border border-slate-400 p-0.5 text-center">T(100)</th>
-                          <th className="border border-slate-400 p-0.5 text-center">Gr</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pd.rows.map((r) => (
-                          <tr key={r.subject} className="text-center">
-                            <td className="border border-slate-400 p-0.5 text-left">{r.subject}</td>
-                            <td className="border border-slate-400 p-0.5">{r.halfObt}</td>
-                            <td className="border border-slate-400 p-0.5">{r.annObt}</td>
-                            <td className="border border-slate-400 p-0.5">{r.finalObt}</td>
-                            <td className={`border border-slate-400 p-0.5 font-bold ${getGradeColor(r.finalGrade)}`}>{r.finalGrade}</td>
-                          </tr>
-                        ))}
-                        <tr className="text-center font-bold bg-slate-50">
-                          <td className="border border-slate-400 p-0.5 text-left">Total</td>
-                          <td className="border border-slate-400 p-0.5">{pd.totalHalf}</td>
-                          <td className="border border-slate-400 p-0.5">{pd.totalAnn}</td>
-                          <td className="border border-slate-400 p-0.5">{pd.totalFinal}</td>
-                          <td className={`border border-slate-400 p-0.5 ${getGradeColor(pd.overallGrade)}`}>{pd.overallGrade}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div className="flex justify-between text-[6px] font-bold mt-0.5">
-                      <span className={pd.result === "Pass" ? "text-green-700" : "text-red-700"}>{pd.result}</span>
-                      <span>{pd.overallPct.toFixed(1)}%</span>
-                      <span className={getGradeColor(pd.overallGrade)}>Grade: {pd.overallGrade}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
