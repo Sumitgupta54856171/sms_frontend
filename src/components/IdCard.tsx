@@ -21,6 +21,8 @@ interface IDCardStudent {
 interface IDCardProps {
   student?: IDCardStudent;
   principalName?: string;
+  customPhotoUrl?: string;
+  previewMode?: boolean;
 }
 
 // Default mock student for preview purposes
@@ -51,10 +53,14 @@ function formatClassWithSuffix(classInfo: string): string {
   return `${num}${suffix}${rest}`;
 }
 
-export default function IDCard({ student = defaultStudent, principalName = "Dr. Sharma" }: IDCardProps) {
+export default function IDCard({ student = defaultStudent, principalName = "Dr. Sharma", customPhotoUrl, previewMode }: IDCardProps) {
   const [photoUrl, setPhotoUrl] = useState("");
 
   useEffect(() => {
+    if (customPhotoUrl) {
+      setPhotoUrl(customPhotoUrl);
+      return;
+    }
     if (!student?.id) return;
     fetchStudentPhoto(student.id)
       .then(async (data) => {
@@ -64,7 +70,7 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
         }
       })
       .catch((err) => console.error("Error fetching photo:", err));
-  }, [student?.id]);
+  }, [student?.id, customPhotoUrl]);
 
   const handlePrint = () => {
     window.print();
@@ -117,14 +123,16 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
         }
       `}} />
 
-      <div id="print-btn" className="mb-6 flex gap-3">
-        <Button onClick={handlePrint} className="gap-2 bg-[#1c2b4c] hover:bg-[#121c33] text-white shadow-md">
-          <Printer className="h-4 w-4" /> Print ID Card
-        </Button>
-        <Button onClick={handleDownloadPNG} className="gap-2 bg-[#0d9488] hover:bg-[#0a7a6f] text-white shadow-md">
-          <Download className="h-4 w-4" /> Download PNG
-        </Button>
-      </div>
+      {!previewMode && (
+        <div id="print-btn" className="mb-6 flex gap-3">
+          <Button onClick={handlePrint} className="gap-2 bg-[#1c2b4c] hover:bg-[#121c33] text-white shadow-md">
+            <Printer className="h-4 w-4" /> Print ID Card
+          </Button>
+          <Button onClick={handleDownloadPNG} className="gap-2 bg-[#0d9488] hover:bg-[#0a7a6f] text-white shadow-md">
+            <Download className="h-4 w-4" /> Download PNG
+          </Button>
+        </div>
+      )}
 
       <Card
         id="id-card-container"
@@ -159,7 +167,7 @@ export default function IDCard({ student = defaultStudent, principalName = "Dr. 
                 HIGH SCHOOL
               </h2>
               <p className="text-[14px] text-white/80 font-medium tracking-wide mt-0.5">
-                Tikuriyatola, Satna (M.P.)
+                 Satna (M.P.)
               </p>
             </div>
           </div>

@@ -19,12 +19,12 @@ export default defineConfig({
     ],
     proxy: {
       '/api': {
-        target: 'https://online-sheets-investment-justin.trycloudflare.com', // Backend ka direct IP
+        target: 'http://100.68.219.67:9091', // Backend ka direct IP
         changeOrigin: true,
         secure: false, // Backend HTTP par hai isliye false
       },
       '/uploads': {
-        target: 'https://online-sheets-investment-justin.trycloudflare.com',
+        target: 'http://100.68.219.67:9091',
         changeOrigin: true,
         secure: false,
       },

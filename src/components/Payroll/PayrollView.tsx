@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Upload,
   Calendar,
+  CalendarDays,
   Clock,
   AlertCircle,
   CheckCircle2,
@@ -38,17 +39,25 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import {
   fetchPayrollRecords,
   savePayrollRecords,
-  saveStaffMappings,
-  fetchStaffMappings,
-  deletePayrollRecord,
+  updatePayrollRecords,
+  saveSalary,
+  fetchAllSalaries,
   type PayrollAttendanceRecord,
   type StaffMapping,
+  type SalaryRecord,
 } from "@/api/payroll";
 import { fetchTeachers } from "@/api/teacher";
+import { useAppSelector } from "@/store/hooks";
 
 interface ParsedRow {
   machineId: string;
@@ -67,11 +76,11 @@ interface TeacherOption {
 }
 
 const STATUS_OPTIONS = [
-  { value: "present", label: "Present", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { value: "absent", label: "Absent", color: "bg-red-100 text-red-700 border-red-200" },
-  { value: "half_day", label: "Half Day", color: "bg-amber-100 text-amber-700 border-amber-200" },
-  { value: "leave", label: "Leave", color: "bg-blue-100 text-blue-700 border-blue-200" },
-  { value: "holiday", label: "Holiday", color: "bg-slate-100 text-slate-700 border-slate-200" },
+  { value: "Present", label: "Present", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  { value: "Absent", label: "Absent", color: "bg-red-100 text-red-700 border-red-200" },
+  { value: "Halfday", label: "Half Day", color: "bg-amber-100 text-amber-700 border-amber-200" },
+  { value: "Leave", label: "Leave", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { value: "Holiday", label: "Holiday", color: "bg-slate-100 text-slate-700 border-slate-200" },
 ];
 
 const LATE_THRESHOLD = "10:00";
@@ -119,13 +128,18 @@ function isEarlyCheckout(checkOut?: string): boolean {
 }
 
 function determineStatus(times: string[]): PayrollAttendanceRecord["status"] {
-  if (times.length === 0) return "absent";
-  if (times.length === 1) return "half_day";
-  const checkIn = times[0];
-  const checkOut = times[times.length - 1];
-  // Late check-in or early checkout = half day
-  if (isCheckInLate(checkIn) || isEarlyCheckout(checkOut)) return "half_day";
-  return "present";
+  if (times.length === 0) return "Absent";
+  if (times.length === 1) return "Halfday";
+  return "Present";
+}
+
+/**
+ * Compute isLate — only true when status is NOT Halfday.
+ * Halfday and late are mutually exclusive.
+ */
+function computeIsLate(checkIn?: string, status?: string): boolean {
+  if (!checkIn || status === "Halfday") return false;
+  return isCheckInLate(checkIn);
 }
 
 /**
@@ -264,6 +278,7 @@ async function parseZktecoReport(file: File): Promise<ParsedRow[]> {
 
 export default function PayrollView() {
   const now = new Date();
+  const currentSession = useAppSelector((s) => s.session.currentSession);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [records, setRecords] = useState<PayrollAttendanceRecord[]>([]);
@@ -272,10 +287,17 @@ export default function PayrollView() {
   const [loading, setLoading] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [search, setSearch] = useState("");
-  const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null);
   const [editRecord, setEditRecord] = useState<PayrollAttendanceRecord | null>(null);
   const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const [savingMapping, setSavingMapping] = useState<string | null>(null);
+  const [savingAttendance, setSavingAttendance] = useState(false);
+  const [updatingAttendance, setUpdatingAttendance] = useState(false);
+  const [savingHolidays, setSavingHolidays] = useState(false);
+  const [holidayDates, setHolidayDates] = useState<Date[]>([]);
+  // Local mapping edit state — prevents Select/Input from overriding each other
+  const [localMappingEdits, setLocalMappingEdits] = useState<Record<string, { teacherId: number | null; monthlySalary: number }>>({});
 
   const daysInMonth = getDaysInMonth(year, month);
   const monthName = getMonthName(month);
@@ -288,17 +310,49 @@ export default function PayrollView() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [recs, maps] = await Promise.all([
-        fetchPayrollRecords(String(month + 1).padStart(2, "0"), year),
-        fetchStaffMappings(),
+      const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+      const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+      const [recs, salaryList] = await Promise.all([
+        fetchPayrollRecords(startDate, endDate),
+        fetchAllSalaries().catch(() => [] as SalaryRecord[]),
       ]);
       setRecords(
         recs.map((r) => ({
           ...r,
-          isLate: isCheckInLate(r.checkIn),
+          isLate: computeIsLate(r.checkIn, r.status),
         }))
       );
-      setMappings(maps);
+      // Build mappings from backend salary records + merge with existing (file-uploaded) mappings
+      if (salaryList.length > 0) {
+        // First, create a mapping entry for every salary record from the backend
+        const salaryMappings: StaffMapping[] = salaryList.map((s) => ({
+          machineId: String(s.machineId),
+          teacherId: s.teacher.id,
+          staffId: null,
+          name: `Employee ${s.machineId}`,
+          monthlySalary: s.totalSalary,
+        }));
+
+        setMappings((prev) => {
+          // If we already have mappings (from file upload), merge them — keep the names from uploads
+          if (prev.length > 0) {
+            const merged = [...prev];
+            for (const sm of salaryMappings) {
+              const existing = merged.find((m) => m.machineId === sm.machineId);
+              if (!existing) {
+                merged.push(sm);
+              } else {
+                // Update salary/teacher from backend if not set locally
+                if (existing.teacherId == null) existing.teacherId = sm.teacherId;
+                if (!existing.monthlySalary || existing.monthlySalary === 0) existing.monthlySalary = sm.monthlySalary;
+              }
+            }
+            return merged;
+          }
+          // No existing mappings — use salary records as the base
+          return salaryMappings;
+        });
+      }
     } catch {
       toast.error("Failed to load payroll data");
     } finally {
@@ -361,7 +415,7 @@ export default function PayrollView() {
           checkOut: row.checkOut,
           status: row.status,
           workHours: row.workHours,
-          isLate: isCheckInLate(row.checkIn),
+          isLate: computeIsLate(row.checkIn, row.status),
           teacherId: mapping?.teacherId ?? null,
           staffId: mapping?.staffId ?? null,
           employeeName: row.employeeName,
@@ -369,16 +423,14 @@ export default function PayrollView() {
       });
 
       if (newMappings.length > 0) {
-        await saveStaffMappings([...mappings, ...newMappings]);
         setMappings((prev) => [...prev, ...newMappings]);
         toast.info(`${newMappings.length} new employee(s) detected. Please map them to teachers/staff.`);
         setIsMappingDialogOpen(true);
       }
 
       const merged = mergeRecords(records, newRecords);
-      await savePayrollRecords(merged);
       setRecords(merged);
-      toast.success(`Imported ${newRecords.length} attendance records`);
+      toast.success(`Imported ${newRecords.length} attendance records. Click "Save Attendance to Backend" to persist.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to parse file";
       toast.error(message);
@@ -401,20 +453,43 @@ export default function PayrollView() {
   };
 
   const handleSaveMapping = async (machineId: string, teacherId: number | null, monthlySalary?: number) => {
-    const updated = mappings.map((m) =>
-      m.machineId === machineId
-        ? { ...m, teacherId, staffId: teacherId ? null : m.staffId, monthlySalary }
-        : m
-    );
-    await saveStaffMappings(updated);
-    setMappings(updated);
+    setSavingMapping(machineId);
+    try {
+      const updated = mappings.map((m) =>
+        m.machineId === machineId
+          ? { ...m, teacherId, staffId: teacherId ? null : m.staffId, monthlySalary }
+          : m
+      );
+      setMappings(updated);
 
-    const updatedRecords = records.map((r) =>
-      r.machineId === machineId ? { ...r, teacherId } : r
-    );
-    await savePayrollRecords(updatedRecords);
-    setRecords(updatedRecords);
-    toast.success("Mapping & salary saved");
+      const updatedRecords = records.map((r) =>
+        r.machineId === machineId ? { ...r, teacherId } : r
+      );
+      setRecords(updatedRecords);
+
+      // Save salary to backend if teacher is mapped and salary is set
+      if (teacherId && monthlySalary && monthlySalary > 0) {
+        await saveSalary({
+          totalSalary: monthlySalary,
+          teacher: { id: teacherId },
+          sessionId: currentSession?.sessionId,
+          machineId: Number(machineId),
+        });
+      }
+
+      // Clear local edit for this row
+      setLocalMappingEdits((prev) => {
+        const next = { ...prev };
+        delete next[machineId];
+        return next;
+      });
+
+      toast.success("Mapping & salary saved to backend");
+    } catch {
+      toast.error("Failed to save mapping. Please try again.");
+    } finally {
+      setSavingMapping(null);
+    }
   };
 
   const handleEditRecord = (record: PayrollAttendanceRecord) => {
@@ -424,36 +499,42 @@ export default function PayrollView() {
 
   const handleSaveEdit = async () => {
     if (!editRecord) return;
+
+    // Validate: teacherId is required to save to backend
+    const mapping = mappings.find((m) => m.machineId === editRecord.machineId);
+    if (!mapping?.teacherId) {
+      toast.error("Please map this employee to a teacher first before saving attendance.");
+      return;
+    }
+
     const updatedRecord = {
       ...editRecord,
-      isLate: isCheckInLate(editRecord.checkIn),
+      teacherId: mapping.teacherId,
+      isLate: computeIsLate(editRecord.checkIn, editRecord.status),
     };
     const updated = records.map((r) =>
       r.machineId === updatedRecord.machineId && r.date === updatedRecord.date ? updatedRecord : r
     );
-    await savePayrollRecords(updated);
     setRecords(updated);
     setIsEditDialogOpen(false);
     setEditRecord(null);
-    toast.success("Attendance record updated");
+    toast.success("Attendance record updated locally. Click 'Save Attendance to Backend' to persist.");
   };
 
-  const handleDeleteRecord = async (record: PayrollAttendanceRecord) => {
+  const handleDeleteRecord = (record: PayrollAttendanceRecord) => {
     if (!confirm("Are you sure you want to delete this record?")) return;
     const updated = records.filter(
       (r) => !(r.machineId === record.machineId && r.date === record.date)
     );
-    if (record.id) await deletePayrollRecord(record.id);
-    await savePayrollRecords(updated);
     setRecords(updated);
-    toast.success("Record deleted");
+    toast.success("Record removed locally. Click 'Save Attendance to Backend' to persist.");
   };
 
   const handleAddMissingRecord = (machineId: string, date: string) => {
     setEditRecord({
       machineId,
       date,
-      status: "absent",
+      status: "Absent",
       teacherId: mappings.find((m) => m.machineId === machineId)?.teacherId ?? null,
     });
     setIsEditDialogOpen(true);
@@ -502,10 +583,11 @@ export default function PayrollView() {
       const dailySalary = monthlySalary > 0 ? monthlySalary / daysInMonth : 0;
 
       const employeeRecords = records.filter((r) => r.machineId === machineId);
-      const present = employeeRecords.filter((r) => r.status === "present").length;
-      const absent = employeeRecords.filter((r) => r.status === "absent").length;
-      const halfDay = employeeRecords.filter((r) => r.status === "half_day").length;
-      const late = employeeRecords.filter((r) => r.isLate).length;
+      const present = employeeRecords.filter((r) => r.status === "Present").length;
+      const absent = employeeRecords.filter((r) => r.status === "Absent").length;
+      const halfDay = employeeRecords.filter((r) => r.status === "Halfday").length;
+      // Late count excludes Halfday records (mutually exclusive)
+      const late = employeeRecords.filter((r) => r.isLate && r.status !== "Halfday").length;
 
       // 3 late days = 1 day salary cut
       const lateCutDays = Math.floor(late / 3);
@@ -519,6 +601,7 @@ export default function PayrollView() {
 
       return {
         machineId,
+        teacherId: mapping?.teacherId ?? null,
         name: mapping?.name || `Employee ${machineId}`,
         monthlySalary,
         dailySalary,
@@ -628,6 +711,100 @@ export default function PayrollView() {
     downloadFile(csv, `salary_${year}_${month + 1}.csv`, "text/csv");
   };
 
+  const handleSaveAttendance = async () => {
+    setSavingAttendance(true);
+    try {
+      // Only save records that have a teacherId (mapped employees)
+      const recordsToSave = records.filter((r) => r.teacherId != null);
+
+      if (recordsToSave.length === 0) {
+        toast.error("No attendance records with mapped teachers to save. Map employees to teachers first.");
+        return;
+      }
+
+      await savePayrollRecords(recordsToSave);
+      toast.success(`Saved ${recordsToSave.length} attendance records to backend`);
+    } catch {
+      toast.error("Failed to save attendance records");
+    } finally {
+      setSavingAttendance(false);
+    }
+  };
+
+  const handleUpdateAttendance = async () => {
+    setUpdatingAttendance(true);
+    try {
+      const recordsToUpdate = records.filter((r) => r.teacherId != null);
+
+      if (recordsToUpdate.length === 0) {
+        toast.error("No attendance records with mapped teachers to update. Map employees to teachers first.");
+        return;
+      }
+
+      await updatePayrollRecords(recordsToUpdate);
+      toast.success(`Updated ${recordsToUpdate.length} attendance records in backend`);
+    } catch {
+      toast.error("Failed to update attendance records");
+    } finally {
+      setUpdatingAttendance(false);
+    }
+  };
+
+  const handleSaveHolidays = async () => {
+    if (holidayDates.length === 0) {
+      toast.error("No holidays selected. Pick dates from the calendar first.");
+      return;
+    }
+
+    setSavingHolidays(true);
+    try {
+      // Build holiday records for all mapped employees on the selected dates
+      const holidayRecords: PayrollAttendanceRecord[] = [];
+      for (const date of holidayDates) {
+        const dateKey = formatDateKey(date);
+        for (const machineId of uniqueMachineIds) {
+          const mapping = mappings.find((m) => m.machineId === machineId);
+          if (!mapping?.teacherId) continue;
+
+          // Check if a record already exists for this employee+date
+          const existing = records.find(
+            (r) => r.machineId === machineId && r.date === dateKey
+          );
+          if (existing) {
+            // Update existing record status to Holiday
+            holidayRecords.push({ ...existing, status: "Holiday" });
+          } else {
+            // Create a new holiday record
+            holidayRecords.push({
+              machineId,
+              date: dateKey,
+              status: "Holiday",
+              teacherId: mapping.teacherId,
+              employeeName: mapping.name,
+            });
+          }
+        }
+      }
+
+      if (holidayRecords.length === 0) {
+        toast.error("No mapped employees found for the selected holiday dates.");
+        return;
+      }
+
+      await savePayrollRecords(holidayRecords);
+      toast.success(`Saved ${holidayRecords.length} holiday attendance records`);
+
+      // Refresh data to reflect saved holidays
+      await loadData();
+    } catch {
+      toast.error("Failed to save holiday attendance");
+    } finally {
+      setSavingHolidays(false);
+    }
+  };
+
+
+
   return (
     <div className="min-h-screen bg-slate-50/80 p-4 sm:p-6 md:p-8 font-sans">
       <div className="mx-auto max-w-7xl">
@@ -734,6 +911,62 @@ export default function PayrollView() {
                   <span className="text-slate-300">|</span>
                   <span className="whitespace-nowrap">Half ≤ 14:40</span>
                 </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="border-slate-200 gap-1.5">
+                      <CalendarDays className="h-4 w-4 text-slate-500" />
+                      {holidayDates.length > 0
+                        ? `${holidayDates.length} holiday(s)`
+                        : "Mark Holidays"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarPicker
+                      mode="multiple"
+                      selected={holidayDates}
+                      onSelect={(dates) => {
+                        setHolidayDates(dates || []);
+                        // Update records: mark selected dates as "holiday" for all mapped employees
+                        if (dates) {
+                          setRecords((prev) => {
+                            const updated = prev.map((r) => {
+                              const recordDate = new Date(r.date + "T00:00:00");
+                              const isHoliday = dates.some(
+                                (d) =>
+                                  d.getFullYear() === recordDate.getFullYear() &&
+                                  d.getMonth() === recordDate.getMonth() &&
+                                  d.getDate() === recordDate.getDate()
+                              );
+                              if (isHoliday && r.teacherId != null) {
+                                return { ...r, status: "Holiday" as const };
+                              }
+                              return r;
+                            });
+                            return updated;
+                          });
+                        }
+                      }}
+                      month={new Date(year, month)}
+                      className="rounded-lg border-0"
+                    />
+                  </PopoverContent>
+                </Popover>
+                {holidayDates.length > 0 && (
+                  <Button
+                    onClick={handleSaveHolidays}
+                    disabled={savingHolidays}
+                    size="sm"
+                    variant="outline"
+                    className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 gap-1.5"
+                  >
+                    {savingHolidays ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    {savingHolidays ? "Saving..." : `Save ${holidayDates.length} Holiday(s)`}
+                  </Button>
+                )}
                 <div className="relative flex-1 lg:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
@@ -777,7 +1010,7 @@ export default function PayrollView() {
             <CardContent className="p-4">
               <p className="text-xs text-slate-500">Present Days</p>
               <p className="text-2xl font-bold text-emerald-600">
-                {records.filter((r) => r.status === "present").length}
+                {records.filter((r) => r.status === "Present").length}
               </p>
             </CardContent>
           </Card>
@@ -785,7 +1018,7 @@ export default function PayrollView() {
             <CardContent className="p-4">
               <p className="text-xs text-slate-500">Absent / Missing</p>
               <p className="text-2xl font-bold text-red-600">
-                {records.filter((r) => r.status === "absent").length}
+                {records.filter((r) => r.status === "Absent").length}
               </p>
             </CardContent>
           </Card>
@@ -870,8 +1103,8 @@ export default function PayrollView() {
                         </td>
                         {Array.from({ length: daysInMonth }, (_, day) => {
                           const record = getRecordForDay(machineId, day + 1);
-                          const isMissing = !record || record.status === "absent";
-                          const isHalf = record?.status === "half_day";
+                          const isMissing = !record || record.status === "Absent";
+                          const isHalf = record?.status === "Halfday";
                           return (
                             <td
                               key={day}
@@ -890,11 +1123,11 @@ export default function PayrollView() {
                             >
                               {record ? (
                                 <div className="flex flex-col items-center gap-0.5">
-                                  {record.status === "present" && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
-                                  {record.status === "absent" && <AlertCircle className="h-3 w-3 text-red-500" />}
-                                  {record.status === "half_day" && <Clock className="h-3 w-3 text-amber-500" />}
-                                  {record.status === "leave" && <Clock className="h-3 w-3 text-blue-500" />}
-                                  {record.status === "holiday" && <Clock className="h-3 w-3 text-slate-400" />}
+                                  {record.status === "Present" && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
+                                  {record.status === "Absent" && <AlertCircle className="h-3 w-3 text-red-500" />}
+                                  {record.status === "Halfday" && <Clock className="h-3 w-3 text-amber-500" />}
+                                  {record.status === "Leave" && <Clock className="h-3 w-3 text-blue-500" />}
+                                  {record.status === "Holiday" && <Clock className="h-3 w-3 text-slate-400" />}
                                   {record.checkIn && (
                                     <span
                                       className={`text-[9px] leading-tight ${
@@ -920,10 +1153,7 @@ export default function PayrollView() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              setSelectedMachineId(machineId);
-                              setIsMappingDialogOpen(true);
-                            }}
+                            onClick={() => setIsMappingDialogOpen(true)}
                             className="h-8 w-8 p-0"
                           >
                             <Edit2 className="h-4 w-4 text-slate-500" />
@@ -936,6 +1166,39 @@ export default function PayrollView() {
               </table>
             </CardContent>
           </Card>
+        )}
+
+        {/* Save / Update Attendance Buttons */}
+        {!loading && records.length > 0 && (
+          <div className="flex justify-end gap-3 mb-6">
+            <Button
+              onClick={handleUpdateAttendance}
+              disabled={updatingAttendance}
+              size="lg"
+              variant="outline"
+              className="gap-2 px-8 border-amber-300 text-amber-700 hover:bg-amber-50"
+            >
+              {updatingAttendance ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Save className="h-5 w-5" />
+              )}
+              {updatingAttendance ? "Updating..." : "Update Attendance"}
+            </Button>
+            <Button
+              onClick={handleSaveAttendance}
+              disabled={savingAttendance}
+              size="lg"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm gap-2 px-8"
+            >
+              {savingAttendance ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Save className="h-5 w-5" />
+              )}
+              {savingAttendance ? "Saving..." : "Save Attendance to Backend"}
+            </Button>
+          </div>
         )}
 
         {/* Salary Summary */}
@@ -951,10 +1214,12 @@ export default function PayrollView() {
                   3 late days = 1 day salary deduction. Absent and half-day cuts are applied automatically.
                 </CardDescription>
               </div>
-              <Button variant="outline" onClick={exportSalarySheet} className="border-slate-200">
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Export Salary Sheet
-              </Button>
+              <div className="flex gap-2 items-center">
+                <Button variant="outline" onClick={exportSalarySheet} className="border-slate-200">
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export Salary Sheet
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <table className="w-full text-sm border-collapse min-w-[900px]">
@@ -1044,86 +1309,204 @@ export default function PayrollView() {
 
       {/* Mapping Dialog */}
       <Dialog open={isMappingDialogOpen} onOpenChange={setIsMappingDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-emerald-600" />
-              Map Machine IDs to Staff
-            </DialogTitle>
-            <DialogDescription>
-              Connect each biometric machine ID to a teacher/staff member and set their monthly salary.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[400px] overflow-y-auto space-y-3 mt-4">
-            {mappings.map((mapping) => (
-              <div
-                key={mapping.machineId}
-                className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 rounded-lg border ${
-                  selectedMachineId === mapping.machineId
-                    ? "border-emerald-300 bg-emerald-50/30"
-                    : "border-slate-200"
-                }`}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900">{mapping.name}</p>
-                  <p className="text-xs text-slate-500">Machine ID: {mapping.machineId}</p>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden p-0">
+          {/* Header */}
+          <div className="px-6 pt-5 pb-4 border-b border-slate-200">
+            <DialogHeader className="p-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="flex items-center gap-2.5 text-xl">
+                    <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+                      <UserPlus className="h-5 w-5" />
+                    </div>
+                    Map Machine IDs to Staff
+                  </DialogTitle>
+                  <DialogDescription className="text-base mt-1.5">
+                    Assign teachers and set monthly salaries for each biometric machine ID.
+                    All data is saved directly to the backend.
+                  </DialogDescription>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <Select
-                    value={mapping.teacherId ? String(mapping.teacherId) : "unmapped"}
-                    onValueChange={(v) =>
-                      handleSaveMapping(
-                        mapping.machineId,
-                        v === "unmapped" ? null : Number(v),
-                        mapping.monthlySalary
-                      )
-                    }
-                  >
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue placeholder="Select teacher" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unmapped">— Unmapped —</SelectItem>
-                      {teachers.map((t) => (
-                        <SelectItem key={t.id} value={String(t.id)}>
-                          {t.fullName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="relative w-full sm:w-[140px]">
-                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      type="number"
-                      placeholder="Salary"
-                      value={mapping.monthlySalary ?? ""}
-                      onChange={(e) =>
-                        handleSaveMapping(
-                          mapping.machineId,
-                          mapping.teacherId ?? null,
-                          Number(e.target.value)
-                        )
-                      }
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
+                <Badge variant="outline" className="text-xs bg-slate-50 text-slate-600 border-slate-200 shrink-0">
+                  {mappings.filter((m) => m.teacherId).length}/{mappings.length} mapped
+                </Badge>
               </div>
-            ))}
-            {mappings.length === 0 && (
-              <p className="text-center text-sm text-slate-500 py-8">
-                No machine IDs found. Upload a Zkteco report first.
-              </p>
+            </DialogHeader>
+          </div>
+
+          {/* Body */}
+          <div className="overflow-y-auto px-6 py-4" style={{ maxHeight: "calc(85vh - 140px)" }}>
+            {mappings.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center mb-4">
+                  <Upload className="h-7 w-7 text-slate-400" />
+                </div>
+                <p className="text-base font-semibold text-slate-900">No employees found</p>
+                <p className="text-sm text-slate-500 mt-1 max-w-xs">
+                  Upload a Zkteco attendance report first to populate the employee list.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {mappings.map((mapping, idx) => {
+                  const localEdit = localMappingEdits[mapping.machineId];
+                  const currentTeacherId = localEdit?.teacherId ?? mapping.teacherId ?? null;
+                  const currentSalary = localEdit?.monthlySalary ?? mapping.monthlySalary ?? 0;
+                  const hasChanges =
+                    currentTeacherId !== (mapping.teacherId ?? null) ||
+                    currentSalary !== (mapping.monthlySalary ?? 0);
+                  const isSaving = savingMapping === mapping.machineId;
+                  const isMapped = mapping.teacherId != null;
+
+                  return (
+                    <div
+                      key={mapping.machineId}
+                      className={`rounded-xl border transition-all duration-200 ${
+                        isMapped
+                          ? "border-emerald-200 bg-emerald-50/20"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      } ${isSaving ? "opacity-70 pointer-events-none" : ""}`}
+                    >
+                      <div className="p-4">
+                        {/* Row 1: Info */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                              isMapped
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-slate-100 text-slate-500"
+                            }`}>
+                              {idx + 1}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-slate-900 truncate">{mapping.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <Badge variant="outline" className="bg-white text-slate-600 border-slate-200 font-mono text-[11px] px-2 py-0">
+                                  ID: {mapping.machineId}
+                                </Badge>
+                                {isMapped && (
+                                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[11px] px-2 py-0">
+                                    Mapped
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {isSaving && (
+                            <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-medium shrink-0">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Saving...
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Row 2: Form fields */}
+                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+                          {/* Teacher Select */}
+                          <div className="sm:col-span-2">
+                            <Label className="text-xs text-slate-500 mb-1.5 block">Assign Teacher</Label>
+                            <Select
+                              value={currentTeacherId ? String(currentTeacherId) : "unmapped"}
+                              onValueChange={(v) =>
+                                setLocalMappingEdits((prev) => ({
+                                  ...prev,
+                                  [mapping.machineId]: {
+                                    teacherId: v === "unmapped" ? null : Number(v),
+                                    monthlySalary: currentSalary,
+                                  },
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="w-full bg-white">
+                                <SelectValue placeholder="Select teacher" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unmapped">
+                                  <span className="text-slate-400">— Not assigned —</span>
+                                </SelectItem>
+                                {teachers.map((t) => (
+                                  <SelectItem key={t.id} value={String(t.id)}>
+                                    {t.fullName}
+                                    {t.employee_id ? ` (${t.employee_id})` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Salary Input */}
+                          <div className="sm:col-span-2">
+                            <Label className="text-xs text-slate-500 mb-1.5 block">Monthly Salary (₹)</Label>
+                            <div className="relative">
+                              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input
+                                type="number"
+                                min="0"
+                                step="100"
+                                placeholder="0"
+                                value={String(currentSalary)}
+                                onChange={(e) =>
+                                  setLocalMappingEdits((prev) => ({
+                                    ...prev,
+                                    [mapping.machineId]: {
+                                      teacherId: currentTeacherId,
+                                      monthlySalary: e.target.value === "" ? 0 : Number(e.target.value),
+                                    },
+                                  }))
+                                }
+                                className="pl-9 w-full bg-white"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Save Button */}
+                          <div className="sm:col-span-1">
+                            <Button
+                              size="sm"
+                              disabled={!hasChanges || isSaving}
+                              onClick={() =>
+                                handleSaveMapping(mapping.machineId, currentTeacherId, currentSalary)
+                              }
+                              className={`w-full ${
+                                hasChanges
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                              }`}
+                            >
+                              {isSaving ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Save className="h-4 w-4 mr-1" />
+                              )}
+                              {isSaving ? "Saving" : hasChanges ? "Save" : "Saved"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
-          <DialogFooter>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              {mappings.filter((m) => m.teacherId).length} of {mappings.length} employees mapped
+              {mappings.some((m) => m.monthlySalary && m.monthlySalary > 0)
+                ? ` · ${mappings.filter((m) => (m.monthlySalary ?? 0) > 0).length} salaries set`
+                : ""}
+            </p>
             <Button
-              onClick={() => setIsMappingDialogOpen(false)}
+              onClick={() => {
+                setLocalMappingEdits({});
+                setIsMappingDialogOpen(false);
+              }}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               Done
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1157,7 +1540,7 @@ export default function PayrollView() {
                   <Input
                     type="time"
                     value={editRecord.checkIn || ""}
-                    onChange={(e) => setEditRecord({ ...editRecord, checkIn: e.target.value })}
+                    onChange={(e) => setEditRecord({ ...editRecord, checkIn: e.target.value, isLate: computeIsLate(e.target.value, editRecord.status) })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -1174,7 +1557,7 @@ export default function PayrollView() {
                 <Select
                   value={editRecord.status}
                   onValueChange={(v) =>
-                    setEditRecord({ ...editRecord, status: v as PayrollAttendanceRecord["status"] })
+                    setEditRecord({ ...editRecord, status: v as PayrollAttendanceRecord["status"], isLate: computeIsLate(editRecord.checkIn, v) })
                   }
                 >
                   <SelectTrigger>
@@ -1246,6 +1629,7 @@ export default function PayrollView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

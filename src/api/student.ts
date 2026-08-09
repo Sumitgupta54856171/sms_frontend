@@ -297,6 +297,30 @@ export const fetchStudentPhoto = async (studentId: number): Promise<{ id: number
   return response.data?.data ?? response.data ?? null;
 };
 
+// ─── Save/update elective subjects for class 11/12 students ───────────
+export interface ElectiveSubjectPayload {
+  studentId: number;
+  className: string;
+  stream: string;
+  electiveSubjects: string[];
+}
+
+/**
+ * Save or update elective subjects for class 11/12 students.
+ * Single API works for both save and update. Accepts multiple records.
+ * POST /api/v1/students/save/elective/subject
+ */
+export const saveElectiveSubjects = async (
+  dataList: ElectiveSubjectPayload[]
+): Promise<any> => {
+  const response = await apiClient.post(
+    "/api/v1/students/save/elective/subject",
+    dataList,
+    { withCredentials: true }
+  );
+  return response.data;
+};
+
 /** Fetch the actual photo image as a blob (with auth) and return an object URL. */
 export const getPhotoBlobUrl = async (filePath: string): Promise<string> => {
   const response = await apiClient.get(`/${filePath}`, {
@@ -327,6 +351,31 @@ export interface BankDetailsResponse {
   bankDetailId?: number;
   student?: any;
 }
+
+// ─── Fetch elective subjects for a class ──────────────────────────────
+export interface ElectiveSubjectRecord {
+  id: number;
+  studentId: number;
+  className: string;
+  stream: string;
+  electiveSubjects: string; // JSON string or comma-separated
+  student?: {
+    id: number;
+    name: string;
+    scholar_no: string;
+  };
+}
+
+export const fetchElectiveSubjectsByClass = async (
+  className: string
+): Promise<ElectiveSubjectRecord[]> => {
+  const response = await apiClient.get(
+    `/api/v1/students/elective/subject/${className}`,
+    { withCredentials: true }
+  );
+  const raw = response.data?.body ?? response.data?.data ?? response.data ?? [];
+  return Array.isArray(raw) ? raw : [];
+};
 
 export const saveBankDetails = async (data: BankDetailsPayload) => {
   const response = await apiClient.post("/api/v1/students/bank-details", data, {

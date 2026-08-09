@@ -12,6 +12,7 @@ export interface IdCard85x55Student {
 interface IdCard85x55Props {
   student: IdCard85x55Student;
   principalName?: string;
+  customPhotoUrl?: string;
 }
 
 /** Adds ordinal suffix (st, nd, rd, th) to a class number */
@@ -27,10 +28,14 @@ function formatClassWithSuffix(classInfo: string): string {
   return `${num}${suffix}${rest}`;
 }
 
-export default function IdCard85x55({ student, principalName = "Dr. Sharma" }: IdCard85x55Props) {
+export default function IdCard85x55({ student, principalName = "Dr. Sharma", customPhotoUrl }: IdCard85x55Props) {
   const [photoUrl, setPhotoUrl] = useState("");
 
   useEffect(() => {
+    if (customPhotoUrl) {
+      setPhotoUrl(customPhotoUrl);
+      return;
+    }
     if (!student?.id) return;
     let cancelled = false;
     fetchStudentPhoto(student.id)
@@ -43,7 +48,7 @@ export default function IdCard85x55({ student, principalName = "Dr. Sharma" }: I
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [student?.id]);
+  }, [student?.id, customPhotoUrl]);
 
   return (
     <div
@@ -79,7 +84,7 @@ export default function IdCard85x55({ student, principalName = "Dr. Sharma" }: I
               HIGH SCHOOL
             </h2>
             <p className="text-[6pt] text-white/80 font-medium tracking-wide leading-tight">
-              Tikuriyatola, Satna (M.P.)
+              Tikuriya Tola, Satna (M.P.)
             </p>
           </div>
         </div>

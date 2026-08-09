@@ -28,6 +28,8 @@ import {
   PackagePlus,
   CreativeCommonsIcon,
   FileSpreadsheet,
+  ImageIcon,
+  Key,
 } from "lucide-react";
 
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
@@ -83,6 +85,11 @@ const pagePreloaders: Record<string, () => Promise<unknown>> = {
   "/progress":()=>import("@/pages/ProgressCardPage/ProgressCardPage"),
   "/id-card-generator":()=>import("@/components/IdCardGenerator"),
   "/marksheet":()=>import("@/pages/MarksheetPage/MarksheetPage"),
+  "/admit-card":()=>import("@/pages/AdmitCardPage/AdmitCardPage"),
+  "/admit-card-template":()=>import("@/pages/AdmitCardTemplate/AdmitCardTemplatePage"),
+  "/second-id-card":()=>import("@/pages/SecondIdCardGenerator/SecondIdCardGenerator"),
+  "/login-generate":()=>import("@/pages/LoginGenerate/LoginGeneratePage"),
+  "/elective-subject":()=>import("@/pages/ElectiveSubject/ElectiveSubjectPage"),
 };
 
 // Grouped Menu Items matching the screenshot
@@ -94,6 +101,7 @@ const menuGroups = [
       { title: "Teachers", url: "/teachers", icon: Presentation, badge: { text: "", style: "text-purple-600 text-xs font-semibold" } },
       { title: "Classes & Sections", url: "/class", icon: Building2 },
       { title: "Subjects", url: "/subjects", icon: Book },
+      { title: "Elective Subjects", url: "/elective-subject", icon: Book },
       { title: "Timetable", url: "/timetable", icon: Calendar },
       { title: "Lesson Plans", url: "/lesson-plans", icon: FileText },
     ]
@@ -110,12 +118,15 @@ const menuGroups = [
       { title: "Fee Structure", url: "/fees/structure", icon: IndianRupee },
       { title: "Transfer Certificate", url: "/tc", icon: FileText },
       { title: "Enrollment", url: "/enrollment", icon: ArrowUpDown },
-      
+      { title: "Generate Login", url: "/login-generate", icon: Key },
       
       { title: "ID Card Template", url: "/id-card-template", icon: LayoutTemplate },
       {title:"Progress Report",url:"/progress",icon:CreativeCommonsIcon},
       {title:"Final Marksheet",url:"/marksheet",icon:FileSpreadsheet},
-      { title:"ID Card Generator",url:"/id-card-generator",icon:Workflow}
+      {title:"ID Card Generator",url:"/id-card-generator",icon:Workflow},
+      {title:"Second ID Card",url:"/second-id-card",icon:ImageIcon},
+      {title:"Admit Card",url:"/admit-card",icon:FileText},
+      {title:"Admit Card Template",url:"/admit-card-template",icon:LayoutTemplate}
     ]
   },
   {
@@ -192,6 +203,7 @@ export default function SchoolSidebar() {
     "Calendar",
     "ID Card Print",
     "ID Card Template",
+    "Admit Card",
   ]);
 
   // Accountant-allowed menu items
@@ -204,6 +216,7 @@ export default function SchoolSidebar() {
     "Calendar",
     "ID Card Print",
     "ID Card Template",
+    "Admit Card",
   ]);
 
   // Filter menu groups based on role

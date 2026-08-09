@@ -338,7 +338,7 @@ export default function GradePage() {
           sessionId: sessionId ?? null,
           classNo: selectedClass,
           mark: e.mark,
-          examTimeTable: { testtimetableId: selectedExamId },
+          examtimetableId: selectedExamId,
         }));
         await saveExamMarks(payloads);
       } else {
