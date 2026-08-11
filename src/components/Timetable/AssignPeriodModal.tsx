@@ -16,7 +16,7 @@ import type { PeriodEntry } from "@/api/timetable";
 import { savePeriod } from "@/api/timetable";
 import { toast } from "sonner";
 
-const PERIODS = [1, 2, 3, 4, 5, 6];
+const PERIODS = [1, 2, 3, 4, 5, 6,7,8];
 const GRADES = ["Nursery", "LKG", "UKG", ...Array.from({ length: 12 }, (_, i) => `Grade ${i + 1}`)];
 const SUBJECTS = [
   "Mathematics",
@@ -41,6 +41,7 @@ const SUBJECTS = [
   "Moral Science",
   "General Knowledge",
   "Environmental Studies",
+  "Drawing"
 ];
 
 interface AssignPeriodModalProps {

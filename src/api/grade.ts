@@ -8,7 +8,7 @@ export interface ExamGradePayload {
   sessionId?: number | null;
   classNo: string;
   mark: number;
-  examTimeTable?: { testtimetableId: number };
+  examtimetableId?: number;
 }
 
 // ─── Payload for saving test marks (matches TestGrade entity) ──────────

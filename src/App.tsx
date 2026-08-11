@@ -55,6 +55,11 @@ const Payroll = lazy(()=> import("@/pages/PayrollPage/PayrollPage.tsx"))
 const Progress = lazy(()=>import("@/pages/ProgressCardPage/ProgressCardPage.tsx"))
 const IDCardGenerator = lazy(()=>import("@/components/IdCardGenerator.tsx"))
 const MarksheetPage = lazy(()=>import("@/pages/MarksheetPage/MarksheetPage.tsx"))
+const AdmitCardPage = lazy(()=>import("@/pages/AdmitCardPage/AdmitCardPage.tsx"))
+const AdmitCardTemplatePage = lazy(()=>import("@/pages/AdmitCardTemplate/AdmitCardTemplatePage.tsx"))
+const SecondIdCardGenerator = lazy(()=>import("@/pages/SecondIdCardGenerator/SecondIdCardGenerator.tsx"))
+const LoginGeneratePage = lazy(()=>import("@/pages/LoginGenerate/LoginGeneratePage.tsx"))
+const ElectiveSubjectPage = lazy(()=>import("@/pages/ElectiveSubject/ElectiveSubjectPage.tsx"))
 
 function App() {
   return (
@@ -99,6 +104,12 @@ function App() {
                 <Route path="/sms-alert" element={<SmsAlertPage />} />
                 <Route path="/id-card-print" element={<IdCardPrintPage />} />
                 <Route path="/id-card-template" element={<IdCardTemplate />} />
+                <Route path="/admit-card" element={<AdmitCardPage />} />
+                <Route path="/admit-card-template" element={<AdmitCardTemplatePage />} />
+                <Route path="/second-id-card" element={<SecondIdCardGenerator />} />
+                <Route path="/homework" element={<Homework/>}></Route>
+                <Route path="/login-generate" element={<LoginGeneratePage />} />
+                <Route path="/elective-subject" element={<ElectiveSubjectPage />} />
                 <Route path="/setting" element={<Setting/>}></Route>
               </Route>
               <Route path="/student/profile/:studentId" element={<StudentProfilePage />} />

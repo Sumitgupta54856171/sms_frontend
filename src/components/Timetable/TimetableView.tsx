@@ -25,6 +25,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -38,6 +45,11 @@ import {
 import type { TeacherResponse } from "@/api/teacher";
 import { fetchTeachers, fetchTeacherClass } from "@/api/teacher";
 import { getCookie } from "@/lib/utils";
+import {
+  fetchElectiveSubjectsByClass,
+  type ElectiveSubjectRecord,
+} from "@/api/student";
+import { COURSE_STREAMS } from "@/api/subject";
 import AssignPeriodModal from "./AssignPeriodModal";
 import ClassTeacherAssign from "./ClassTeacherAssign";
 
@@ -104,6 +116,51 @@ export default function TimetableView() {
     queryFn: () => fetchMyTimetable(teacherIdFromStorage),
     enabled: isTeacher && !!teacherIdFromStorage,
   });
+
+  // ─── Subject-wise timetable state (class 11/12) ──────────────────────
+  const [subjectWiseGrade, setSubjectWiseGrade] = useState("__placeholder__");
+  const [subjectWiseStream, setSubjectWiseStream] = useState("__placeholder__");
+
+  // Fetch elective subjects for the selected grade
+  const { data: electiveRecords = [] } = useQuery({
+    queryKey: ["elective-subjects", subjectWiseGrade],
+    queryFn: () => fetchElectiveSubjectsByClass(subjectWiseGrade),
+    enabled:
+      subjectWiseGrade !== "__placeholder__" &&
+      ["Grade 11", "Grade 12"].includes(subjectWiseGrade),
+  });
+
+  // Get stream subjects for the selected stream
+  const streamSubjects = useMemo(() => {
+    if (subjectWiseStream === "__placeholder__") return [];
+    const stream = COURSE_STREAMS.find(
+      (s) => s.name === subjectWiseStream
+    );
+    return stream?.subjects.map((s) => s.name) ?? [];
+  }, [subjectWiseStream]);
+
+  // Common subjects for 11-12
+  const commonSubjects = ["Hindi (Core)", "English (Core)"];
+
+  // All subjects for the selected stream
+  const allStreamSubjects = useMemo(
+    () => [...commonSubjects, ...streamSubjects],
+    [streamSubjects]
+  );
+
+  // Filter periods by grade AND subject (for subject-wise view)
+  const subjectWisePeriods = useMemo(() => {
+    if (
+      subjectWiseGrade === "__placeholder__" ||
+      subjectWiseStream === "__placeholder__"
+    )
+      return [];
+    return allPeriods.filter(
+      (p: PeriodEntry) =>
+        p.gradeClass === subjectWiseGrade &&
+        allStreamSubjects.includes(p.subjectName)
+    );
+  }, [allPeriods, subjectWiseGrade, subjectWiseStream, allStreamSubjects]);
 
   // ─── Filter periods by teacher ───────────────────────────────────────
   const teacherPeriods = useMemo(() => {
@@ -464,6 +521,225 @@ export default function TimetableView() {
     );
   };
 
+  // ─── Subject-Wise Timetable View (class 11/12) ───────────────────────
+  const renderSubjectWiseView = () => (
+    <div className="space-y-4">
+      <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+        <p className="text-sm text-purple-800 flex items-center gap-2">
+          <BookOpen className="h-4 w-4 shrink-0" />
+          <span>
+            <span className="font-semibold">Subject-Wise Timetable</span> —
+            View timetable for Grade 11 &amp; 12 filtered by stream and
+            elective subjects. Only students who selected the subject will
+            attend these periods.
+          </span>
+        </p>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <div className="w-48">
+          <Select
+            value={subjectWiseGrade}
+            onValueChange={(v) => {
+              setSubjectWiseGrade(v);
+              setSubjectWiseStream("__placeholder__");
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select grade..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__placeholder__" className="hidden">
+                Select grade
+              </SelectItem>
+              <SelectItem value="Grade 11">Grade 11</SelectItem>
+              <SelectItem value="Grade 12">Grade 12</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="w-48">
+          <Select
+            value={subjectWiseStream}
+            onValueChange={setSubjectWiseStream}
+            disabled={subjectWiseGrade === "__placeholder__"}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select stream..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__placeholder__" className="hidden">
+                Select stream
+              </SelectItem>
+              {COURSE_STREAMS.map((s) => (
+                <SelectItem key={s.name} value={s.name}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {subjectWiseGrade === "__placeholder__" ||
+      subjectWiseStream === "__placeholder__" ? (
+        <div className="text-center py-20 text-slate-500">
+          <BookOpen className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+          <p className="text-lg font-medium">Select grade and stream</p>
+          <p className="text-sm text-slate-400 mt-1">
+            Choose a grade and stream to view the subject-wise timetable.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Common subjects section */}
+          <Card className="border-slate-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-teal-600" />
+                Common Subjects (All Students)
+              </CardTitle>
+              <CardDescription>
+                Hindi (Core) and English (Core) — all students attend these.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderPeriodTable(
+                subjectWisePeriods.filter((p: PeriodEntry) =>
+                  commonSubjects.includes(p.subjectName)
+                ),
+                true,
+                false,
+                false
+              )}
+              {subjectWisePeriods.filter((p: PeriodEntry) =>
+                commonSubjects.includes(p.subjectName)
+              ).length === 0 && (
+                <p className="text-sm text-slate-400 py-4 text-center">
+                  No periods assigned for common subjects in{" "}
+                  {subjectWiseGrade}.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Stream elective subjects section */}
+          <Card className="border-slate-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-amber-600" />
+                {subjectWiseStream} Elective Subjects (Stream Students Only)
+              </CardTitle>
+              <CardDescription>
+                Only students who selected this stream attend these subjects.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderPeriodTable(
+                subjectWisePeriods.filter((p: PeriodEntry) =>
+                  streamSubjects.includes(p.subjectName)
+                ),
+                true,
+                false,
+                false
+              )}
+              {subjectWisePeriods.filter((p: PeriodEntry) =>
+                streamSubjects.includes(p.subjectName)
+              ).length === 0 && (
+                <p className="text-sm text-slate-400 py-4 text-center">
+                  No periods assigned for {subjectWiseStream} subjects in{" "}
+                  {subjectWiseGrade}.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Students summary */}
+          <Card className="border-slate-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <User className="h-4 w-4 text-indigo-600" />
+                Students Enrolled in {subjectWiseStream}
+              </CardTitle>
+              <CardDescription>
+                Students who have selected {subjectWiseStream} stream in{" "}
+                {subjectWiseGrade}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {electiveRecords.length === 0 ? (
+                <p className="text-sm text-slate-400 py-4 text-center">
+                  No elective subject records found. Please assign electives
+                  first.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-slate-50">
+                      <TableRow>
+                        <TableHead className="text-xs font-bold text-slate-500 uppercase">
+                          Student
+                        </TableHead>
+                        <TableHead className="text-xs font-bold text-slate-500 uppercase">
+                          Scholar No
+                        </TableHead>
+                        <TableHead className="text-xs font-bold text-slate-500 uppercase">
+                          Elective Subjects
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {electiveRecords
+                        .filter((r: ElectiveSubjectRecord) => {
+                          try {
+                            const subs = JSON.parse(r.electiveSubjects);
+                            return Array.isArray(subs);
+                          } catch {
+                            return false;
+                          }
+                        })
+                        .map((record: ElectiveSubjectRecord) => {
+                          let subjects: string[] = [];
+                          try {
+                            subjects = JSON.parse(record.electiveSubjects);
+                          } catch {
+                            subjects = [];
+                          }
+                          return (
+                            <TableRow key={record.id}>
+                              <TableCell className="font-medium text-slate-900">
+                                {record.student?.name || `Student #${record.studentId}`}
+                              </TableCell>
+                              <TableCell className="text-slate-600">
+                                {record.student?.scholar_no || "-"}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  {subjects.map((sub) => (
+                                    <Badge
+                                      key={sub}
+                                      variant="outline"
+                                      className="bg-amber-50 text-amber-700 border-amber-200"
+                                    >
+                                      {sub}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="p-6 bg-slate-50 min-h-screen font-sans">
       <div className="w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -503,6 +779,15 @@ export default function TimetableView() {
                 <BookOpen className="h-4 w-4" />
                 Grade Timetable
               </TabsTrigger>
+              {!isTeacher && (
+                <TabsTrigger
+                  value="subject-wise"
+                  className="flex items-center gap-1.5"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Subject Wise (11-12)
+                </TabsTrigger>
+              )}
               {isTeacher && (
                 <TabsTrigger
                   value="my-timetable"
@@ -529,6 +814,9 @@ export default function TimetableView() {
               </TabsContent>
               <TabsContent value="grade-view">
                 {renderGradeView()}
+              </TabsContent>
+              <TabsContent value="subject-wise">
+                {renderSubjectWiseView()}
               </TabsContent>
               <TabsContent value="my-timetable">
                 {renderMyTimetable()}
