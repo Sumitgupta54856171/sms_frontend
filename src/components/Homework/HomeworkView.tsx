@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   BookOpen,
   Plus,
@@ -35,11 +35,26 @@ import { useAppSelector } from "@/store/hooks";
 import { toast } from "sonner";
 import {
   fetchHomework,
+  fetchHomeworkById,
   saveHomework,
   deleteHomework,
   type HomeworkItem,
   type HomeworkType,
+  type QuestionType,
+  type QuizQuestion,
 } from "@/api/homework";
+import { getSubjectsForClass, SUBJECT_GROUPS } from "@/api/subject";
+import { downloadTemplateCsv, getTemplateColumns } from "@/lib/homework-templates";
+
+const CLASS_OPTIONS = SUBJECT_GROUPS.flatMap((g) => g.classes);
+
+const QUESTION_TYPE_OPTIONS: { value: QuestionType; label: string; icon: string }[] = [
+  { value: "multiple_choice", label: "Multiple Choice (Tick the correct)", icon: "✓" },
+  { value: "fill_blank", label: "Fill in the Blank", icon: "___" },
+  { value: "true_false", label: "True / False", icon: "T/F" },
+  { value: "one_word", label: "One Word Answer", icon: "1W" },
+  { value: "match_following", label: "Match the Following", icon: "↔" },
+];
 
 type ViewMode = "list" | "quiz" | "pdf";
 
@@ -78,13 +93,28 @@ export default function HomeworkView() {
     classNo: "",
     subject: "",
     dueDate: "",
+    questionType: "multiple_choice" as QuestionType,
   });
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [subjectOptions, setSubjectOptions] = useState<{ name: string; code: string }[]>([]);
 
   useEffect(() => {
     loadHomework();
   }, []);
+
+  useEffect(() => {
+    if (form.classNo) {
+      const subjects = getSubjectsForClass(form.classNo);
+      setSubjectOptions(subjects);
+      // Reset subject if current selection isn't in the new class
+      if (!subjects.find((s) => s.name === form.subject)) {
+        setForm((f) => ({ ...f, subject: "" }));
+      }
+    } else {
+      setSubjectOptions([]);
+    }
+  }, [form.classNo]);
 
   const loadHomework = async () => {
     setLoading(true);
@@ -127,6 +157,7 @@ export default function HomeworkView() {
       await saveHomework({
         ...form,
         file,
+        questionType: form.questionType,
       });
       toast.success("Homework added successfully");
       resetForm();
@@ -147,8 +178,10 @@ export default function HomeworkView() {
       classNo: "",
       subject: "",
       dueDate: "",
+      questionType: "multiple_choice",
     });
     setFile(null);
+    setSubjectOptions([]);
   };
 
   const handleDelete = async (id: number) => {
@@ -172,20 +205,53 @@ export default function HomeworkView() {
     return matchesTab && matchesSearch;
   });
 
-  const openQuiz = (item: HomeworkItem) => {
-    setSelectedItem(item);
-    setViewMode("quiz");
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const openQuiz = async (item: HomeworkItem) => {
+    const id = item.homeworkId ?? item.id;
+    if (!id) return;
+    setDetailLoading(true);
+    try {
+      const detail = await fetchHomeworkById(id);
+      setSelectedItem(detail);
+      setViewMode("quiz");
+    } catch {
+      toast.error("Failed to load quiz details");
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
-  const openPdf = (item: HomeworkItem) => {
-    setSelectedItem(item);
-    setViewMode("pdf");
+  const openPdf = async (item: HomeworkItem) => {
+    const id = item.homeworkId ?? item.id;
+    if (!id) return;
+    setDetailLoading(true);
+    try {
+      const detail = await fetchHomeworkById(id);
+      setSelectedItem(detail);
+      setViewMode("pdf");
+    } catch {
+      toast.error("Failed to load homework details");
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const backToList = () => {
     setViewMode("list");
     setSelectedItem(null);
   };
+
+  if (detailLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50/80 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-10 w-10 animate-spin text-violet-600" />
+          <p className="text-sm font-medium text-slate-600">Loading details...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (viewMode === "quiz" && selectedItem?.questions) {
     return <QuizView item={selectedItem} onBack={backToList} />;
@@ -288,21 +354,40 @@ export default function HomeworkView() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="hw-class">Class <span className="text-red-500">*</span></Label>
-                    <Input
-                      id="hw-class"
+                    <Select
                       value={form.classNo}
-                      onChange={(e) => setForm((f) => ({ ...f, classNo: e.target.value }))}
-                      placeholder="e.g. Grade 5-A"
-                    />
+                      onValueChange={(v) => setForm((f) => ({ ...f, classNo: v }))}
+                    >
+                      <SelectTrigger id="hw-class">
+                        <SelectValue placeholder="Select a class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CLASS_OPTIONS.map((cls) => (
+                          <SelectItem key={cls} value={cls}>
+                            {cls}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="hw-subject">Subject <span className="text-red-500">*</span></Label>
-                    <Input
-                      id="hw-subject"
+                    <Select
                       value={form.subject}
-                      onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
-                      placeholder="e.g. Mathematics"
-                    />
+                      onValueChange={(v) => setForm((f) => ({ ...f, subject: v }))}
+                      disabled={!form.classNo}
+                    >
+                      <SelectTrigger id="hw-subject">
+                        <SelectValue placeholder={form.classNo ? "Select a subject" : "Select class first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subjectOptions.map((sub) => (
+                          <SelectItem key={sub.code} value={sub.name}>
+                            {sub.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="hw-due">Due Date <span className="text-red-500">*</span></Label>
@@ -315,8 +400,71 @@ export default function HomeworkView() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="hw-file">Upload File (CSV or Excel only) <span className="text-red-500">*</span></Label>
+                {/* Question Type Selector — shown only for quiz type */}
+                {form.type === "quiz" && (
+                  <div className="space-y-2">
+                    <Label>Question Type <span className="text-red-500">*</span></Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                      {QUESTION_TYPE_OPTIONS.map((qt) => (
+                        <button
+                          key={qt.value}
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, questionType: qt.value }))}
+                          className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                            form.questionType === qt.value
+                              ? "border-violet-500 bg-violet-50 text-violet-800 shadow-sm"
+                              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          <span className="text-lg font-bold">{qt.icon}</span>
+                          <span className="text-[11px] leading-tight text-center">{qt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="hw-file">Upload File (CSV or Excel only) <span className="text-red-500">*</span></Label>
+                    {form.type === "quiz" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadTemplateCsv(form.questionType)}
+                        className="border-violet-200 text-violet-700 hover:bg-violet-50 text-xs h-8"
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
+                        Download {QUESTION_TYPE_OPTIONS.find((q) => q.value === form.questionType)?.label} Template
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Template column preview */}
+                  {form.type === "quiz" && (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                      <p className="text-[11px] font-medium text-slate-500 mb-2 uppercase tracking-wider">
+                        Expected Columns — <span className="text-violet-600">{QUESTION_TYPE_OPTIONS.find((q) => q.value === form.questionType)?.label}</span>
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {getTemplateColumns(form.questionType).map((col) => (
+                          <span
+                            key={col.header}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${
+                              col.required
+                                ? "bg-violet-50 text-violet-700 border border-violet-200"
+                                : "bg-slate-100 text-slate-500 border border-slate-200"
+                            }`}
+                          >
+                            {col.header}
+                            {col.required && <span className="text-red-400">*</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-3">
                     <Input
                       id="hw-file"
@@ -421,7 +569,7 @@ export default function HomeworkView() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredItems.map((item) => (
               <Card
-                key={item.id}
+                key={item.homeworkId ?? item.id}
                 className="border-slate-200 bg-white shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
               >
                 <CardHeader className="pb-3">
@@ -496,7 +644,7 @@ export default function HomeworkView() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item.homeworkId ?? item.id!)}
                           className="border-red-200 text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -517,9 +665,266 @@ export default function HomeworkView() {
 function QuizView({ item, onBack }: { item: HomeworkItem; onBack: () => void }) {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [matchAnswers, setMatchAnswers] = useState<Record<number, Record<string, string>>>({});
+  const [selectedLeft, setSelectedLeft] = useState<Record<number, string | null>>({});
+  const matchContainerRef = useRef<HTMLDivElement>(null);
 
   const questions = item.questions ?? [];
-  const correctCount = questions.filter((q) => answers[q.id] === q.correctAnswer).length;
+  const questionType = item.questionType ?? "multiple_choice";
+
+  const correctCount = questions.filter((q) => {
+    if (q.questionType === "match_following") {
+      const ma = matchAnswers[q.id] ?? {};
+      const correctPairs = q.correctAnswer.split("|");
+      const leftItems = q.options;
+      let correct = 0;
+      leftItems.forEach((left, i) => {
+        if (ma[left] === correctPairs[i]) correct++;
+      });
+      return correct === leftItems.length;
+    }
+    return answers[q.id]?.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase();
+  }).length;
+
+  const totalQuestions = questions.length;
+
+  const renderQuestion = (q: QuizQuestion, idx: number) => {
+    const qt = q.questionType ?? questionType;
+
+    return (
+      <Card key={q.id} className="border-slate-200 shadow-sm">
+        <CardContent className="p-5">
+          <div className="flex items-start gap-2 mb-4">
+            <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-violet-100 text-violet-700 text-xs font-bold shrink-0 mt-0.5">
+              {idx + 1}
+            </span>
+            <div className="flex-1">
+              <p className="font-medium text-slate-900">{q.question}</p>
+              <span className="text-[11px] text-slate-400 mt-1 inline-block">
+                {qt === "multiple_choice" && "Tick the correct option"}
+                {qt === "fill_blank" && "Fill in the blank"}
+                {qt === "true_false" && "True or False"}
+                {qt === "one_word" && "One word answer"}
+                {qt === "match_following" && "Match the following"}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-2 pl-9">
+            {qt === "multiple_choice" &&
+              q.options.map((option) => {
+                const isSelected = answers[q.id] === option;
+                const showCorrect = submitted && option === q.correctAnswer;
+                const showWrong = submitted && isSelected && option !== q.correctAnswer;
+                return (
+                  <button
+                    key={option}
+                    disabled={submitted}
+                    onClick={() => setAnswers((a) => ({ ...a, [q.id]: option }))}
+                    className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ${
+                      showCorrect
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                        : showWrong
+                        ? "bg-red-50 border-red-300 text-red-800"
+                        : isSelected
+                        ? "bg-violet-50 border-violet-300 text-violet-800"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-violet-300"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+
+            {qt === "true_false" &&
+              ["TRUE", "FALSE"].map((option) => {
+                const isSelected = answers[q.id] === option;
+                const showCorrect = submitted && option === q.correctAnswer;
+                const showWrong = submitted && isSelected && option !== q.correctAnswer;
+                return (
+                  <button
+                    key={option}
+                    disabled={submitted}
+                    onClick={() => setAnswers((a) => ({ ...a, [q.id]: option }))}
+                    className={`w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-all ${
+                      showCorrect
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                        : showWrong
+                        ? "bg-red-50 border-red-300 text-red-800"
+                        : isSelected
+                        ? "bg-violet-50 border-violet-300 text-violet-800"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-violet-300"
+                    }`}
+                  >
+                    {option === "TRUE" ? "✅ True" : "❌ False"}
+                  </button>
+                );
+              })}
+
+            {(qt === "fill_blank" || qt === "one_word") && (
+              <div>
+                <Input
+                  placeholder={qt === "fill_blank" ? "Type your answer..." : "Type one word..."}
+                  value={answers[q.id] ?? ""}
+                  onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+                  disabled={submitted}
+                  className={`border-slate-200 ${
+                    submitted
+                      ? answers[q.id]?.trim().toLowerCase() === q.correctAnswer.trim().toLowerCase()
+                        ? "border-emerald-400 ring-1 ring-emerald-200"
+                        : "border-red-400 ring-1 ring-red-200"
+                      : ""
+                  }`}
+                />
+                {submitted && (
+                  <p className="text-xs mt-1.5 text-slate-500">
+                    Correct answer: <span className="font-semibold text-emerald-600">{q.correctAnswer}</span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {qt === "match_following" && (
+              <div className="relative">
+                {/* Two-column click-to-connect matching */}
+                <div ref={matchContainerRef} className="flex justify-between gap-8 py-4">
+                  {/* Left column */}
+                  <div className="flex flex-col gap-4">
+                    {q.options.map((leftItem, leftIdx) => {
+                      const ma = matchAnswers[q.id] ?? {};
+                      const isSelected = selectedLeft[q.id] === leftItem;
+                      const isConnected = !!ma[leftItem];
+                      const isCorrect = submitted && ma[leftItem] === q.correctAnswer.split("|")[leftIdx];
+                      const isWrong = submitted && ma[leftItem] && ma[leftItem] !== q.correctAnswer.split("|")[leftIdx];
+                      return (
+                        <button
+                          key={leftItem}
+                          disabled={submitted || isConnected}
+                          onClick={() => {
+                            setSelectedLeft((prev) => ({
+                              ...prev,
+                              [q.id]: prev[q.id] === leftItem ? null : leftItem,
+                            }));
+                          }}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all min-w-44 ${
+                            isCorrect
+                              ? "bg-emerald-50 border-emerald-400 text-emerald-800"
+                              : isWrong
+                              ? "bg-red-50 border-red-400 text-red-800"
+                              : isSelected
+                              ? "bg-violet-50 border-violet-500 text-violet-800 shadow-md scale-105"
+                              : isConnected
+                              ? "bg-slate-100 border-slate-300 text-slate-500 cursor-default"
+                              : "bg-white border-slate-200 text-slate-700 hover:border-violet-300 hover:shadow-sm"
+                          }`}
+                        >
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-xs font-bold shrink-0">
+                            {leftIdx + 1}
+                          </span>
+                          <span className="text-left">{leftItem}</span>
+                          {isCorrect && <span className="ml-auto text-emerald-500"><CheckCircle2 className="h-4 w-4" /></span>}
+                          {isWrong && <span className="ml-auto text-red-500"><X className="h-4 w-4" /></span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Right column */}
+                  <div className="flex flex-col gap-4">
+                    {q.options.map((rightItem, rightIdx) => {
+                      const ma = matchAnswers[q.id] ?? {};
+                      const isConnected = Object.values(ma).includes(rightItem);
+                      const connectedLeft = Object.entries(ma).find(([, v]) => v === rightItem)?.[0];
+                      const connectedLeftIdx = connectedLeft ? q.options.indexOf(connectedLeft) : -1;
+                      const isCorrect = submitted && connectedLeft && ma[connectedLeft] === q.correctAnswer.split("|")[q.options.indexOf(connectedLeft)];
+                      const isWrong = submitted && connectedLeft && !isCorrect;
+                      const isHighlighted = selectedLeft[q.id] && !isConnected;
+                      return (
+                        <button
+                          key={rightItem}
+                          disabled={submitted || isConnected || !selectedLeft[q.id]}
+                          onClick={() => {
+                            const leftItem = selectedLeft[q.id];
+                            if (!leftItem) return;
+                            setMatchAnswers((prev) => ({
+                              ...prev,
+                              [q.id]: { ...prev[q.id], [leftItem]: rightItem },
+                            }));
+                            setSelectedLeft((prev) => ({ ...prev, [q.id]: null }));
+                          }}
+                          className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all min-w-44 ${
+                            isCorrect
+                              ? "bg-emerald-50 border-emerald-400 text-emerald-800"
+                              : isWrong
+                              ? "bg-red-50 border-red-400 text-red-800"
+                              : isConnected
+                              ? "bg-slate-100 border-slate-300 text-slate-500 cursor-default"
+                              : isHighlighted
+                              ? "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400 cursor-pointer animate-pulse"
+                              : "bg-white border-slate-200 text-slate-700 cursor-not-allowed opacity-60"
+                          }`}
+                        >
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 ${
+                            isConnected
+                              ? "bg-violet-200 text-violet-800"
+                              : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {isConnected ? connectedLeftIdx + 1 : String.fromCharCode(65 + rightIdx)}
+                          </span>
+                          <span className="text-left">{rightItem}</span>
+                          {isCorrect && <span className="ml-auto text-emerald-500"><CheckCircle2 className="h-4 w-4" /></span>}
+                          {isWrong && <span className="ml-auto text-red-500"><X className="h-4 w-4" /></span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                {!submitted && (
+                  <p className="text-xs text-slate-400 mt-2 text-center">
+                    {selectedLeft[q.id]
+                      ? "Now click the matching item on the right side"
+                      : "Click an item on the left, then click its match on the right"}
+                  </p>
+                )}
+
+                {/* Correct matching summary after submit */}
+                {submitted && (
+                  <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Correct Matching:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {q.options.map((left, i) => (
+                        <div key={left} className="flex items-center gap-2 text-xs">
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-violet-100 text-violet-700 font-bold text-[10px]">
+                            {i + 1}
+                          </span>
+                          <span className="font-medium text-slate-700">{left}</span>
+                          <span className="text-slate-300">→</span>
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-violet-200 text-violet-800 font-bold text-[10px]">
+                            {i + 1}
+                          </span>
+                          <span className="font-semibold text-emerald-600">{q.correctAnswer.split("|")[i]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const allAnswered = questions.every((q) => {
+    if (q.questionType === "match_following") {
+      const ma = matchAnswers[q.id] ?? {};
+      return q.options.every((left) => ma[left] && ma[left].length > 0);
+    }
+    return answers[q.id] && answers[q.id].trim().length > 0;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50/80 p-4 sm:p-6 md:p-8 font-sans">
@@ -536,6 +941,11 @@ function QuizView({ item, onBack }: { item: HomeworkItem; onBack: () => void }) 
           >
             Quiz
           </Badge>
+          {item.questionType && (
+            <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200">
+              {QUESTION_TYPE_OPTIONS.find((q) => q.value === item.questionType)?.label ?? item.questionType}
+            </Badge>
+          )}
         </div>
 
         <Card className="border-slate-200 shadow-sm mb-6">
@@ -549,77 +959,53 @@ function QuizView({ item, onBack }: { item: HomeworkItem; onBack: () => void }) 
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
-          {questions.map((q, idx) => (
-            <Card key={q.id} className="border-slate-200 shadow-sm">
-              <CardContent className="p-5">
-                <p className="font-medium text-slate-900 mb-4">
-                  {idx + 1}. {q.question}
-                </p>
-                <div className="space-y-2">
-                  {q.options.map((option) => {
-                    const isSelected = answers[q.id] === option;
-                    const showCorrect = submitted && option === q.correctAnswer;
-                    const showWrong = submitted && isSelected && option !== q.correctAnswer;
-                    return (
-                      <button
-                        key={option}
-                        disabled={submitted}
-                        onClick={() => setAnswers((a) => ({ ...a, [q.id]: option }))}
-                        className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ${
-                          showCorrect
-                            ? "bg-emerald-50 border-emerald-300 text-emerald-800"
-                            : showWrong
-                            ? "bg-red-50 border-red-300 text-red-800"
-                            : isSelected
-                            ? "bg-violet-50 border-violet-300 text-violet-800"
-                            : "bg-white border-slate-200 text-slate-700 hover:border-violet-300"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {questions.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm font-medium text-slate-600">No questions found in this quiz.</p>
+            <p className="text-xs text-slate-400 mt-1">The CSV file may be empty or in an unexpected format.</p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4">{questions.map((q, idx) => renderQuestion(q, idx))}</div>
 
-        <div className="flex items-center justify-between mt-6">
-          {!submitted ? (
-            <Button
-              onClick={() => setSubmitted(true)}
-              disabled={Object.keys(answers).length !== questions.length}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Submit Quiz
-            </Button>
-          ) : (
-            <div className="flex items-center gap-4">
-              <p className="text-lg font-semibold text-slate-900">
-                Score: {correctCount} / {questions.length}
-              </p>
-              <Button variant="outline" onClick={() => setSubmitted(false)} className="border-slate-200">
-                Retry
-              </Button>
+            <div className="flex items-center justify-between mt-6">
+              {!submitted ? (
+                <Button
+                  onClick={() => setSubmitted(true)}
+                  disabled={!allAnswered}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Submit Quiz
+                </Button>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <p className="text-lg font-semibold text-slate-900">
+                    Score: {correctCount} / {totalQuestions}
+                  </p>
+                  <Button variant="outline" onClick={() => setSubmitted(false)} className="border-slate-200">
+                    Retry
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 function PdfView({ item, onBack }: { item: HomeworkItem; onBack: () => void }) {
+  const contentRows: string[][] = Array.isArray(item.contentRows) ? item.contentRows : [];
+
   const handlePrint = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const rows = item.contentRows ?? [];
-    const bodyRows = rows.slice(1).map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("");
-    const headers = rows[0]?.map((h) => `<th>${h}</th>`).join("") ?? "";
+    const bodyRows = contentRows.slice(1).map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("");
+    const headers = contentRows[0]?.map((h) => `<th>${h}</th>`).join("") ?? "";
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -650,8 +1036,6 @@ function PdfView({ item, onBack }: { item: HomeworkItem; onBack: () => void }) {
     `);
     printWindow.document.close();
   };
-
-  const rows = item.contentRows ?? [];
 
   return (
     <div className="min-h-screen bg-slate-50/80 p-4 sm:p-6 md:p-8 font-sans">
@@ -689,12 +1073,12 @@ function PdfView({ item, onBack }: { item: HomeworkItem; onBack: () => void }) {
               <p className="text-sm text-slate-700 mb-6">{item.description}</p>
             )}
 
-            {rows.length > 0 ? (
+            {contentRows.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr>
-                      {rows[0].map((header, i) => (
+                      {contentRows[0].map((header, i) => (
                         <th key={i} className="border border-slate-200 bg-slate-50 px-4 py-2 text-left font-semibold text-slate-700">
                           {header}
                         </th>
@@ -702,7 +1086,7 @@ function PdfView({ item, onBack }: { item: HomeworkItem; onBack: () => void }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.slice(1).map((row, i) => (
+                    {contentRows.slice(1).map((row, i) => (
                       <tr key={i}>
                         {row.map((cell, j) => (
                           <td key={j} className="border border-slate-200 px-4 py-2 text-slate-600">

@@ -15,16 +15,16 @@ export default defineConfig({
   server:{
     host:'0.0.0.0',
     allowedHosts: [
-      'lisa-issued-peaceful-earthquake.trycloudflare.com'// Yahan apna Tailscale domain daal dein
+      'nails-signals-vii-santa.trycloudflare.com'// Yahan apna Tailscale domain daal dein
     ],
     proxy: {
       '/api': {
-        target: 'http://100.68.219.67:9091', // Backend ka direct IP
+        target: 'https://troops-nashville-orchestra-processors.trycloudflare.com', // Backend ka direct IP
         changeOrigin: true,
         secure: false, // Backend HTTP par hai isliye false
       },
       '/uploads': {
-        target: 'http://100.68.219.67:9091',
+        target: 'https://troops-nashville-orchestra-processors.trycloudflare.com',
         changeOrigin: true,
         secure: false,
       },

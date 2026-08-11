@@ -135,7 +135,8 @@ const menuGroups = [
       { title: "Calendar", url: "/calendar", icon: Calendar },
       { title: "Notice Board", url: "/notices", icon: FileText },
       {title:"Report Generator",url:"/report",icon:PanelLeftDashedIcon},
-      {title:'Payroll',url:"/payroll",icon:PackagePlus}
+      {title:'Payroll',url:"/payroll",icon:PackagePlus},
+      {title:"Homework",url:"/homework",icon:Library}
       
     ]
   },

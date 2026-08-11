@@ -107,6 +107,7 @@ function App() {
                 <Route path="/admit-card" element={<AdmitCardPage />} />
                 <Route path="/admit-card-template" element={<AdmitCardTemplatePage />} />
                 <Route path="/second-id-card" element={<SecondIdCardGenerator />} />
+                <Route path="/homework" element={<Homework/>}></Route>
                 <Route path="/login-generate" element={<LoginGeneratePage />} />
                 <Route path="/elective-subject" element={<ElectiveSubjectPage />} />
                 <Route path="/setting" element={<Setting/>}></Route>
