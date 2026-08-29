@@ -21,6 +21,7 @@ export const saveAcademicSession = async (data: AcademicSessionData) => {
 
 export const fetchAcademicSessions = async () => {
   const response = await apiClient.get("/api/v1/session/all");
+  console.log("check session present or not", response.data);
   return response.data;
 };
 
