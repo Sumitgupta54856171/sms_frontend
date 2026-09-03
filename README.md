@@ -23,7 +23,7 @@ Create `.env` in the project root:
 VITE_BACKEND_URL=http://localhost:8080
 ```
 
-The Vite development proxy forwards `/api` and `/uploads` requests to the backend configured in `vite.config.ts`.
+For Netlify, set `VITE_BACKEND_URL` in the site's environment variables to the deployed backend origin, for example `https://sms-backend-qsso.onrender.com`. The Vite development proxy forwards `/api` and `/uploads` requests locally; production requests use the configured backend origin directly.
 
 ## Commands
 

@@ -2,7 +2,10 @@ import axios from "axios";
 import { toast } from "sonner";
 
 const apiClient = axios.create({
-  baseURL: '',
+  baseURL:
+    import.meta.env.VITE_BACKEND_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.PROD ? "https://sms-backend-qsso.onrender.com" : ""),
   headers: {
     "Content-Type": "application/json",
   },
