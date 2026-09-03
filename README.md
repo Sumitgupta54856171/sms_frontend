@@ -4,6 +4,19 @@ React 19 + TypeScript + Vite frontend for a school management ERP system. The ap
 
 The ERP covers student and teacher management, class rosters, attendance, fee collection, invoices, academic sessions, timetables, homework, notices, reports, payroll, progress cards, marksheets, admit cards, ID cards, messaging, and settings.
 
+## Project Overview
+
+This repository contains the browser frontend for a school management ERP. It is designed for school administrators, teachers, and staff who need one authenticated workspace for daily academic and operational work.
+
+The application combines a human-facing dashboard with optional WebMCP tools. The normal UI remains the primary experience; WebMCP gives a compatible browser agent a structured way to search records, read class information, and perform selected authenticated actions without replacing the existing screens.
+
+### Core goals
+
+- Keep student, teacher, attendance, fee, and academic workflows in one application.
+- Reuse the same client-side API and authentication logic for UI actions and agent tools.
+- Make agent-assisted actions visible in the active dashboard session.
+- Keep write operations limited to explicitly registered tools and validated inputs.
+
 ## Requirements
 
 - Node.js 18 or newer
@@ -76,6 +89,18 @@ document.modelContext.executeTool(registeredTool, JSON.stringify(input))
 
 A normal browser without a WebMCP-capable host will not expose `document.modelContext`; the dashboard logs a warning and continues normally.
 
+### WebMCP lifecycle
+
+The dashboard follows this flow when it mounts for an authenticated user:
+
+1. Detect `document.modelContext` and its `registerTool` method.
+2. Read the current tool list when `getTools()` is available.
+3. Register only tools that are not already present.
+4. Execute the tool in the page's authenticated browser context.
+5. Return a structured `{ success, data }` or `{ success: false, error }` result to the agent.
+
+The registration lock prevents duplicate names during React development reloads. The tools are available only while the authenticated dashboard document is active. They are not backend MCP endpoints and are not intended for headless or unattended access.
+
 ### Registered tools
 
 | Tool | Purpose | Main workflow |
@@ -109,6 +134,36 @@ Class inputs such as `Class 3`, `Grade 3`, and `3` are normalized to the backend
 "Sumit ki aaj ki attendance mark kar do"
 "Grade 3 ka total enrollment aur average attendance kya hai?"
 ```
+
+### Supported cooperative workflows
+
+WebMCP is useful for short, human-reviewed workflows such as:
+
+- Finding a student record while keeping the dashboard open for inspection.
+- Reviewing which students in a class have outstanding fees.
+- Checking class enrollment and recent attendance performance.
+- Marking today's attendance after the user has specified the student and status.
+- Creating an invoice or student record after the user has supplied and reviewed the required details.
+
+The agent receives the same API errors and authentication behavior as the dashboard. A failed request is returned as an error result rather than silently changing the UI.
+
+### Permissions and trust boundary
+
+WebMCP availability is controlled by the browser host and its permissions policy. This project does not expose tools when `document.modelContext` is unavailable. Tool calls run in the current page context, use the logged-in user's bearer token, and can change real school data.
+
+Treat write tools as user-authorized operations:
+
+- Confirm the target student, class, date, and amount before invoking a write tool.
+- Do not place tokens or credentials in tool arguments, logs, or screenshots.
+- Use test accounts and unique records when validating invoice or student creation.
+- Keep `VITE_BACKEND_URL` and browser storage credentials out of source control.
+
+## Current Limitations
+
+- WebMCP support depends on the browser or agent host; standard browsers continue to work without it.
+- Tools are registered from the authenticated dashboard and are not available on the login page or inactive routes.
+- Tool input and output validation is performed by the application code; native browser JSON Schema validation may vary by WebMCP implementation.
+- There is no automated test suite configured in this repository. Use the build, lint, and DevTools examples below for verification.
 
 Write tools require care:
 
