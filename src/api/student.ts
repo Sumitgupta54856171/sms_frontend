@@ -12,6 +12,8 @@ export interface StudentData {
   gender?: string;
   category?: string;
   dob?: string;
+  dateOfBirth?: string;
+  date_of_birth?: string;
   phone?: string;
   father_name?: string;
   mother_name?: string;
@@ -115,8 +117,39 @@ export const fetchStudents = async (): Promise<StudentResponse[]> => {
   });
 };
 
+/** Search students using the authenticated student-list endpoint. */
+export const searchStudents = async (query: string): Promise<StudentResponse[]> => {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return [];
+
+  const students = await fetchStudents();
+  return students.filter((student) => {
+    const searchableValues = [
+      student.name,
+      student.roll,
+      student.scholar_no,
+      student.studentRaw?.scholar_no,
+      student.studentRaw?.email,
+      student.email,
+    ];
+
+    return searchableValues.some((value) =>
+      String(value ?? "").toLowerCase().includes(normalizedQuery)
+    );
+  });
+};
+
 export const saveStudent = async (data: StudentData) => {
-  const response = await apiClient.post("/api/v1/students/save", data,{withCredentials:true});
+  const dateOfBirth = data.dob?.trim() || data.dateOfBirth?.trim() || data.date_of_birth?.trim();
+  const payload = {
+    ...data,
+    dob: dateOfBirth,
+    dateOfBirth,
+    date_of_birth: dateOfBirth,
+    category: data.category?.trim() || "general",
+  };
+  console.log("Student save payload:", payload);
+  const response = await apiClient.post("/api/v1/students/save", payload, { withCredentials: true });
   return response.data;
 };
 

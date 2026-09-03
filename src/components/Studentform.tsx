@@ -31,7 +31,7 @@ export default function StudentForm({ onClose }: StudentFormProps) {
     sssmid: "",
     aadhaar: "",
     gender: "",
-    category: "",
+    category: "general",
     dob: "",
     phone: "",
     father_name: "",
@@ -72,6 +72,26 @@ export default function StudentForm({ onClose }: StudentFormProps) {
     }
     if (!form.roll_no.trim()) {
       toast.error("Roll number is required");
+      return;
+    }
+    if (!form.category) {
+      toast.error("Category is required");
+      return;
+    }
+    const requiredFields: Array<[keyof typeof form, string]> = [
+      ["scholar_no", "Scholar number"],
+      ["sssmid", "SSSMID"],
+      ["aadhaar", "Aadhaar number"],
+      ["gender", "Gender"],
+      ["dob", "Date of birth"],
+      ["phone", "Phone"],
+      ["father_name", "Father name"],
+      ["mother_name", "Mother name"],
+      ["total_fees", "Total annual fees"],
+    ];
+    const missingField = requiredFields.find(([field]) => !form[field].trim());
+    if (missingField) {
+      toast.error(`${missingField[1]} is required`);
       return;
     }
 

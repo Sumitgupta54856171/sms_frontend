@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, subDays } from "date-fns";
 import {
@@ -40,13 +40,45 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppSelector } from "@/store/hooks";
-import { fetchStudents, fetchStudentsByClass } from "@/api/student";
+import { fetchStudents, fetchStudentsByClass, searchStudents, saveStudent } from "@/api/student";
 import { fetchTeachers } from "@/api/teacher";
-import { fetchAttendanceByDate } from "@/api/attendance";
+import { fetchAttendanceByDate, fetchAttendanceByDateRange, updateAttendance } from "@/api/attendance";
 import { fetchEvents, type EventItem } from "@/api/event";
 import { fetchNotices, type NoticeItem } from "@/api/notice";
 import { fetchEnrollmentByClass } from "@/api/enrollment";
-import { fetchFeeDashboardStats } from "@/api/fee";
+import {
+  createInvoice,
+  fetchFeeDashboardStats,
+  fetchStudentFeeDetails,
+  fetchStudentsByClass as fetchFeeStudentsByClass,
+} from "@/api/fee";
+
+type WebMcpTool = {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  execute: (args: Record<string, unknown>) => Promise<unknown>;
+};
+
+declare global {
+  interface Document {
+    modelContext?: {
+      getTools?: () =>
+        | Array<{ name?: string }>
+        | { tools?: Array<{ name?: string }> }
+        | Promise<Array<{ name?: string }> | { tools?: Array<{ name?: string }> }>;
+      registerTool: (tool: WebMcpTool) => void | Promise<void>;
+    };
+  }
+}
+
+type StudentRecord = {
+  name: string;
+  class: string;
+  attendance: string;
+  feeStatus: string;
+  rollNo: string;
+};
 
 // ─── Color palette ─────────────────────────────────────────────────────
 const COLORS = {
@@ -120,12 +152,358 @@ function StatCard({
 // ─── Dashboard Component ───────────────────────────────────────────────
 export default function Dashboard() {
   const userRole = useAppSelector((s) => s.auth.user?.role ?? "");
+  const userToken = useAppSelector((s) => s.auth.user?.token ?? "");
   const currentSession = useAppSelector((s) => s.session.currentSession);
   const normalizedRole = userRole.replace(/^ROLE_/i, "").toLowerCase();
   const isAdmin = ["admin", "super_admin"].includes(normalizedRole);
   const isTeacher = normalizedRole === "teacher";
-
+  const [studentResult, setStudentResult] = useState<StudentRecord | null>(null);
+  const webMcpRegisteredToolsRef = useRef(new Set<string>());
   const today = format(new Date(), "yyyy-MM-dd");
+
+  useEffect(() => {
+    const registerWebMcpTool = async () => {
+      const safeDocument = typeof window !== "undefined" ? window.document : undefined;
+      const modelContext = safeDocument?.modelContext;
+
+      if (!modelContext || typeof modelContext.registerTool !== "function") {
+        console.warn("WebMCP runtime is not available in this authenticated browser session.");
+        return;
+      }
+
+      const rawTools = typeof modelContext.getTools === "function" ? await modelContext.getTools() : [];
+      const existingTools = Array.isArray(rawTools) ? rawTools : rawTools.tools ?? [];
+      const hasTool = existingTools.some((tool) => tool.name === "search_student_records");
+
+      console.log("Registering WebMCP tool:", {
+        name: "search_student_records",
+        tokenPresent: Boolean(userToken),
+        modelContextAvailable: true,
+      });
+
+      if (!hasTool && !webMcpRegisteredToolsRef.current.has("search_student_records")) {
+      await modelContext.registerTool({
+      name: "search_student_records",
+      description:
+        "Search for a student's academic, attendance, and fee records by their name or roll number.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          search_query: {
+            type: "string",
+            description: "Student's name or roll number, e.g., 'sumit'",
+          },
+        },
+        required: ["search_query"],
+      },
+      execute: async ({ search_query }) => {
+        try {
+          const safeQuery = (search_query || "").trim();
+
+          if (!safeQuery) {
+            throw new Error("Please provide a student name or roll number.");
+          }
+
+          const [matchedStudent] = await searchStudents(safeQuery);
+
+          if (!matchedStudent) {
+            throw new Error(`No student found for "${safeQuery}".`);
+          }
+
+          const attendanceRecordsForStudent = await fetchAttendanceByDate(today);
+          const attendance = attendanceRecordsForStudent.find(
+            (record: any) =>
+              String(record.studentName ?? "").toLowerCase() === String(matchedStudent.name ?? "").toLowerCase() ||
+              String(record.rollNumber ?? "") === String(matchedStudent.roll ?? "") ||
+              String(record.scholarNo ?? "") === String(matchedStudent.scholar_no ?? "")
+          );
+
+          const result: StudentRecord = {
+            name: matchedStudent.name ?? "Unknown student",
+            class: matchedStudent.classInfo ?? "N/A",
+            attendance: attendance ? `${Math.round((attendance.status === "present" ? 1 : 0) * 100)}%` : "N/A",
+            feeStatus: "N/A",
+            rollNo: matchedStudent.roll ?? matchedStudent.studentRaw?.roll_no ?? "N/A",
+          };
+
+          if (matchedStudent.studentRaw?.status) {
+            result.feeStatus = matchedStudent.studentRaw.status === "active" ? "Active" : "Inactive";
+          }
+
+          setStudentResult(result);
+
+          return {
+            success: true,
+            data: result,
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown error";
+
+          return {
+            success: false,
+            error: message,
+          };
+        }
+      },
+      });
+      webMcpRegisteredToolsRef.current.add("search_student_records");
+      }
+
+      const readArgument = (args: Record<string, unknown>, ...names: string[]) =>
+        String(names.map((name) => args[name]).find((value) => typeof value === "string") ?? "").trim();
+      const normalizeClassName = (value: string) => {
+        const match = value.match(/(?:grade|class)\s*(\d+)/i) ?? value.match(/^\s*(\d+)\s*$/);
+        return match ? `Grade ${match[1]}` : value;
+      };
+      const registerIfMissing = async (tool: WebMcpTool) => {
+        if (
+          !existingTools.some((existingTool) => existingTool.name === tool.name) &&
+          !webMcpRegisteredToolsRef.current.has(tool.name)
+        ) {
+          try {
+            await modelContext.registerTool(tool);
+            webMcpRegisteredToolsRef.current.add(tool.name);
+            console.log("WebMCP tool registered:", tool.name);
+          } catch (error) {
+            console.error(`WebMCP tool registration failed: ${tool.name}`, error);
+          }
+        }
+      };
+
+      await registerIfMissing({
+        name: "check_pending_fees",
+        description: "List students in a class whose fee balance is greater than zero.",
+        inputSchema: {
+          type: "object",
+          properties: { class_query: { type: "string", description: "Class name or number, such as Class 3." } },
+          required: ["class_query"],
+        },
+        execute: async (args) => {
+          const className = normalizeClassName(readArgument(args, "class_query", "search_query"));
+          if (!className) return { success: false, error: "Please provide a class name or number." };
+          const classStudents = await fetchFeeStudentsByClass(className);
+          const studentsWithFees = await Promise.all(classStudents.map(async (student: any) => ({
+            student,
+            fees: await fetchStudentFeeDetails(Number(student.id)),
+          })));
+          const pending = studentsWithFees.filter(({ fees }) => fees.totaldue > 0).map(({ student, fees }) => ({
+            id: student.id,
+            name: student.name,
+            class: student.className ?? className,
+            rollNo: student.rollNo ?? "N/A",
+            totalDue: fees.totaldue,
+          }));
+          return { success: true, data: { class: className, count: pending.length, students: pending } };
+        },
+      });
+
+      await registerIfMissing({
+        name: "mark_attendance",
+        description: "Mark a student's attendance for today through the authenticated attendance API.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            student_query: { type: "string", description: "Student name or roll number." },
+            status: { type: "string", enum: ["present", "absent", "holiday"], description: "Defaults to present." },
+          },
+          required: ["student_query"],
+        },
+        execute: async (args) => {
+          const query = readArgument(args, "student_query", "search_query");
+          const status = readArgument(args, "status") || "present";
+          if (!query) return { success: false, error: "Please provide a student name or roll number." };
+          if (!["present", "absent", "holiday"].includes(status)) return { success: false, error: "Status must be present, absent, or holiday." };
+          const [student] = await searchStudents(query);
+          if (!student) return { success: false, error: `No student found for "${query}".` };
+          const response = await updateAttendance(student.id, status as "present" | "absent" | "holiday", today);
+          return { success: true, data: { studentId: student.id, name: student.name, date: today, status, response } };
+        },
+      });
+
+      await registerIfMissing({
+        name: "get_class_summary",
+        description: "Return total enrollment and average attendance for a class over the last 30 days.",
+        inputSchema: {
+          type: "object",
+          properties: { class_query: { type: "string", description: "Class name or number, such as Grade 3." } },
+          required: ["class_query"],
+        },
+        execute: async (args) => {
+          const className = normalizeClassName(readArgument(args, "class_query", "search_query"));
+          if (!className) return { success: false, error: "Please provide a class name or number." };
+          const classStudents = await fetchFeeStudentsByClass(className);
+          const endDate = new Date();
+          const startDate = new Date(endDate);
+          startDate.setDate(endDate.getDate() - 29);
+          const attendance = await fetchAttendanceByDateRange(format(startDate, "yyyy-MM-dd"), format(endDate, "yyyy-MM-dd"));
+          const classStudentIds = new Set(classStudents.map((student: any) => String(student.id)));
+          const classAttendance = attendance.filter((record) => classStudentIds.has(String(record.studentId)));
+          const present = classAttendance.filter((record) => record.status === "present").length;
+          return {
+            success: true,
+            data: {
+              class: className,
+              totalEnrollment: classStudents.length,
+              averageAttendance: classAttendance.length ? `${Math.round((present / classAttendance.length) * 100)}%` : "N/A",
+              period: "last 30 days",
+            },
+          };
+        },
+      });
+
+      await registerIfMissing({
+        name: "get_class_students",
+        description: "Return the student roster for a class, including names, roll numbers, and scholar numbers.",
+        inputSchema: {
+          type: "object",
+          properties: { class_query: { type: "string", description: "Class name or number, such as Class 3." } },
+          required: ["class_query"],
+        },
+        execute: async (args) => {
+          const className = normalizeClassName(readArgument(args, "class_query", "search_query"));
+          if (!className) return { success: false, error: "Please provide a class name or number." };
+          const response = await fetchStudentsByClass(className);
+          const students = (response?.studentdetail ?? []).map((student: any) => ({
+            id: student.studentId ?? student.id,
+            name: student.studentName ?? student["Student name"] ?? "",
+            class: student.className ?? className,
+            rollNo: student.rolleNo ?? student.rollNo ?? "N/A",
+            scholarNo: student.scholarNo ?? "N/A",
+          }));
+          return { success: true, data: { class: className, count: students.length, students } };
+        },
+      });
+
+      await registerIfMissing({
+        name: "generate_invoice",
+        description: "Create a fee invoice for a student using the authenticated fee collection API.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            student_query: { type: "string", description: "Student name, roll number, or scholar number." },
+            amount: { type: "number", description: "Payment amount in rupees." },
+            payment_method: { type: "string", description: "Payment method, such as cash, online, cheque, or dd." },
+            payment_type: { type: "string", description: "Fee type, such as Tuition Fee." },
+            session_id: { type: "number", description: "Academic session ID; defaults to 1." },
+            remarks: { type: "string", description: "Optional invoice remarks." },
+          },
+          required: ["student_query", "amount"],
+        },
+        execute: async (args) => {
+          const query = readArgument(args, "student_query", "search_query");
+          const amount = Number(args.amount);
+          if (!query) return { success: false, error: "Please provide a student name or roll number." };
+          if (!Number.isFinite(amount) || amount <= 0) return { success: false, error: "Amount must be greater than zero." };
+          const [student] = await searchStudents(query);
+          if (!student) return { success: false, error: `No student found for "${query}".` };
+          const enrollment = student.enrollment?.[0];
+          const invoice = await createInvoice({
+            enrollmentId: enrollment?.enrollmentId ?? 0,
+            paymentMethod: readArgument(args, "payment_method") || "cash",
+            studentId: student.id,
+            scholarNo: student.scholar_no ?? student.studentRaw?.scholar_no ?? "",
+            classNo: student.classInfo ?? enrollment?.class_no ?? "",
+            rollNo: student.roll ?? enrollment?.roll_no ?? "",
+            sessionId: Number(args.session_id) || 1,
+            amount,
+            paymentType: readArgument(args, "payment_type") || "Tuition Fee",
+            remarks: readArgument(args, "remarks") || undefined,
+          });
+          return { success: true, data: { student: student.name, invoice } };
+        },
+      });
+
+      await registerIfMissing({
+        name: "add_student",
+        description: "Create a student record using the same fields as the Add New Student form.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Student full name." },
+            email: { type: "string", description: "Student email address." },
+            class_no: { type: "string", description: "Class number or name." },
+            roll_no: { type: "string", description: "Student roll number." },
+            scholar_no: { type: "string", description: "Scholar number." },
+            sssmid: { type: "string", description: "9 digit SSSMID." },
+            aadhaar: { type: "string", description: "12 digit Aadhaar number." },
+            gender: { type: "string", description: "male, female, or other." },
+            category: { type: "string", description: "Student category: general, obc, sc, or st." },
+            dob: { type: "string", description: "Date of birth in YYYY-MM-DD format." },
+            total_fees: { type: "string", description: "Total annual fees." },
+            phone: { type: "string", description: "Student phone number." },
+            father_name: { type: "string", description: "Father's name." },
+            mother_name: { type: "string", description: "Mother's name." },
+            apaarId: { type: "string", description: "Optional APAAR ID." },
+            penId: { type: "string", description: "Optional PEN ID." },
+            address: { type: "string", description: "Optional address." },
+            status: { type: "string", description: "active or inactive; defaults to active." },
+          },
+          required: [
+            "name", "email", "class_no", "roll_no", "scholar_no", "sssmid",
+            "aadhaar", "gender", "category", "dob", "phone", "father_name",
+            "mother_name", "total_fees",
+          ],
+        },
+        execute: async (args) => {
+          const name = readArgument(args, "name");
+          const email = readArgument(args, "email");
+          const classNo = readArgument(args, "class_no", "class_query");
+          const rollNo = readArgument(args, "roll_no");
+          const scholarNo = readArgument(args, "scholar_no");
+          const sssmid = readArgument(args, "sssmid");
+          const aadhaar = readArgument(args, "aadhaar");
+          const gender = readArgument(args, "gender");
+          const category = readArgument(args, "category") || "general";
+          const dob = readArgument(args, "dob");
+          const phone = readArgument(args, "phone");
+          const fatherName = readArgument(args, "father_name");
+          const motherName = readArgument(args, "mother_name");
+          const totalFees = readArgument(args, "total_fees");
+          const missingFields = [
+            ["name", name], ["email", email], ["class_no", classNo], ["roll_no", rollNo],
+            ["scholar_no", scholarNo], ["sssmid", sssmid], ["aadhaar", aadhaar],
+            ["gender", gender], ["category", category], ["dob", dob], ["phone", phone],
+            ["father_name", fatherName], ["mother_name", motherName], ["total_fees", totalFees],
+          ].filter(([, value]) => !value).map(([field]) => field);
+          if (missingFields.length > 0) {
+            return { success: false, error: `Missing required student fields: ${missingFields.join(", ")}.` };
+          }
+          try {
+            const response = await saveStudent({
+              name,
+              email,
+              class_no: classNo,
+              roll_no: rollNo,
+              category,
+              scholar_no: scholarNo,
+              sssmid,
+              aadhaar,
+              gender,
+              dob,
+              phone,
+              father_name: fatherName,
+              mother_name: motherName,
+              total_fees: totalFees,
+              apaarId: readArgument(args, "apaarId") || undefined,
+              penId: readArgument(args, "penId") || undefined,
+              address: readArgument(args, "address") || undefined,
+              status: readArgument(args, "status") || "active",
+            });
+            return { success: true, data: response };
+          } catch (error) {
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : "Student creation failed.",
+            };
+          }
+        },
+      });
+
+      console.log("WebMCP tools registered successfully");
+    };
+
+    void registerWebMcpTool();
+  }, [today, userToken]);
 
   // ── Queries ──────────────────────────────────────────────────────────
   const studentsQuery = useQuery({
@@ -676,6 +1054,52 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+          </div>
+        </section>
+
+        {/* WebMCP student result card */}
+        <section className="mb-8">
+          <div className="rounded-2xl border border-slate-200/60 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="rounded-lg bg-[#0d9488]/10 p-1.5">
+                <School className="h-4 w-4 text-[#0d9488]" />
+              </div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+                AI Student Lookup
+              </h2>
+            </div>
+
+            {studentResult ? (
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                <div className="border-b border-slate-200 bg-white px-4 py-3">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                    Latest WebMCP Result
+                  </p>
+                </div>
+                <div className="grid gap-3 p-4 text-sm text-slate-700 sm:grid-cols-2">
+                  <div>
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Name</span>
+                    <span className="mt-1 block text-base font-bold text-slate-900">{studentResult.name}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Roll No</span>
+                    <span className="mt-1 block text-base font-bold text-slate-900">{studentResult.rollNo}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Attendance</span>
+                    <span className="mt-1 block text-base font-bold text-slate-900">{studentResult.attendance}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Fee Status</span>
+                    <span className="mt-1 block text-base font-bold text-slate-900">{studentResult.feeStatus}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                No student record has been fetched yet by the AI agent. The WebMCP tool will populate this card when the agent calls <strong>search_student_records</strong>.
+              </p>
             )}
           </div>
         </section>

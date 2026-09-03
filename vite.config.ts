@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import fs from 'fs'
+
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
@@ -15,16 +15,16 @@ export default defineConfig({
   server:{
     host:'0.0.0.0',
     allowedHosts: [
-      'decreased-email-runner-tile.trycloudflare.com'// Yahan apna Tailscale domain daal dein
+      ''// Yahan apna Tailscale domain daal dein
     ],
     proxy: {
       '/api': {
-        target: 'http://100.102.150.51:9091', // Backend ka direct IP
+        target: 'http://localhost:9091', // Backend ka direct IP
         changeOrigin: true,
         secure: false, // Backend HTTP par hai isliye false
       },
       '/uploads': {
-        target: 'http://100.102.150.51:9091',
+        target: 'http://localhost:9091/uploads',
         changeOrigin: true,
         secure: false,
       },
