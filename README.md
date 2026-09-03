@@ -2,6 +2,8 @@
 
 React 19 + TypeScript + Vite frontend for a school management ERP system. The application uses Redux Toolkit for authentication and UI state, TanStack Query for server state, Axios for API requests, Tailwind CSS, shadcn/ui, and Lucide icons.
 
+The ERP covers student and teacher management, class rosters, attendance, fee collection, invoices, academic sessions, timetables, homework, notices, reports, payroll, progress cards, marksheets, admit cards, ID cards, messaging, and settings.
+
 ## Requirements
 
 - Node.js 18 or newer
@@ -87,6 +89,18 @@ A normal browser without a WebMCP-capable host will not expose `document.modelCo
 | `add_student` | Create a student using the student form fields | `POST /api/v1/students/save` |
 
 All tools use the existing API wrappers, so the shared Axios client supplies authentication and backend error handling.
+
+### Tool contracts
+
+- `search_student_records` accepts `search_query` and returns the first matching student's name, class, roll number, attendance for today, and status.
+- `check_pending_fees` accepts `class_query` and returns students whose `totaldue` is greater than zero.
+- `mark_attendance` accepts `student_query` and an optional `status` (`present`, `absent`, or `holiday`). It writes today's attendance through the batch-save endpoint.
+- `get_class_summary` accepts `class_query` and calculates enrollment plus attendance across the last 30 days.
+- `get_class_students` accepts `class_query` and returns the class roster.
+- `generate_invoice` accepts `student_query`, `amount`, and optional payment/session fields, then creates an invoice.
+- `add_student` accepts the student form fields and validates required values before creating a student.
+
+Class inputs such as `Class 3`, `Grade 3`, and `3` are normalized to the backend's `Grade 3` format where applicable.
 
 ### Example agent commands
 
@@ -191,29 +205,4 @@ If Chrome reports an old endpoint or missing tool, hard-refresh the page and run
 
 Domain modules in `src/api/` should call the shared `apiClient` rather than raw `fetch`. This preserves the bearer token, `withCredentials`, loading indicators, toast behavior, and automatic 401 logout. Add new backend operations to the relevant domain module before consuming them from a page or WebMCP tool.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
