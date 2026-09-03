@@ -42,7 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAppSelector } from "@/store/hooks";
 import { fetchStudents, fetchStudentsByClass, searchStudents, saveStudent } from "@/api/student";
 import { fetchTeachers } from "@/api/teacher";
-import { fetchAttendanceByDate, fetchAttendanceByDateRange, updateAttendance } from "@/api/attendance";
+import { fetchAttendanceByDate, fetchAttendanceByDateRange, saveAttendance } from "@/api/attendance";
 import { fetchEvents, type EventItem } from "@/api/event";
 import { fetchNotices, type NoticeItem } from "@/api/notice";
 import { fetchEnrollmentByClass } from "@/api/enrollment";
@@ -315,8 +315,20 @@ export default function Dashboard() {
           if (!["present", "absent", "holiday"].includes(status)) return { success: false, error: "Status must be present, absent, or holiday." };
           const [student] = await searchStudents(query);
           if (!student) return { success: false, error: `No student found for "${query}".` };
-          const response = await updateAttendance(student.id, status as "present" | "absent" | "holiday", today);
-          return { success: true, data: { studentId: student.id, name: student.name, date: today, status, response } };
+          try {
+            const response = await saveAttendance([{
+              attendanceDate: today,
+              studentId: student.id,
+              status: status as "present" | "absent" | "holiday",
+              grade: student.classInfo ?? "",
+            }]);
+            return { success: true, data: { studentId: student.id, name: student.name, date: today, status, response } };
+          } catch (error) {
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : "Attendance could not be saved.",
+            };
+          }
         },
       });
 
