@@ -60,6 +60,8 @@ type WebMcpTool = {
   execute: (args: Record<string, unknown>) => Promise<unknown>;
 };
 
+const webMcpRegistrationLock = new Set<string>();
+
 declare global {
   interface Document {
     modelContext?: {
@@ -158,7 +160,6 @@ export default function Dashboard() {
   const isAdmin = ["admin", "super_admin"].includes(normalizedRole);
   const isTeacher = normalizedRole === "teacher";
   const [studentResult, setStudentResult] = useState<StudentRecord | null>(null);
-  const webMcpRegisteredToolsRef = useRef(new Set<string>());
   const today = format(new Date(), "yyyy-MM-dd");
 
   useEffect(() => {
@@ -181,7 +182,9 @@ export default function Dashboard() {
         modelContextAvailable: true,
       });
 
-      if (!hasTool && !webMcpRegisteredToolsRef.current.has("search_student_records")) {
+      if (!hasTool && !webMcpRegistrationLock.has("search_student_records")) {
+      webMcpRegistrationLock.add("search_student_records");
+      try {
       await modelContext.registerTool({
       name: "search_student_records",
       description:
@@ -247,7 +250,10 @@ export default function Dashboard() {
         }
       },
       });
-      webMcpRegisteredToolsRef.current.add("search_student_records");
+      } catch (error) {
+        webMcpRegistrationLock.delete("search_student_records");
+        console.error("WebMCP tool registration failed: search_student_records", error);
+      }
       }
 
       const readArgument = (args: Record<string, unknown>, ...names: string[]) =>
@@ -259,14 +265,18 @@ export default function Dashboard() {
       const registerIfMissing = async (tool: WebMcpTool) => {
         if (
           !existingTools.some((existingTool) => existingTool.name === tool.name) &&
-          !webMcpRegisteredToolsRef.current.has(tool.name)
+          !webMcpRegistrationLock.has(tool.name)
         ) {
+          webMcpRegistrationLock.add(tool.name);
           try {
             await modelContext.registerTool(tool);
-            webMcpRegisteredToolsRef.current.add(tool.name);
             console.log("WebMCP tool registered:", tool.name);
           } catch (error) {
-            console.error(`WebMCP tool registration failed: ${tool.name}`, error);
+            const message = error instanceof Error ? error.message : String(error);
+            if (!message.toLowerCase().includes("duplicate tool name")) {
+              webMcpRegistrationLock.delete(tool.name);
+              console.error(`WebMCP tool registration failed: ${tool.name}`, error);
+            }
           }
         }
       };

@@ -26,9 +26,13 @@ export const login = createAsyncThunk(
     const data = await loginUser({ email, password });
     const token = data.token ?? data.accessToken;
     const role = data.role ?? data.user?.role ?? "teacher";
+    const sessionId = data.sessionId ?? data.user?.sessionId;
 
     localStorage.setItem("token", token);
     localStorage.setItem("useRole", role);
+    if (sessionId != null) {
+      localStorage.setItem("currentSessionId", String(sessionId));
+    }
 
     return { token, role, email };
   }

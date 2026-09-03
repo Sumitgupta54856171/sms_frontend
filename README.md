@@ -23,7 +23,7 @@ Create `.env` in the project root:
 VITE_BACKEND_URL=http://localhost:8080
 ```
 
-For Netlify, set `VITE_BACKEND_URL` in the site's environment variables to the deployed backend origin, for example `https://sms-backend-qsso.onrender.com`. The Vite development proxy forwards `/api` and `/uploads` requests locally; production requests use the configured backend origin directly.
+For Netlify, `netlify.toml` forwards `/api/*` and `/uploads/*` through the Netlify origin to `https://sms-backend-qsso.onrender.com`. The browser therefore uses same-origin API paths, preserving authentication cookies and avoiding backend CORS preflight failures. The `VITE_BACKEND_URL` and `VITE_API_BASE_URL` variables remain supported for compatibility, but are not required for the Netlify proxy.
 
 ## Commands
 
