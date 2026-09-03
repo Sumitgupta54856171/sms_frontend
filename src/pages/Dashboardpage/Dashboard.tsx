@@ -196,8 +196,9 @@ export default function Dashboard() {
         },
         required: ["search_query"],
       },
-      execute: async ({ search_query }) => {
+      execute: async (args: Record<string, unknown>) => {
         try {
+          const search_query = String(args.search_query ?? "");
           const safeQuery = (search_query || "").trim();
 
           if (!safeQuery) {

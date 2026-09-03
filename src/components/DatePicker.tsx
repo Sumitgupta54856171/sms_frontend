@@ -32,8 +32,9 @@ export default  function DatePickerSimple({DateTitle,date,setDate}: {DateTitle: 
           <Calendar
             mode="single"
             selected={date}
-            onSelect={setDate}
+            onSelect={(selectedDate) => selectedDate && setDate?.(selectedDate)}
             defaultMonth={date}
+            required={false}
           />
         </PopoverContent>
       </Popover>

@@ -27,6 +27,7 @@ import {
 import { formatDate, formatTime } from "./utils";
 
 interface TimetableEntry {
+  id?: number;
   testtimetableId?: number;
   timetableName: string;
   examType: "test" | "exam";

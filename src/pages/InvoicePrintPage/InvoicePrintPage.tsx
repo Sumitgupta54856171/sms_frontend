@@ -65,7 +65,7 @@ export default function InvoicePrintPage() {
 
   const handleDownloadPDF = async () => {
     const invoiceElement = document.getElementById("invoice-document");
-    if (!invoiceElement) return;
+    if (!invoiceElement || !invoice) return;
 
     try {
       const dataUrl = await toPng(invoiceElement, {

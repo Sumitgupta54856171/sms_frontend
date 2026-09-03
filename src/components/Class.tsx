@@ -38,7 +38,7 @@ export default function ClassGrid() {
     );
   }, [isTeacher, teacherClassName]);
 
-  const [activeClass, setActiveClass] = useState(null);
+  const [activeClass, setActiveClass] = useState<(typeof classesData)[number] | null>(null);
 
   const toggleClass = (cls) => {
     setActiveClass(activeClass?.id === cls.id ? null : cls);

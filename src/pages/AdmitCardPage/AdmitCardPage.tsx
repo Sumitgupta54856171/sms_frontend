@@ -90,7 +90,7 @@ export default function AdmitCardPage() {
 
     const studentClass = student.className.replace(/^Grade\s*/i, "");
     return timetable.filter((entry) => {
-      const entryClass = (entry.classNO ?? entry.classNo ?? "").replace(/^Grade\s*/i, "");
+      const entryClass = (entry.classNO ?? "").replace(/^Grade\s*/i, "");
       return entryClass === studentClass;
     });
   }, [timetable, students, selectedStudentId]);
@@ -118,7 +118,7 @@ export default function AdmitCardPage() {
       if (!s) return null;
       const studentClass = s.className.replace(/^Grade\s*/i, "");
       const studentTt = timetable.filter((entry) => {
-        const entryClass = (entry.classNO ?? entry.classNo ?? "").replace(/^Grade\s*/i, "");
+        const entryClass = (entry.classNO ?? "").replace(/^Grade\s*/i, "");
         return entryClass === studentClass;
       });
       return {

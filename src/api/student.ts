@@ -43,6 +43,7 @@ export interface StudentEnrollment {
     mother_name: string;
     phone: string;
     scholar_no: string;
+    roll_no?: string;
     sssmid: string;
     status: string;
     updatedAt: string;
@@ -371,6 +372,9 @@ export interface BankDetailsPayload {
   ifscCode: string;
   AccountHolderName: string;
   branchName: string;
+  accountHolder?: string;
+  accountNo?: string;
+  branch?: string;
 }
 
 export interface BankDetailsResponse {
@@ -381,6 +385,9 @@ export interface BankDetailsResponse {
   accountNumber?: string;
   ifscCode?: string;
   branchName?: string;
+  accountNo?: string;
+  accountHolder?: string;
+  branch?: string;
   bankDetailId?: number;
   student?: any;
 }

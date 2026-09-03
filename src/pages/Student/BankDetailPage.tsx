@@ -69,6 +69,9 @@ export default function BankDetailPage() {
       try {
         await saveBankDetails({
           studentId: Number(studentId),
+          AccountHolderName: bankDetails.AccountHolderName,
+          accountNumber: bankDetails.accountNumber,
+          branchName: bankDetails.branchName,
           accountHolder: bankDetails.AccountHolderName,
           bankName: bankDetails.bankName,
           accountNo: bankDetails.accountNumber,

@@ -19,12 +19,12 @@ export default defineConfig({
     ],
     proxy: {
       '/api': {
-        target: 'http://localhost:9091', // Backend ka direct IP
+        target: 'https://sms-backend-qsso.onrender.com', // Backend ka direct IP
         changeOrigin: true,
         secure: false, // Backend HTTP par hai isliye false
       },
       '/uploads': {
-        target: 'http://localhost:9091/uploads',
+        target: 'https://sms-backend-qsso.onrender.com/uploads',
         changeOrigin: true,
         secure: false,
       },

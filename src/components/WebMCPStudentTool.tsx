@@ -27,6 +27,7 @@ export default function WebMCPStudentTool() {
 
     modelContext.registerTool({
       name: "search_student_records",
+      description: "Search for a student's academic and fee records by name or roll number.",
       inputSchema: {
         type: "object",
         properties: {
@@ -37,7 +38,8 @@ export default function WebMCPStudentTool() {
         },
         required: ["search_query"],
       },
-      execute: async ({ search_query }) => {
+      execute: async (args: Record<string, unknown>) => {
+        const search_query = String(args.search_query ?? "");
         const normalizedQuery = search_query.trim().toLowerCase();
         if (!normalizedQuery) {
           return { success: false, error: "Please provide a student name or roll number." };

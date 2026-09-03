@@ -5,9 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+interface InvoiceFormData {
+  receiptNo: string;
+  date: string;
+  studentName: string;
+  class: string;
+  schoolNo: string;
+  feeType: string;
+  amount: string;
+}
+
 export default function App() {
   const [isOpen, setIsOpen] = useState(true);
-  const [invoiceData, setInvoiceData] = useState(null); // Stores data to show preview
+  const [invoiceData, setInvoiceData] = useState<InvoiceFormData | null>(null); // Stores data to show preview
 
   // Labels for Fee Types to show nice text in Invoice instead of values
   const feeTypeLabels = {
@@ -22,7 +32,7 @@ export default function App() {
   const handleGenerateInvoice = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData.entries());
+    const data = Object.fromEntries(formData.entries()) as unknown as InvoiceFormData;
     
     // Generate a random receipt number for realism
     data.receiptNo = `RCPT-${Math.floor(Math.random() * 90000) + 10000}`;

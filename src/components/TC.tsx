@@ -32,7 +32,6 @@ interface TCStudent {
   dateAdmission?: string;
   classAdmitted?: string;
   classLeft?: string;
-  scholar_no?: string;
 }
 
 interface TCFormProps {
