@@ -16,6 +16,11 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# Generated/static HTML pages and mobile app
+*.html
+!index.html
+mobile/
 .DS_Store
 *.suo
 *.ntvs*
