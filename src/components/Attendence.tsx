@@ -73,12 +73,17 @@ const getInitials = (name: string): string =>
     .slice(0, 2);
 
 
+type AttendanceStatus = "present" | "absent" | "holiday";
+
+const isMarkedStatus = (status: string | null | undefined): status is AttendanceStatus =>
+  status === "present" || status === "absent" || status === "holiday";
+
 interface StudentRow {
   id: number;
   name: string;
   rollNumber: string;
   scholarNo: string;
-  status: "present" | "absent" | "holiday" | null;
+  status: AttendanceStatus | null;
 }
 
 export default function Attendance() {
@@ -205,7 +210,7 @@ export default function Attendance() {
         name: s.name,
         rollNumber: s.roll ?? "",
         scholarNo: s.scholar_no ?? "",
-        status: record?.status ?? null,
+        status: isMarkedStatus(record?.status) ? record.status : null,
       };
     });
 
@@ -268,16 +273,16 @@ export default function Attendance() {
 
   const handleSave = () => {
     const payload: AttendancePayload[] = students
-      .filter((s) => s.status !== null)
+      .filter((s) => isMarkedStatus(s.status))
       .map((s) => ({
         attendanceDate: formattedDate,
         studentId: s.id,
-        status: s.status as "present" | "absent" | "holiday",
+        status: s.status as AttendanceStatus,
         grade: selectedClass,
       }));
 
     if (payload.length === 0) {
-      toast.error("No attendance records to save");
+      toast.error("Mark present, absent, or holiday before saving");
       return;
     }
 
@@ -610,7 +615,10 @@ export default function Attendance() {
 
             <Button
               onClick={handleSave}
-              disabled={saveMutation.isPending}
+              disabled={
+                saveMutation.isPending ||
+                presentCount + absentCount + holidayCount === 0
+              }
               className="w-full sm:w-auto"
             >
               {saveMutation.isPending ? (

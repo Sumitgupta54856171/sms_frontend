@@ -60,7 +60,11 @@ export const fetchAttendanceByDate = async (
       const mapped = {
         attendanceId: item.attendanceId ?? item.attendance_id,
         attendanceDate: item.attendanceDate ?? item.attendance_date,
-        status: (item.status ?? "")?.toLowerCase?.() ?? "absent",
+        status: ["present", "absent", "holiday"].includes(
+          String(item.status ?? "").toLowerCase()
+        )
+          ? String(item.status).toLowerCase()
+          : "",
         studentId: item.studentId ?? item.student_id,
         studentName: item.studentName ?? item.student_name ?? "",
         grade: item.grade ?? "",
@@ -92,7 +96,11 @@ export const fetchAttendanceByClassAndDate = async (
       const mapped = {
         attendanceId: item.attendanceId ?? item.attendance_id,
         attendanceDate: item.attendanceDate ?? item.attendance_date,
-        status: (item.status ?? "")?.toLowerCase?.() ?? "absent",
+        status: ["present", "absent", "holiday"].includes(
+          String(item.status ?? "").toLowerCase()
+        )
+          ? String(item.status).toLowerCase()
+          : "",
         studentId: item.studentId ?? item.student_id,
         studentName: item.studentName ?? item.student_name ?? "",
         grade: item.grade ?? "",
@@ -130,7 +138,11 @@ export const fetchAttendanceByDateRange = async (
       const mapped: AttendanceRecordWithGender = {
         attendanceId: item.attendanceId ?? item.attendance_id,
         attendanceDate: item.attendanceDate ?? item.attendance_date,
-        status: (item.status ?? "")?.toLowerCase?.() ?? "absent",
+        status: ["present", "absent", "holiday"].includes(
+          String(item.status ?? "").toLowerCase()
+        )
+          ? String(item.status).toLowerCase()
+          : "",
         studentId: item.studentId ?? item.student_id,
         studentName: item.studentName ?? item.student_name ?? "",
         grade: item.grade ?? "",
