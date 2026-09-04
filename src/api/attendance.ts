@@ -11,12 +11,23 @@ export interface AttendanceRecord {
   scholarNo: string;
 }
 
+export type AttendanceStatus = "present" | "absent" | "holiday";
+
 export interface AttendancePayload {
   attendanceDate: string;
   studentId: number;
-  status: "present" | "absent" | "holiday";
+  status: AttendanceStatus;
   grade?: string;
 }
+
+const ATTENDANCE_STATUSES: AttendanceStatus[] = ["present", "absent", "holiday"];
+
+const parseAttendanceStatus = (status: unknown): AttendanceStatus | null => {
+  const value = String(status ?? "").toLowerCase();
+  return ATTENDANCE_STATUSES.includes(value as AttendanceStatus)
+    ? (value as AttendanceStatus)
+    : null;
+};
 
 // ─── Save attendance (batch) ───────────────────────────────────────────
 export const saveAttendance = async (
@@ -56,15 +67,13 @@ export const fetchAttendanceByDate = async (
     );
     console.log("API response for attendance by date:", response.data);
     const raw = response.data?.data ?? response.data ?? [];
-    return raw.map((item: any) => {
-      const mapped = {
+    return raw.flatMap((item: any) => {
+      const status = parseAttendanceStatus(item.status);
+      if (!status) return [];
+      const mapped: AttendanceRecord = {
         attendanceId: item.attendanceId ?? item.attendance_id,
         attendanceDate: item.attendanceDate ?? item.attendance_date,
-        status: ["present", "absent", "holiday"].includes(
-          String(item.status ?? "").toLowerCase()
-        )
-          ? String(item.status).toLowerCase()
-          : "",
+        status,
         studentId: item.studentId ?? item.student_id,
         studentName: item.studentName ?? item.student_name ?? "",
         grade: item.grade ?? "",
@@ -72,7 +81,7 @@ export const fetchAttendanceByDate = async (
         scholarNo: item.scholarNo ?? item.scholar_no ?? "",
       };
       console.log("Mapped attendance record:", mapped);
-      return mapped;
+      return [mapped];
     });
   } catch (error) {
     console.warn("Failed to fetch attendance:", error);
@@ -92,15 +101,13 @@ export const fetchAttendanceByClassAndDate = async (
     );
     console.log("API response for attendance by class/date:", response.data);
     const raw = response.data?.body ?? response.data ?? [];
-    return raw.map((item: any) => {
-      const mapped = {
+    return raw.flatMap((item: any) => {
+      const status = parseAttendanceStatus(item.status);
+      if (!status) return [];
+      const mapped: AttendanceRecord = {
         attendanceId: item.attendanceId ?? item.attendance_id,
         attendanceDate: item.attendanceDate ?? item.attendance_date,
-        status: ["present", "absent", "holiday"].includes(
-          String(item.status ?? "").toLowerCase()
-        )
-          ? String(item.status).toLowerCase()
-          : "",
+        status,
         studentId: item.studentId ?? item.student_id,
         studentName: item.studentName ?? item.student_name ?? "",
         grade: item.grade ?? "",
@@ -108,7 +115,7 @@ export const fetchAttendanceByClassAndDate = async (
         scholarNo: item.scholarNo ?? item.scholar_no ?? "",
       };
       console.log("Mapped attendance record:", mapped);
-      return mapped;
+      return [mapped];
     });
   } catch (error) {
     console.warn("Failed to fetch attendance by class/date:", error);
@@ -134,15 +141,13 @@ export const fetchAttendanceByDateRange = async (
     );
     console.log("API response for attendance by date range:", response.data);
     const raw = response.data?.data ?? response.data?.body ?? response.data ?? [];
-    return raw.map((item: any) => {
+    return raw.flatMap((item: any) => {
+      const status = parseAttendanceStatus(item.status);
+      if (!status) return [];
       const mapped: AttendanceRecordWithGender = {
         attendanceId: item.attendanceId ?? item.attendance_id,
         attendanceDate: item.attendanceDate ?? item.attendance_date,
-        status: ["present", "absent", "holiday"].includes(
-          String(item.status ?? "").toLowerCase()
-        )
-          ? String(item.status).toLowerCase()
-          : "",
+        status,
         studentId: item.studentId ?? item.student_id,
         studentName: item.studentName ?? item.student_name ?? "",
         grade: item.grade ?? "",
@@ -150,7 +155,7 @@ export const fetchAttendanceByDateRange = async (
         scholarNo: item.scholarNo ?? item.scholar_no ?? "",
         gender: item.gender ?? "",
       };
-      return mapped;
+      return [mapped];
     });
   } catch (error) {
     console.warn("Failed to fetch attendance by date range:", error);
